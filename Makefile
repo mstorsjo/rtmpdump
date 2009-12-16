@@ -40,13 +40,12 @@ clean:
 streams: bytes.o log.o rtmp.o AMFObject.o rtmppacket.o streams.o parseurl.o dh.o handshake.o
 	$(CXX) $(LDFLAGS) $^ -o $@$(EXT) $(SLIBS)
 
-rtmpdump: log.o rtmp.o dh.o amf.o rtmpdump.o parseurl.o
+rtmpdump: log.o rtmp.o amf.o rtmpdump.o parseurl.o
 	$(CC) $(LDFLAGS) $^ -o $@$(EXT) $(LIBS)
 
 log.o: log.c log.h Makefile
 parseurl.o: parseurl.c parseurl.h log.h Makefile
 streams.o: streams.cpp rtmp.h log.h Makefile
-dh.o: dh.c dh.h log.h Makefile
-rtmp.o: rtmp.c rtmp.h handshake.h log.h amf.h Makefile
+rtmp.o: rtmp.c rtmp.h handshake.h dh.h log.h amf.h Makefile
 amf.o: amf.c amf.h bytes.h Makefile
 rtmpdump.o: rtmpdump.c rtmp.h log.h amf.h Makefile

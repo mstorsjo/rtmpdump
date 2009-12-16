@@ -42,6 +42,10 @@
 #include "rtmp.h"
 #include "log.h"
 
+#ifdef CRYPTO
+#include <openssl/rc4.h>
+#endif
+
 #define RTMP_SIG_SIZE 1536
 #define RTMP_LARGE_HEADER_SIZE 12
 
@@ -2145,6 +2149,20 @@ RTMP_Close(RTMP * r)
 
   r->m_bPlaying = false;
   r->m_nBufferSize = 0;
+
+#ifdef CRYPTO
+  DHFree(r->Link.dh);
+  if(r->Link.rc4keyIn)
+    {
+      free(r->Link.rc4keyIn);
+      r->Link.rc4keyIn = NULL;
+    }
+  if(r->Link.rc4keyOut)
+    {
+      free(r->Link.rc4keyOut);
+      r->Link.rc4keyOut = NULL;
+    }
+#endif
 }
 
 static bool

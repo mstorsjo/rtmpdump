@@ -40,11 +40,6 @@
 #include <stdint.h>
 
 #include "log.h"
-
-#ifdef CRYPTO
-#include "dh.h"
-#endif
-
 #include "amf.h"
 
 #define RTMP_PROTOCOL_UNDEFINED	-1
@@ -119,9 +114,9 @@ typedef struct RTMP_LNK
   unsigned short socksport;
 
 #ifdef CRYPTO
-  DH *dh;			// for encryption
-  RC4_KEY *rc4keyIn;
-  RC4_KEY *rc4keyOut;
+  void *dh;			// for encryption
+  void *rc4keyIn;
+  void *rc4keyOut;
 
   AVal SWFHash;
   uint32_t SWFSize;

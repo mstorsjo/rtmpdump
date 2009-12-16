@@ -41,7 +41,6 @@
 
 #include "rtmp.h"
 #include "log.h"
-#include "bytes.h"
 
 #define RTMP_SIG_SIZE 1536
 #define RTMP_LARGE_HEADER_SIZE 12
@@ -1753,6 +1752,29 @@ HandleClientBW(RTMP * r, const RTMPPacket * packet)
       r->m_nClientBW2);
 }
 
+static int
+DecodeInt32LE(const char *data)
+{
+  unsigned char *c = (unsigned char *)data;
+  unsigned int val;
+
+  val = (c[3] << 24) | (c[2] << 16) | (c[1] << 8) | c[0];
+  return val;
+}
+
+static int
+EncodeInt32LE(char *output, int nVal)
+{
+  output[0] = nVal;
+  nVal >>= 8;
+  output[1] = nVal;
+  nVal >>= 8;
+  output[2] = nVal;
+  nVal >>= 8;
+  output[3] = nVal;
+  return 4;
+}
+
 static bool
 ReadPacket(RTMP * r, RTMPPacket * packet)
 {
@@ -1830,7 +1852,7 @@ ReadPacket(RTMP * r, RTMPPacket * packet)
 	      packet->m_packetType = header[6];
 
 	      if (nSize == 11)
-		packet->m_nInfoField2 = ReadInt32LE(header + 7);
+		packet->m_nInfoField2 = DecodeInt32LE(header + 7);
 	    }
 	}
     }

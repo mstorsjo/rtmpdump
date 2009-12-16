@@ -80,56 +80,58 @@ extern "C"
     int16_t p_UTCoffset;
   } AMFObjectProperty;
 
-  int AMF_EncodeString (char *output, const AVal * str);
-  int AMF_EncodeNumber (char *output, double dVal);
-  int AMF_EncodeInt16 (char *output, short nVal);
-  int AMF_EncodeInt24 (char *output, int nVal);
-  int AMF_EncodeInt32 (char *output, int nVal);
-  int AMF_EncodeBoolean (char *output, bool bVal);
+  int AMF_EncodeString(char *output, const AVal * str);
+  int AMF_EncodeNumber(char *output, double dVal);
+  int AMF_EncodeInt16(char *output, short nVal);
+  int AMF_EncodeInt24(char *output, int nVal);
+  int AMF_EncodeInt32(char *output, int nVal);
+  int AMF_EncodeBoolean(char *output, bool bVal);
 
-  unsigned short AMF_DecodeInt16 (const char *data);
-  unsigned int AMF_DecodeInt24 (const char *data);
-  unsigned int AMF_DecodeInt32 (const char *data);
-  void AMF_DecodeString (const char *data, AVal * str);
-  bool AMF_DecodeBoolean (const char *data);
+  unsigned short AMF_DecodeInt16(const char *data);
+  unsigned int AMF_DecodeInt24(const char *data);
+  unsigned int AMF_DecodeInt32(const char *data);
+  void AMF_DecodeString(const char *data, AVal * str);
+  bool AMF_DecodeBoolean(const char *data);
+  double AMF_DecodeNumber(const char *data);
 
-  int AMF_Encode (AMFObject * obj, char *pBuffer, int nSize);
-  int AMF_Decode (AMFObject * obj, const char *pBuffer, int nSize,
+  int AMF_Encode(AMFObject * obj, char *pBuffer, int nSize);
+  int AMF_Decode(AMFObject * obj, const char *pBuffer, int nSize,
+		 bool bDecodeName);
+  int AMF_DecodeArray(AMFObject * obj, const char *pBuffer, int nSize,
+		      int nArrayLen, bool bDecodeName);
+  int AMF3_Decode(AMFObject * obj, const char *pBuffer, int nSize,
 		  bool bDecodeName);
-  int AMF_DecodeArray (AMFObject * obj, const char *pBuffer, int nSize,
-		       int nArrayLen, bool bDecodeName);
-  int AMF3_Decode (AMFObject * obj, const char *pBuffer, int nSize,
-		   bool bDecodeName);
-  void AMF_Dump (AMFObject * obj);
-  void AMF_Reset (AMFObject * obj);
+  void AMF_Dump(AMFObject * obj);
+  void AMF_Reset(AMFObject * obj);
 
-  void AMF_AddProp (AMFObject * obj, const AMFObjectProperty * prop);
-  int AMF_CountProp (AMFObject * obj);
-  AMFObjectProperty *AMF_GetProp (AMFObject * obj, const AVal *name, int nIndex);
+  void AMF_AddProp(AMFObject * obj, const AMFObjectProperty * prop);
+  int AMF_CountProp(AMFObject * obj);
+  AMFObjectProperty *AMF_GetProp(AMFObject * obj, const AVal * name,
+				 int nIndex);
 
-  AMFDataType AMFProp_GetType (AMFObjectProperty * prop);
-  void AMFProp_SetNumber (AMFObjectProperty * prop, double dval);
-  void AMFProp_SetBoolean (AMFObjectProperty * prop, bool bflag);
-  void AMFProp_SetString (AMFObjectProperty * prop, AVal * str);
-  void AMFProp_SetObject (AMFObjectProperty * prop, AMFObject * obj);
+  AMFDataType AMFProp_GetType(AMFObjectProperty * prop);
+  void AMFProp_SetNumber(AMFObjectProperty * prop, double dval);
+  void AMFProp_SetBoolean(AMFObjectProperty * prop, bool bflag);
+  void AMFProp_SetString(AMFObjectProperty * prop, AVal * str);
+  void AMFProp_SetObject(AMFObjectProperty * prop, AMFObject * obj);
 
-  void AMFProp_GetName (AMFObjectProperty * prop, AVal * name);
-  void AMFProp_SetName (AMFObjectProperty * prop, AVal * name);
-  double AMFProp_GetNumber (AMFObjectProperty * prop);
-  bool AMFProp_GetBoolean (AMFObjectProperty * prop);
-  void AMFProp_GetString (AMFObjectProperty * prop, AVal * str);
-  void AMFProp_GetObject (AMFObjectProperty * prop, AMFObject * obj);
+  void AMFProp_GetName(AMFObjectProperty * prop, AVal * name);
+  void AMFProp_SetName(AMFObjectProperty * prop, AVal * name);
+  double AMFProp_GetNumber(AMFObjectProperty * prop);
+  bool AMFProp_GetBoolean(AMFObjectProperty * prop);
+  void AMFProp_GetString(AMFObjectProperty * prop, AVal * str);
+  void AMFProp_GetObject(AMFObjectProperty * prop, AMFObject * obj);
 
-  bool AMFProp_IsValid (AMFObjectProperty * prop);
+  bool AMFProp_IsValid(AMFObjectProperty * prop);
 
-  int AMFProp_Encode (AMFObjectProperty * prop, char *pBuffer, int nSize);
-  int AMF3Prop_Decode (AMFObjectProperty * prop, const char *pBuffer,
-		       int nSize, bool bDecodeName);
-  int AMFProp_Decode (AMFObjectProperty * prop, const char *pBuffer,
+  int AMFProp_Encode(AMFObjectProperty * prop, char *pBuffer, int nSize);
+  int AMF3Prop_Decode(AMFObjectProperty * prop, const char *pBuffer,
 		      int nSize, bool bDecodeName);
+  int AMFProp_Decode(AMFObjectProperty * prop, const char *pBuffer,
+		     int nSize, bool bDecodeName);
 
-  void AMFProp_Dump (AMFObjectProperty * prop);
-  void AMFProp_Reset (AMFObjectProperty * prop);
+  void AMFProp_Dump(AMFObjectProperty * prop);
+  void AMFProp_Reset(AMFObjectProperty * prop);
 
   typedef struct AMF3ClassDef
   {
@@ -140,8 +142,8 @@ extern "C"
     AVal *cd_props;
   } AMF3ClassDef;
 
-  void AMF3CD_AddProp (AMF3ClassDef * cd, AVal * prop);
-  AVal *AMF3CD_GetProp (AMF3ClassDef * cd, int idx);
+  void AMF3CD_AddProp(AMF3ClassDef * cd, AVal * prop);
+  AVal *AMF3CD_GetProp(AMF3ClassDef * cd, int idx);
 
 #ifdef __cplusplus
 }

@@ -41,7 +41,7 @@
 #define	SET_BINMODE(f)
 #endif
 
-#include "rtmp2.h"
+#include "rtmp.h"
 #include "log.h"
 #include "parseurl.h"
 

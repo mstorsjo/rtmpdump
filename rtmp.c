@@ -39,7 +39,7 @@
 #include <sys/times.h>
 #endif
 
-#include "rtmp2.h"
+#include "rtmp.h"
 #include "log.h"
 #include "bytes.h"
 
@@ -1930,7 +1930,7 @@ EncodeBoolean(char *output, const AVal * strName, bool bVal)
 }
 
 #ifdef CRYPTO
-#include "hand2.c"
+#include "handshake.h"
 #else
 static bool
 HandShake(RTMP * r, bool FP9HandShake)

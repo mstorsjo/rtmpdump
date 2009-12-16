@@ -1,0 +1,56 @@
+RTMP Dump v1.9
+(C) 2009 Andrej Stepanchuk
+(C) 2009 Howard Chu
+License: GPLv2
+
+To compile type "make" with your platform name, e.g.
+
+  $ make linux
+
+or osx, mingw, or cygwin.
+
+You can cross-compile for ARM using
+
+  $ make arm
+
+but you may need to override the CROSS_COMPILE and INC variables, e.g.
+
+  $ make arm CROSS_COMPILE=arm-none-linux- INC=-I/my/cross/includes
+
+Please read the Makefile to see what other make variables are used.
+
+
+SWF Verification
+----------------
+
+Download the swf player you want to use for SWFVerification, unzip it using
+
+ $ flasm -x file.swf
+
+It will show the decompressed filesize, use it for --swfsize
+
+Now generate the hash
+
+ $ openssl sha -sha256 -hmac "Genuine Adobe Flash Player 001" file.swf
+
+and use the --swfhash "01234..." option to pass it.
+
+e.g. $ ./rtmpdump --swfhash "123456..." --swfsize 987...
+
+Building OpenSSL 0.9.8k
+-----------------------
+arm:
+./Configure -DL_ENDIAN --prefix=`pwd`/armlibs linux-generic32
+
+Then replace gcc, cc, ar, ranlib in Makefile and crypto/Makefile by arm-linux-* variants  and use make && make install_sw
+
+win32:
+Try ./Configure mingw --prefix=`pwd`/win32libs -DL_ENDIAN -DOPENSSL_NO_HW
+Replace gcc, cc, ... by mingw32-* variants in Makefile and crypto/Makefile
+make && make install_sw
+
+OpenSSL cross-compiling can be a difficult beast.
+
+
+Credit goes to team boxee for the XBMC RTMP code used in RTMPDumper.
+

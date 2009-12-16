@@ -2151,7 +2151,11 @@ RTMP_Close(RTMP * r)
   r->m_nBufferSize = 0;
 
 #ifdef CRYPTO
-  DHFree(r->Link.dh);
+  if(r->Link.dh)
+    {
+      DH_free(r->Link.dh);
+      r->Link.dh = NULL;
+    }
   if(r->Link.rc4keyIn)
     {
       free(r->Link.rc4keyIn);

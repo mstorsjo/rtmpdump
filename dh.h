@@ -57,175 +57,182 @@ void dh_pg_init()
 */
 
 // RFC 2631, Section 2.1.5, http://www.ietf.org/rfc/rfc2631.txt
-static bool isValidPublicKey(BIGNUM *y, BIGNUM *p , BIGNUM *q)
+static bool
+isValidPublicKey(BIGNUM * y, BIGNUM * p, BIGNUM * q)
 {
-	int ret = true;
-	assert(y);
+  int ret = true;
+  assert(y);
 
-	BIGNUM *bn = BN_new();
-	assert(bn);
+  BIGNUM *bn = BN_new();
+  assert(bn);
 
-	// y must lie in [2,p-1]
-	BN_set_word(bn,1);
-	if(BN_cmp(y,bn) < 0) {
-		Log(LOGWARNING, "DH public key must be at least 2");
-		ret = false;
-		goto failed;
-	}
+  // y must lie in [2,p-1]
+  BN_set_word(bn, 1);
+  if (BN_cmp(y, bn) < 0)
+    {
+      Log(LOGWARNING, "DH public key must be at least 2");
+      ret = false;
+      goto failed;
+    }
 
-	// bn = p-2
-	BN_copy(bn, p);
-	BN_sub_word(bn, 1);
-	if(BN_cmp(y,bn) > 0) {
-		Log(LOGWARNING, "DH public key must be at most p-2");
-		ret = false;
-		goto failed;
-	}
+  // bn = p-2
+  BN_copy(bn, p);
+  BN_sub_word(bn, 1);
+  if (BN_cmp(y, bn) > 0)
+    {
+      Log(LOGWARNING, "DH public key must be at most p-2");
+      ret = false;
+      goto failed;
+    }
 
-	// Verify with Sophie-Germain prime
-	//
-	// This is a nice test to make sure the public key position is calculated
-	// correctly. This test will fail in about 50% of the cases if applied to 
-	// random data.
-	//
-	if(q) {
-		// y must fulfill y^q mod p = 1
-		BN_CTX *ctx = BN_CTX_new();
-		BN_mod_exp(bn, y, q, p, ctx);
+  // Verify with Sophie-Germain prime
+  //
+  // This is a nice test to make sure the public key position is calculated
+  // correctly. This test will fail in about 50% of the cases if applied to 
+  // random data.
+  //
+  if (q)
+    {
+      // y must fulfill y^q mod p = 1
+      BN_CTX *ctx = BN_CTX_new();
+      BN_mod_exp(bn, y, q, p, ctx);
 
-		//BIGNUM *one = BN_new();
-		//BN_one(one);
-
-		if(BN_cmp(bn, BN_value_one()) != 0) {
-			Log(LOGWARNING, "DH public key does not fulfill y^q mod p = 1");
-			BN_CTX_free(ctx);
-			//goto failed;
-		}
-		//BN_CTX_free(ctx);
-	} //*/
-
-failed:
-	BN_free(bn);
-	return ret;
-}
-
-static DH* DHInit(int nKeyBits)
-{
-	int res;
-	DH* dh = DH_new();
-
-	if(!dh)
-		goto failed;
-
-	dh->p = BN_new();
-	dh->g = BN_new();
-
-	if(!dh->p || !dh->g)
-		goto failed;
-
-        res = BN_hex2bn(&dh->p, P1024); // prime P1024, see dhgroups.h
-        if(!res) { goto failed; }
-
-        res = BN_set_word(dh->g, 2);    // base 2
-        if(!res) { goto failed; }
-
-	dh->length = nKeyBits;
-	return dh;
-
-failed:
-	if(dh)
-		DH_free(dh);
-
-	return 0;
-}
-
-static int DHGenerateKey(DH *dh)
-{
-	if(!dh)
-		return 0;
-
-	int res = 0;
-	while(!res)
+      if (BN_cmp(bn, BN_value_one()) != 0)
 	{
-		if(!DH_generate_key(dh))
-			return 0;
-	
-		BIGNUM *q1 = BN_new();
-		assert(BN_hex2bn(&q1, Q1024));
-
-		res = isValidPublicKey(dh->pub_key, dh->p, q1);
-		if(!res) {
-			BN_free(dh->pub_key);
-			BN_free(dh->priv_key);
-			dh->pub_key = dh->priv_key = 0;
-		}
-
-		BN_free(q1);
+	  Log(LOGWARNING, "DH public key does not fulfill y^q mod p = 1");
 	}
-	return 1;
+      BN_CTX_free(ctx);
+    }
+
+failed:
+  BN_free(bn);
+  return ret;
+}
+
+static DH *
+DHInit(int nKeyBits)
+{
+  int res;
+  DH *dh = DH_new();
+
+  if (!dh)
+    goto failed;
+
+  dh->p = BN_new();
+  dh->g = BN_new();
+
+  if (!dh->p || !dh->g)
+    goto failed;
+
+  res = BN_hex2bn(&dh->p, P1024);	// prime P1024, see dhgroups.h
+  if (!res)
+    {
+      goto failed;
+    }
+
+  res = BN_set_word(dh->g, 2);	// base 2
+  if (!res)
+    {
+      goto failed;
+    }
+
+  dh->length = nKeyBits;
+  return dh;
+
+failed:
+  if (dh)
+    DH_free(dh);
+
+  return 0;
+}
+
+static int
+DHGenerateKey(DH * dh)
+{
+  if (!dh)
+    return 0;
+
+  int res = 0;
+  while (!res)
+    {
+      if (!DH_generate_key(dh))
+	return 0;
+
+      BIGNUM *q1 = BN_new();
+      assert(BN_hex2bn(&q1, Q1024));
+
+      res = isValidPublicKey(dh->pub_key, dh->p, q1);
+      if (!res)
+	{
+	  BN_free(dh->pub_key);
+	  BN_free(dh->priv_key);
+	  dh->pub_key = dh->priv_key = 0;
+	}
+
+      BN_free(q1);
+    }
+  return 1;
 }
 
 // fill pubkey with the public key in BIG ENDIAN order
 // 00 00 00 00 00 x1 x2 x3 .....
 
-static int DHGetPublicKey(DH *dh, uint8_t *pubkey, size_t nPubkeyLen)
+static int
+DHGetPublicKey(DH * dh, uint8_t * pubkey, size_t nPubkeyLen)
 {
-	if(!dh || !dh->pub_key)
-		return 0;
-	
-	int len = BN_num_bytes(dh->pub_key);
-	if(len <= 0 || len > (int)nPubkeyLen)
-		return 0;
+  if (!dh || !dh->pub_key)
+    return 0;
 
-	memset(pubkey, 0, nPubkeyLen);
-	BN_bn2bin(dh->pub_key, pubkey + (nPubkeyLen - len));
-	return 1;
+  int len = BN_num_bytes(dh->pub_key);
+  if (len <= 0 || len > (int) nPubkeyLen)
+    return 0;
+
+  memset(pubkey, 0, nPubkeyLen);
+  BN_bn2bin(dh->pub_key, pubkey + (nPubkeyLen - len));
+  return 1;
 }
 
-static int DHGetPrivateKey(DH *dh, uint8_t *privkey, size_t nPrivkeyLen)
+static int
+DHGetPrivateKey(DH * dh, uint8_t * privkey, size_t nPrivkeyLen)
 {
-        if(!dh || !dh->priv_key)
-                return 0;
-        
-        int len = BN_num_bytes(dh->priv_key);
-        if(len <= 0 || len > (int)nPrivkeyLen)
-                return 0;
+  if (!dh || !dh->priv_key)
+    return 0;
 
-        memset(privkey, 0, nPrivkeyLen);
-        BN_bn2bin(dh->priv_key, privkey + (nPrivkeyLen - len));
-        return 1;
+  int len = BN_num_bytes(dh->priv_key);
+  if (len <= 0 || len > (int) nPrivkeyLen)
+    return 0;
+
+  memset(privkey, 0, nPrivkeyLen);
+  BN_bn2bin(dh->priv_key, privkey + (nPrivkeyLen - len));
+  return 1;
 }
 
 // computes the shared secret key from the private DH value and the othe parties public key (pubkey)
-static int DHComputeSharedSecretKey(DH *dh, uint8_t *pubkey, size_t nPubkeyLen, uint8_t *secret)
+static int
+DHComputeSharedSecretKey(DH * dh, uint8_t * pubkey, size_t nPubkeyLen,
+			 uint8_t * secret)
 {
-	if(!dh || !secret || nPubkeyLen >= INT_MAX)
-		return -1;
+  if (!dh || !secret || nPubkeyLen >= INT_MAX)
+    return -1;
 
-	BIGNUM *pubkeyBn = BN_bin2bn(pubkey, nPubkeyLen, 0);
-	if(!pubkeyBn)
-		return -1;
+  BIGNUM *pubkeyBn = BN_bin2bn(pubkey, nPubkeyLen, 0);
+  if (!pubkeyBn)
+    return -1;
 
-	BIGNUM *q1 = BN_new();
-        assert(BN_hex2bn(&q1, Q1024));
-	
-	if(!isValidPublicKey(pubkeyBn, dh->p, q1)) {
-		BN_free(pubkeyBn);
-		BN_free(q1);
-		return -1;
-	}
+  BIGNUM *q1 = BN_new();
+  assert(BN_hex2bn(&q1, Q1024));
 
-	BN_free(q1);
+  if (!isValidPublicKey(pubkeyBn, dh->p, q1))
+    {
+      BN_free(pubkeyBn);
+      BN_free(q1);
+      return -1;
+    }
 
-	size_t len = DH_compute_key(secret, pubkeyBn, dh);
-	BN_free(pubkeyBn);
+  BN_free(q1);
 
-	return len;
+  size_t len = DH_compute_key(secret, pubkeyBn, dh);
+  BN_free(pubkeyBn);
+
+  return len;
 }
-
-static void DHFree(DH *dh)
-{
-	if(dh)
-		DH_free(dh);
-}
-

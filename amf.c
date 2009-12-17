@@ -742,7 +742,7 @@ AMFProp_Dump(AMFObjectProperty * prop)
   if (name.av_len > 25)
     name.av_len = 25;
 
-  snprintf(strRes, 255, "Name: %.*s, ", name.av_len, name.av_val);
+  snprintf(strRes, 255, "Name: %25.*s, ", name.av_len, name.av_val);
 
   if (prop->p_type == AMF_OBJECT)
     {

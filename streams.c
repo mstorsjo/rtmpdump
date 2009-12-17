@@ -205,11 +205,11 @@ int WriteStream(
 	)
 {
 	uint32_t prevTagSize = 0;
-	int rtnGetNextMediaPacket = 0;
+	int rtnGetNextMediaPacket = 0, ret = -1;
 	RTMPPacket packet = {0};
 
 	rtnGetNextMediaPacket = RTMP_GetNextMediaPacket(rtmp, &packet);
-	if(rtnGetNextMediaPacket)
+	while(rtnGetNextMediaPacket)
 	{
 		char *packetBody	= packet.m_body;
 		unsigned int nPacketLen	= packet.m_nBodySize;
@@ -218,16 +218,19 @@ int WriteStream(
 		if(packet.m_packetType == 0x09 && 
 		   nPacketLen == 2 &&
 		((*packetBody & 0xf0) == 0x50)) {
-			return 0;
+			ret = 0;
+			break;
 		}
 
 		if(packet.m_packetType == 0x09 && nPacketLen <= 5) {
 			Log(LOGWARNING, "ignoring too small video packet: size: %d", nPacketLen);
-			return 0;
+			ret = 0;
+			break;
 		}
 		if(packet.m_packetType == 0x08 && nPacketLen <= 1) {
 			Log(LOGWARNING, "ignoring too small audio packet: size: %d", nPacketLen);
-			return 0;
+			ret = 0;
+			break;
 		}
 #ifdef _DEBUG
 		Log(LOGDEBUG, "type: %02X, size: %d, TS: %d ms", packet.m_packetType, nPacketLen, packet.m_nTimeStamp);
@@ -244,7 +247,8 @@ int WriteStream(
 			*buf = (char *)realloc(*buf, size+4);
 			if(*buf == 0) {
 				Log(LOGERROR, "Couldn't reallocate memory!");
-				return -1; // fatal error
+				ret = -1; // fatal error
+				break;
 			}
 		}
 		char *ptr = *buf;
@@ -288,7 +292,8 @@ int WriteStream(
                                 if(pos+11+dataSize+4 > nPacketLen) {
 					if(pos+11+dataSize > nPacketLen) {
 						Log(LOGERROR, "Wrong data size (%lu), stream corrupted, aborting!", dataSize);
-						return -2;
+						ret = -2;
+						break;
 					}
                                 	Log(LOGWARNING, "No tagSize found, appending!");
                                                 
@@ -327,13 +332,16 @@ int WriteStream(
                 // Return 0 if this was completed nicely with invoke message Play.Stop or Play.Complete
                 if (rtnGetNextMediaPacket == 2) {
                         Log(LOGDEBUG, "Got Play.Complete or Play.Stop from server. Assuming stream is complete");
-                        return 0;
+                        ret = 0;
+			break;
                 }
 
-		return size;
+		ret = size;
+		break;
 	}
 
-	return -1; // no more media packets
+	RTMPPacket_Free(&packet);
+	return ret; // no more media packets
 }
 
 pthread_t ThreadCreate(void *(*routine)(void *), void *args)

@@ -25,12 +25,17 @@
 
 #include <signal.h>
 #include <getopt.h>
-#include <pthread.h>
 
 #include <assert.h>
 
 #include "rtmp.h"
 #include "parseurl.h"
+
+#ifdef WIN32
+#include <process.h>
+#else
+#include <pthread.h>
+#endif
 
 #define RTMPDUMP_STREAMS_VERSION	"v2.0"
 
@@ -40,23 +45,19 @@
 
 #define PACKET_SIZE 1024*1024
 
-/*
-inline void InitSockets() {
 #ifdef WIN32
-        WORD version;
-        WSADATA wsaData;
+#define InitSockets()	{\
+        WORD version;			\
+        WSADATA wsaData;		\
+					\
+        version = MAKEWORD(1,1);	\
+        WSAStartup(version, &wsaData);	}
 
-        version = MAKEWORD(1,1);
-        WSAStartup(version, &wsaData);
+#define	CleanupSockets()	WSACleanup()
+#else
+#define InitSockets()
+#define	CleanupSockets()
 #endif
-}
-
-inline void CleanupSockets() {
-#ifdef WIN32
-        WSACleanup();
-#endif
-}
-*/
 
 enum
 {
@@ -373,6 +374,19 @@ WriteStream(RTMP * rtmp, char **buf,	// target pointer, maybe preallocated
   return ret;			// no more media packets
 }
 
+#ifdef WIN32
+HANDLE
+ThreadCreate(void *(*routine) (void *), void *args)
+{
+  HANDLE thd;
+
+  thd = (HANDLE) _beginthread(routine, 0, args);
+  if (thd == -1L)
+    LogPrintf("%s, _beginthread failed with %d\n", __FUNCTION__, errno);
+
+  return thd;
+}
+#else
 pthread_t
 ThreadCreate(void *(*routine) (void *), void *args)
 {
@@ -391,6 +405,7 @@ ThreadCreate(void *(*routine) (void *), void *args)
 
   return id;
 }
+#endif
 
 void *
 controlServerThread(void *unused)
@@ -1212,7 +1227,7 @@ main(int argc, char **argv)
   netstackdump_read = fopen("netstackdump_read", "wb");
 #endif
 
-  //InitSockets();
+  InitSockets();
 
   // start text UI
   ThreadCreate(controlServerThread, 0);
@@ -1233,7 +1248,7 @@ main(int argc, char **argv)
     }
   Log(LOGDEBUG, "Done, exiting...");
 
-  //CleanupSockets();
+  CleanupSockets();
 
 #ifdef _DEBUG
   if (netstackdump != 0)

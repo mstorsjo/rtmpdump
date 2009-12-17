@@ -31,6 +31,8 @@
 #include <winsock.h>
 #define close(x)	closesocket(x)
 #define setsockopt(a,b,c,d,e)	(setsockopt)(a,b,c,(const char *)d,(int)e)
+#define	EWOULDBLOCK	EAGAIN
+#define	sleep(n)	Sleep(n*1000)
 #else
 #include <sys/socket.h>
 #include <netinet/in.h>

@@ -23,25 +23,16 @@
 #include <string.h>
 #include <math.h>
 
-#include <signal.h> // to catch Ctrl-C
+#include <signal.h>
 #include <getopt.h>
+#include <pthread.h>
 
 #include <assert.h>
 
-//#ifdef WIN32
-//#include <winsock.h>
-//#endif
-
 #include "rtmp.h"
-#include "log.h"
-#include "AMFObject.h"
 #include "parseurl.h"
 
-int debuglevel = 1;
-
-using namespace RTMP_LIB;
-
-#define RTMPDUMP_STREAMS_VERSION	"v1.4"
+#define RTMPDUMP_STREAMS_VERSION	"v2.0"
 
 #define RD_SUCCESS		0
 #define RD_FAILED		1
@@ -84,17 +75,14 @@ typedef struct
 
 STREAMING_SERVER *httpServer = 0;       // server structure pointer
 
-STREAMING_SERVER *startStreaming(int port);
+STREAMING_SERVER *startStreaming(const char *address, int port);
 void stopStreaming(STREAMING_SERVER *server);
-
-bool bCtrlC = false;
 
 typedef struct
 {
 	uint32_t dSeek;      // seek position in resume mode, 0 otherwise
 
 	char *hostname;
-	char *playpath;
 	int rtmpport;
 	int protocol;
 	bool bLiveStream; // is it a live stream? then we can't seek/resume
@@ -103,24 +91,27 @@ typedef struct
 	uint32_t bufferTime;
 
 	char *rtmpurl;
-	char *swfUrl;
-	char *tcUrl;
-	char *pageUrl;
-	char *app;
-	char *auth;
-	char *swfHash;
+	AVal playpath;
+	AVal swfUrl;
+	AVal tcUrl;
+	AVal pageUrl;
+	AVal app;
+	AVal auth;
+	AVal swfHash;
+	AVal flashVer;
+	AVal subscribepath;
 	uint32_t swfSize;
-	char *flashVer;
-	char *subscribepath;
 
 	uint32_t dStartOffset;
 	uint32_t dStopOffset;
 	uint32_t nTimeStamp;
 } RTMP_REQUEST;
 
-// this request is forrmed from the parameters and used to initialize a new request,
-// thus it is a default settings list. All settings can be overriden by specifying the
-// parameters in the GET request
+#define STR2AVAL(av,str)	av.av_val = str; av.av_len = strlen(av.av_val)
+
+/* this request is formed from the parameters and used to initialize a new request,
+ * thus it is a default settings list. All settings can be overriden by specifying the
+ * parameters in the GET request */
 RTMP_REQUEST defaultRTMPRequest;
 
 bool ParseOption(char opt, char *arg, RTMP_REQUEST *req);
@@ -135,40 +126,6 @@ int pnum = 0;
 FILE *netstackdump = NULL;
 FILE *netstackdump_read = NULL;
 #endif
-/*
-uint32_t dSeek = 0;      // seek position in resume mode, 0 otherwise
-
-char *hostname = 0;
-char *playpath = 0;
-int rtmpport = -1;
-int protocol = RTMP_PROTOCOL_UNDEFINED;
-bool bLiveStream = false; // is it a live stream? then we can't seek/resume
-
-long int timeout = 300; // timeout connection afte 300 seconds
-uint32_t bufferTime = 20*1000; // 10 seconds, 10*60*60*1000; // 10 hours as default
-
-char DEFAULT_FLASH_VER[]  = "LNX 9,0,124,0";
-
-char *rtmpurl = 0;
-char *swfUrl = 0;
-char *tcUrl = 0;
-char *pageUrl = 0;
-char *app = 0;
-char *auth = 0;
-char *swfHash = 0;
-uint32_t swfSize = 0;
-char *flashVer = 0;
-
-uint32_t nTimeStamp = 0;
-
-#ifdef _DEBUG
-uint32_t debugTS = 0;
-int pnum=0;
-
-FILE *netstackdump = 0;
-FILE *netstackdump_read = 0;
-#endif
-*/
 
 /* inplace http unescape. This is possible .. strlen(unescaped_string)  <= strlen(esacped_string) */
 void http_unescape(char* data)
@@ -241,7 +198,7 @@ int WriteHeader(
 }
 
 int WriteStream(
-		CRTMP* rtmp, 
+		RTMP *rtmp, 
 		char **buf,			// target pointer, maybe preallocated
 		unsigned int len, 		// length of buffer if preallocated
 		uint32_t *nTimeStamp
@@ -249,9 +206,9 @@ int WriteStream(
 {
 	uint32_t prevTagSize = 0;
 	int rtnGetNextMediaPacket = 0;
-	RTMPPacket packet;
+	RTMPPacket packet = {0};
 
-	rtnGetNextMediaPacket = rtmp->GetNextMediaPacket(packet);
+	rtnGetNextMediaPacket = RTMP_GetNextMediaPacket(rtmp, &packet);
 	if(rtnGetNextMediaPacket)
 	{
 		char *packetBody	= packet.m_body;
@@ -303,12 +260,12 @@ int WriteStream(
 			prevTagSize = 11 + nPacketLen;
 
 			*ptr = packet.m_packetType; ptr++;
-			ptr += CRTMP::EncodeInt24(ptr, nPacketLen);
-			ptr += CRTMP::EncodeInt24(ptr, *nTimeStamp);
+			ptr += AMF_EncodeInt24(ptr, nPacketLen);
+			ptr += AMF_EncodeInt24(ptr, *nTimeStamp);
 			*ptr = (char)(((*nTimeStamp) & 0xFF000000) >> 24); ptr++;
 
 			// stream id
-			ptr += CRTMP::EncodeInt24(ptr, 0);
+			ptr += AMF_EncodeInt24(ptr, 0);
 		}
 
 		memcpy(ptr, packetBody, nPacketLen);
@@ -321,8 +278,8 @@ int WriteStream(
 
                         while(pos+11 < nPacketLen) 
 			{
-				uint32_t dataSize = CRTMP::ReadInt24(packetBody+pos+1); // size without header (11) and without prevTagSize (4)
-                                *nTimeStamp = CRTMP::ReadInt24(packetBody+pos+4);
+				uint32_t dataSize = AMF_DecodeInt24(packetBody+pos+1); // size without header (11) and without prevTagSize (4)
+                                *nTimeStamp = AMF_DecodeInt24(packetBody+pos+4);
                                 *nTimeStamp |= (packetBody[pos+7]<<24);
 
 				// set data type
@@ -337,10 +294,10 @@ int WriteStream(
                                                 
 					// we have to append a last tagSize!
                                         prevTagSize = dataSize+11;
-                                        CRTMP::EncodeInt32(ptr+pos+11+dataSize, prevTagSize);
+                                        AMF_EncodeInt32(ptr+pos+11+dataSize, prevTagSize);
                                         size+=4; len+=4;
                                 } else {
-                                        prevTagSize = CRTMP::ReadInt32(packetBody+pos+11+dataSize);
+                                        prevTagSize = AMF_DecodeInt32(packetBody+pos+11+dataSize);
                                         
 					#ifdef _DEBUG
 					Log(LOGDEBUG, "FLV Packet: type %02X, dataSize: %lu, tagSize: %lu, timeStamp: %lu ms",
@@ -353,7 +310,7 @@ int WriteStream(
                                                 #endif
 
 						prevTagSize = dataSize+11;
-                                                CRTMP::EncodeInt32(ptr+pos+11+dataSize, prevTagSize);
+                                                AMF_EncodeInt32(ptr+pos+11+dataSize, prevTagSize);
                                         }
                                 }
 
@@ -363,7 +320,7 @@ int WriteStream(
 		ptr += len;
 
 		if(packet.m_packetType != 0x16) { // FLV tag packets contain their own prevTagSize
-			CRTMP::EncodeInt32(ptr, prevTagSize);
+			AMF_EncodeInt32(ptr, prevTagSize);
 			//ptr += 4;
 		}
 
@@ -395,7 +352,7 @@ pthread_t ThreadCreate(void *(*routine)(void *), void *args)
         return id;
 }
 
-void *controlServerThread(void *)
+void *controlServerThread(void *unused)
 {
 	char ich;
 	while(1) 
@@ -468,7 +425,7 @@ void processTCPrequest
 
 	server->state = STREAMING_IN_PROGRESS;
 
-	CRTMP *rtmp = new CRTMP();
+	RTMP rtmp = {0};
 	uint32_t dSeek = 0; // can be used to start from a later point in the stream
 
 	// reset RTMP options to defaults specified upon invokation of streams
@@ -577,7 +534,7 @@ void processTCPrequest
                 Log(LOGERROR, "You must specify a hostname (--host) or url (-r \"rtmp://host[:port]/playpath\") containing a hostname");
                 goto filenotfound;
         }
-        if(req.playpath == 0) {
+        if(req.playpath.av_len == 0) {
                 Log(LOGERROR, "You must specify a playpath (--playpath) or url (-r \"rtmp://host[:port]/playpath\") containing a playpath");
                 goto filenotfound;;
         }
@@ -591,14 +548,16 @@ void processTCPrequest
                 req.protocol = RTMP_PROTOCOL_RTMP;
         }
 
-        if(req.flashVer == 0)
-                req.flashVer = DEFAULT_FLASH_VER;
+        if(req.flashVer.av_len == 0) {
+                STR2AVAL(req.flashVer, DEFAULT_FLASH_VER);
+	}
 
-        if(req.tcUrl == 0 && req.app != 0) {
+        if(req.tcUrl.av_len == 0 && req.app.av_len != 0) {
                 char str[512]={0};
-                snprintf(str, 511, "%s://%s/%s", RTMPProtocolStringsLower[req.protocol], req.hostname, req.app);
-                req.tcUrl = (char *)malloc(strlen(str)+1);
-                strcpy(req.tcUrl, str);
+                snprintf(str, 511, "%s://%s/%s", RTMPProtocolStringsLower[req.protocol], req.hostname, req.app.av_val);
+		req.tcUrl.av_len = strlen(str);
+                req.tcUrl.av_val = (char *)malloc(req.tcUrl.av_len + 1);
+                strcpy(req.tcUrl.av_val, str);
         }
 
         if(req.rtmpport == 0)
@@ -624,29 +583,30 @@ void processTCPrequest
         }
 
         Log(LOGDEBUG, "Setting buffer time to: %dms", req.bufferTime);
-        rtmp->SetBufferMS(req.bufferTime);
-        rtmp->SetupStream(
+	RTMP_Init(&rtmp);
+        RTMP_SetBufferMS(&rtmp, req.bufferTime);
+        RTMP_SetupStream(&rtmp,
 			req.protocol, 
 			req.hostname, 
 			req.rtmpport, 
 			NULL,	// sockshost
-			req.playpath, 
-			req.tcUrl, 
-			req.swfUrl, 
-			req.pageUrl, 
-			req.app, 
-			req.auth, 
-			req.swfHash, 
+			&req.playpath, 
+			&req.tcUrl, 
+			&req.swfUrl, 
+			&req.pageUrl, 
+			&req.app, 
+			&req.auth, 
+			&req.swfHash, 
 			req.swfSize, 
-			req.flashVer, 
-			req.subscribepath, 
+			&req.flashVer, 
+			&req.subscribepath, 
 			dSeek, 
 			-1,	// length
 			req.bLiveStream, 
 			req.timeout);
 
 	LogPrintf("Connecting ... port: %d, app: %s\n", req.rtmpport, req.app);
-        if (!rtmp->Connect()) {
+        if (!RTMP_Connect(&rtmp)) {
                 LogPrintf("%s, failed to connect!\n", __FUNCTION__);
         }
     	else 
@@ -676,7 +636,7 @@ void processTCPrequest
 		// get the rest of the stream
 		do
 		{
-			nRead = WriteStream(rtmp, &buffer, PACKET_SIZE, &req.nTimeStamp);
+			nRead = WriteStream(&rtmp, &buffer, PACKET_SIZE, &req.nTimeStamp);
 
 			if(nRead > 0)
 			{
@@ -691,11 +651,11 @@ void processTCPrequest
         
                         	//LogPrintf("write %dbytes (%.1f KB)\n", nRead, nRead/1024.0);
                         	if(duration <= 0) // if duration unknown try to get it from the stream (onMetaData)
-                                	duration = rtmp->GetDuration();
+                                	duration = RTMP_GetDuration(&rtmp);
 
                         	if(duration > 0) {
                                 	percent = ((double)(dSeek+req.nTimeStamp)) / (duration*1000.0)*100.0;
-                                	percent = round(percent*10.0)/10.0;
+                                	percent = ((double)(int)(percent*10.0))/10.0;
                                 	LogPrintf("\r%.3f KB / %.2f sec (%.1f%%)", (double)size/1024.0, (double)(req.nTimeStamp)/1000.0,  percent);
                         	} else {
                                 	LogPrintf("\r%.3f KB / %.2f sec", (double)size/1024.0, (double)(req.nTimeStamp)/1000.0);
@@ -709,14 +669,14 @@ void processTCPrequest
 				if (req.dStopOffset && req.nTimeStamp >= req.dStopOffset) {
 					LogPrintf("\nStop offset has been reached at %.2f seconds\n", (double)req.dStopOffset/1000.0);
 					nRead = 0;
-					rtmp->Close();
+					RTMP_Close(&rtmp);
 				}
 
-		} while(server->state == STREAMING_IN_PROGRESS && nRead > -1 && rtmp->IsConnected() && nWritten >= 0);
+		} while(server->state == STREAMING_IN_PROGRESS && nRead > -1 && RTMP_IsConnected(&rtmp) && nWritten >= 0);
 	}
 cleanup:
 	LogPrintf("Closing connection... ");
-        rtmp->Close();
+        RTMP_Close(&rtmp);
         LogPrintf("done!\n\n");
 
 quit:
@@ -825,7 +785,7 @@ void stopStreaming(STREAMING_SERVER *server)
 
 
 void sigIntHandler(int sig) {
-        bCtrlC = true;
+        RTMP_ctrlC = true;
         LogPrintf("Caught signal: %d, cleaning up, just a second...\n", sig);
         if(httpServer)
                 stopStreaming(httpServer);
@@ -843,11 +803,12 @@ bool ParseOption(char opt, char *arg, RTMP_REQUEST *req)
 	{
                         case 'w':
                         {
-                                int res = hex2bin(arg, &req->swfHash);
+                                int res = hex2bin(arg, &req->swfHash.av_val);
                                 if(!res || res!=32) {
-                                        req->swfHash = NULL;
+                                        req->swfHash.av_val = NULL;
                                         Log(LOGWARNING, "Couldn't parse swf hash hex string, not heyxstring or not 32 bytes, ignoring!");
                                 }
+				req->swfHash.av_len = 32;
                                 break;
                         }
 			case 'x':
@@ -873,9 +834,9 @@ bool ParseOption(char opt, char *arg, RTMP_REQUEST *req)
                         case 'v':
                                 req->bLiveStream = true; // no seeking or resuming possible!
                                 break;
-						case 'd':
-								req->subscribepath = optarg;
-								break;
+			case 'd':
+				STR2AVAL(req->subscribepath, arg);
+				break;
                         case 'n':
                                 req->hostname = arg;
                                 break;
@@ -894,7 +855,7 @@ bool ParseOption(char opt, char *arg, RTMP_REQUEST *req)
                                 break;
 			}
                         case 'y':
-                                req->playpath = arg;
+                                STR2AVAL(req->playpath, arg);
                                 break;
 			case 'r':
                         {
@@ -913,32 +874,34 @@ bool ParseOption(char opt, char *arg, RTMP_REQUEST *req)
                                 		req->hostname = parsedHost;
                                         if(req->rtmpport == -1)
                                                 req->rtmpport = parsedPort;
-                                        if(req->playpath == 0)
-                                                req->playpath = parsedPlaypath;
+                                        if(req->playpath.av_len == 0 && parsedPlaypath) {
+                                                STR2AVAL(req->playpath, parsedPlaypath);
+					}
                                         if(req->protocol == RTMP_PROTOCOL_UNDEFINED)
                                                	req->protocol = parsedProtocol;
-                                        if(req->app == 0)
-                                              	req->app = parsedApp;
+                                        if(req->app.av_len == 0 && parsedApp) {
+                                              	STR2AVAL(req->app, parsedApp);
+					}
                                 }
                                 break;
                         }
                         case 's':
-                                req->swfUrl = arg;
+                                STR2AVAL(req->swfUrl, arg);
                                 break;
                         case 't':
-                                req->tcUrl = arg;
+                                STR2AVAL(req->tcUrl, arg);
                                 break;
                         case 'p':
-                                req->pageUrl = arg;
+                                STR2AVAL(req->pageUrl, arg);
                                 break;
                         case 'a':
-                                req->app = arg;
+                                STR2AVAL(req->app, arg);
                                 break;
                         case 'f':
-                                req->flashVer = arg;
+                                STR2AVAL(req->flashVer, arg);
                                 break;
                         case 'u':
-                                req->auth = arg;
+                                STR2AVAL(req->auth, arg);
                                 break;
 			case 'm':
                                 req->timeout = atoi(arg);
@@ -978,7 +941,7 @@ int main(int argc, char **argv)
 	int nHttpStreamingPort = 80;				   // port
 
  	LogPrintf("HTTP-RTMP Stream Server %s\n", RTMPDUMP_STREAMS_VERSION);
-	LogPrintf("(c) 2009 Andrej Stepanchuk, license: GPL\n\n");
+	LogPrintf("(c) 2009 Andrej Stepanchuk, Howard Chu; license: GPL\n\n");
 
 	// init request
 	memset(&defaultRTMPRequest, 0, sizeof(RTMP_REQUEST));
@@ -1087,10 +1050,10 @@ int main(int argc, char **argv)
 		}
 	}
 
-	#ifdef _DEBUG
+#ifdef _DEBUG
 	netstackdump = fopen("netstackdump", "wb");
 	netstackdump_read = fopen("netstackdump_read", "wb");
-	#endif
+#endif
 
 	//InitSockets();
 

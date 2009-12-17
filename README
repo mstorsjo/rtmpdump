@@ -1,4 +1,4 @@
-RTMP Dump v1.9
+RTMP Dump v2.0
 (C) 2009 Andrej Stepanchuk
 (C) 2009 Howard Chu
 License: GPLv2
@@ -52,5 +52,6 @@ make && make install_sw
 OpenSSL cross-compiling can be a difficult beast.
 
 
-Credit goes to team boxee for the XBMC RTMP code used in RTMPDumper.
+Credit goes to team boxee for the XBMC RTMP code originally used in RTMPDumper.
+The current code is based on the XBMC code but rewritten in C by Howard Chu.
 

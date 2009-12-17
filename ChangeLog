@@ -3,6 +3,11 @@ Copyright 2008-2009 Andrej Stepanchuk; Distributed under the GPL v2
 Copyright 2009 Howard Chu
 Copyright 2009 The Flvstreamer Team
 
+16 December 2009, v2.x
+- rewrote everything else in C, reorganized to make it usable again as a library
+- fixed more portability bugs
+- plugged memory leaks
+
 2 December 2009, v1.9a
 - fix auth string typo
 - handle FCUnsubscribe message

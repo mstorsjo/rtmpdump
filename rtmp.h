@@ -56,7 +56,8 @@
 
 #define	RTMP_CHANNELS	65600
 
-extern char RTMPProtocolStringsLower[][7];
+extern const char RTMPProtocolStringsLower[][7];
+extern bool RTMP_ctrlC;
 
 int32_t RTMP_GetTime();
 

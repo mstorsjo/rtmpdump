@@ -57,9 +57,9 @@ static const int packetSize[] = { 12, 8, 4, 1 };
 #define RTMP_PACKET_SIZE_SMALL    2
 #define RTMP_PACKET_SIZE_MINIMUM  3
 
-extern bool bCtrlC;
+bool RTMP_ctrlC;
 
-char RTMPProtocolStrings[][7] = {
+const char RTMPProtocolStrings[][7] = {
   "RTMP",
   "RTMPT",
   "RTMPS",
@@ -68,7 +68,7 @@ char RTMPProtocolStrings[][7] = {
   "RTMFP"
 };
 
-char RTMPProtocolStringsLower[][7] = {
+const char RTMPProtocolStringsLower[][7] = {
   "rtmp",
   "rtmpt",
   "rtmps",
@@ -841,7 +841,7 @@ WriteN(RTMP * r, const char *buffer, int n)
 	  Log(LOGERROR, "%s, RTMP send error %d (%d bytes)", __FUNCTION__,
 	      sockerr, n);
 
-	  if (sockerr == EINTR && !bCtrlC)
+	  if (sockerr == EINTR && !RTMP_ctrlC)
 	    continue;
 
 	  RTMP_Close(r);
@@ -2188,7 +2188,7 @@ again:
       int sockerr = GetSockError();
       Log(LOGDEBUG, "%s, recv returned %d. GetSockError(): %d (%s)",
 	  __FUNCTION__, nBytes, sockerr, strerror(sockerr));
-      if (sockerr == EINTR && !bCtrlC)
+      if (sockerr == EINTR && !RTMP_ctrlC)
 	goto again;
 
       if (sockerr == EWOULDBLOCK || sockerr == EAGAIN)

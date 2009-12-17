@@ -47,5 +47,5 @@ log.o: log.c log.h Makefile
 parseurl.o: parseurl.c parseurl.h log.h Makefile
 streams.o: streams.cpp rtmp.h log.h Makefile
 rtmp.o: rtmp.c rtmp.h handshake.h dh.h log.h amf.h Makefile
-amf.o: amf.c amf.h bytes.h Makefile
+amf.o: amf.c amf.h bytes.h log.h Makefile
 rtmpdump.o: rtmpdump.c rtmp.h log.h amf.h Makefile

@@ -45,8 +45,6 @@
 #include "log.h"
 #include "parseurl.h"
 
-int debuglevel = 1;
-
 #define RTMPDUMP_VERSION	"v2.0"
 
 #define RD_SUCCESS		0
@@ -89,12 +87,11 @@ uint32_t nIgnoredFrameCounter = 0;
 #define MAX_IGNORED_FRAMES	50
 
 FILE *file = 0;
-bool bCtrlC = false;
 
 void
 sigIntHandler(int sig)
 {
-  bCtrlC = true;
+  RTMP_ctrlC = true;
   LogPrintf("Caught signal: %d, cleaning up, just a second...\n", sig);
   // ignore all these signals now and let the connection close
   signal(SIGINT, SIG_IGN);
@@ -1015,7 +1012,7 @@ Download(RTMP * rtmp,		// connected RTMP object
 #endif
 
     }
-  while (!bCtrlC && nRead > -1 && RTMP_IsConnected(rtmp));
+  while (!RTMP_ctrlC && nRead > -1 && RTMP_IsConnected(rtmp));
   free(buffer);
 
   Log(LOGDEBUG, "WriteStream returned: %d", nRead);
@@ -1038,7 +1035,7 @@ Download(RTMP * rtmp,		// connected RTMP object
   if (nRead == -3)
     return RD_SUCCESS;
 
-  if ((duration > 0 && *percent < 99.9) || bCtrlC || nRead < 0
+  if ((duration > 0 && *percent < 99.9) || RTMP_ctrlC || nRead < 0
       || RTMP_IsTimedout(rtmp))
     {
       return RD_INCOMPLETE;
@@ -1580,7 +1577,7 @@ main(int argc, char **argv)
   netstackdump_read = fopen("netstackdump_read", "wb");
 #endif
 
-  while (!bCtrlC)
+  while (!RTMP_ctrlC)
     {
       Log(LOGDEBUG, "Setting buffer time to: %dms", bufferTime);
       RTMP_SetBufferMS(&rtmp, bufferTime);

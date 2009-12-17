@@ -97,11 +97,13 @@ sigIntHandler(int sig)
   bCtrlC = true;
   LogPrintf("Caught signal: %d, cleaning up, just a second...\n", sig);
   // ignore all these signals now and let the connection close
-  signal(SIGHUP, SIG_IGN);
   signal(SIGINT, SIG_IGN);
-  signal(SIGPIPE, SIG_IGN);
   signal(SIGTERM, SIG_IGN);
+#ifndef WIN32
+  signal(SIGHUP, SIG_IGN);
+  signal(SIGPIPE, SIG_IGN);
   signal(SIGQUIT, SIG_IGN);
+#endif
 }
 
 int
@@ -1100,13 +1102,22 @@ main(int argc, char **argv)
 
   char *flvFile = 0;
 
-  char DEFAULT_FLASH_VER[] = "LNX 10,0,22,87";
+#undef OSS
+#ifdef WIN32
+#define	OSS	"WIN"
+#else
+#define OSS	"LNX"
+#endif
 
-  signal(SIGHUP, sigIntHandler);
+  char DEFAULT_FLASH_VER[] = OSS " 10,0,22,87";
+
   signal(SIGINT, sigIntHandler);
-  signal(SIGPIPE, sigIntHandler);
   signal(SIGTERM, sigIntHandler);
+#ifndef WIN32
+  signal(SIGHUP, sigIntHandler);
+  signal(SIGPIPE, sigIntHandler);
   signal(SIGQUIT, sigIntHandler);
+#endif
 
   /* sleep(30); */
 

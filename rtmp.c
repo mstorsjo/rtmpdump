@@ -25,17 +25,16 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <netinet/tcp.h>
-
 #include <assert.h>
 
 #ifdef WIN32
 #include <winsock.h>
 #define close(x)	closesocket(x)
+#define setsockopt(a,b,c,d,e)	(setsockopt)(a,b,c,(const char *)d,(int)e)
 #else
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <sys/times.h>
 #endif
 

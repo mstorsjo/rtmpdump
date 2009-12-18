@@ -2098,12 +2098,13 @@ SendRTMP(RTMP * r, RTMPPacket * packet, bool queue)
 	}
     }
 
-  if (packet->m_packetType == 0x14 && queue)
+  if (packet->m_packetType == 0x14)
     {				// we invoked a remote method, keep it in call queue till result arrives
       AVal method;
       AMF_DecodeString(packet->m_body + 1, &method);
-      AV_queue(&r->m_methodCalls, &r->m_numCalls, &method);
       Log(LOGDEBUG, "Invoking %s", method.av_val);
+      if (queue)
+        AV_queue(&r->m_methodCalls, &r->m_numCalls, &method);
     }
 
   if (!r->m_vecChannelsOut[packet->m_nChannel])

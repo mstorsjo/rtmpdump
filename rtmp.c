@@ -993,7 +993,7 @@ static bool
 SendFCSubscribe(RTMP * r, AVal * subscribepath)
 {
   RTMPPacket packet;
-  char pbuf[256];
+  char pbuf[512];
   packet.m_nChannel = 0x03;	// control channel (invoke)
   packet.m_headerType = RTMP_PACKET_SIZE_MEDIUM;
   packet.m_packetType = 0x14;	// INVOKE
@@ -2098,11 +2098,13 @@ SendRTMP(RTMP * r, RTMPPacket * packet, bool queue)
 	}
     }
 
+  /* we invoked a remote method */
   if (packet->m_packetType == 0x14)
-    {				// we invoked a remote method, keep it in call queue till result arrives
+    {
       AVal method;
       AMF_DecodeString(packet->m_body + 1, &method);
       Log(LOGDEBUG, "Invoking %s", method.av_val);
+      /* keep it in call queue till result arrives */
       if (queue)
         AV_queue(&r->m_methodCalls, &r->m_numCalls, &method);
     }

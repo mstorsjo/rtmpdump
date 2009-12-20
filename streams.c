@@ -739,13 +739,13 @@ void processTCPrequest(STREAMING_SERVER * server,	// server socket and state (ou
 		    ((double) (dSeek + req.nTimeStamp)) / (duration *
 							   1000.0) * 100.0;
 		  percent = ((double) (int) (percent * 10.0)) / 10.0;
-		  LogPrintf("\r%.3f KB / %.2f sec (%.1f%%)",
+		  LogStatus("\r%.3f KB / %.2f sec (%.1f%%)",
 			    (double) size / 1024.0,
 			    (double) (req.nTimeStamp) / 1000.0, percent);
 		}
 	      else
 		{
-		  LogPrintf("\r%.3f KB / %.2f sec", (double) size / 1024.0,
+		  LogStatus("\r%.3f KB / %.2f sec", (double) size / 1024.0,
 			    (double) (req.nTimeStamp) / 1000.0);
 		}
 	    }

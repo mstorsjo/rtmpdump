@@ -540,7 +540,8 @@ WriteStream(RTMP * rtmp, char **buf,	// target pointer, maybe preallocated
       break;
     }
 
-  RTMPPacket_Free(&packet);
+  if (rtnGetNextMediaPacket)
+    RTMPPacket_Free(&packet);
   return ret;			// no more media packets
 }
 

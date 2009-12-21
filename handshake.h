@@ -255,8 +255,8 @@ static bool
 HandShake(RTMP * r, bool FP9HandShake)
 {
   int i;
-  int dhposClient;
-  int digestPosClient;
+  int dhposClient = 0;
+  int digestPosClient = 0;
   RC4_KEY *keyIn = 0;
   RC4_KEY *keyOut = 0;
   bool encrypted = r->Link.protocol == RTMP_PROTOCOL_RTMPE

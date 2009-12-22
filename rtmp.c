@@ -1050,7 +1050,7 @@ RTMP_SendPause(RTMP * r, bool DoPause, double dTime)
   RTMPPacket packet;
   char pbuf[256];
 
-  packet.m_nChannel = 0x08;	// video channel 
+  packet.m_nChannel = 0x08;	// video channel
   packet.m_headerType = RTMP_PACKET_SIZE_MEDIUM;
   packet.m_packetType = 0x14;	// invoke
   packet.m_nInfoField1 = 0;
@@ -1078,7 +1078,7 @@ SendSeek(RTMP * r, double dTime)
   RTMPPacket packet;
   char pbuf[256];
 
-  packet.m_nChannel = 0x08;	// video channel 
+  packet.m_nChannel = 0x08;	// video channel
   packet.m_headerType = RTMP_PACKET_SIZE_MEDIUM;
   packet.m_packetType = 0x14;	// invoke
   packet.m_nInfoField1 = 0;
@@ -1163,7 +1163,7 @@ SendCheckBW(RTMP * r)
 
   packet.m_nBodySize = enc - packet.m_body;
 
-  // triggers _onbwcheck and eventually results in _onbwdone 
+  // triggers _onbwcheck and eventually results in _onbwdone
   return SendRTMP(r, &packet, false);
 }
 
@@ -1844,7 +1844,7 @@ ReadPacket(RTMP * r, RTMPPacket * packet)
     {
       packet->m_nInfoField1 = AMF_DecodeInt24(header);
 
-      //Log(LOGDEBUG, "%s, reading RTMP packet chunk on channel %x, headersz %i, timestamp %i, abs timestamp %i", __FUNCTION__, packet.m_nChannel, nSize, packet.m_nInfoField1, packet.m_hasAbsTimestamp); 
+      //Log(LOGDEBUG, "%s, reading RTMP packet chunk on channel %x, headersz %i, timestamp %i, abs timestamp %i", __FUNCTION__, packet.m_nChannel, nSize, packet.m_nInfoField1, packet.m_hasAbsTimestamp);
 
       if (nSize >= 6)
 	{
@@ -1896,9 +1896,9 @@ ReadPacket(RTMP * r, RTMPPacket * packet)
     {
       packet->m_nTimeStamp = packet->m_nInfoField1;
 
-      // make packet's timestamp absolute 
+      // make packet's timestamp absolute
       if (!packet->m_hasAbsTimestamp)
-	packet->m_nTimeStamp += r->m_channelTimestamp[packet->m_nChannel];	// timestamps seem to be always relative!! 
+	packet->m_nTimeStamp += r->m_channelTimestamp[packet->m_nChannel];	// timestamps seem to be always relative!!
 
       r->m_channelTimestamp[packet->m_nChannel] = packet->m_nTimeStamp;
 
@@ -1963,25 +1963,25 @@ static bool
 HandShake(RTMP * r, bool FP9HandShake)
 {
   int i;
-  char clientsig[RTMP_SIG_SIZE + 1];
+  char clientbuf[RTMP_SIG_SIZE + 1], *clientsig = clientbuf+1;
   char serversig[RTMP_SIG_SIZE];
 
-  clientsig[0] = 0x03;		// not encrypted
+  clientbuf[0] = 0x03;		// not encrypted
 
   uint32_t uptime = htonl(RTMP_GetTime());
-  memcpy(clientsig + 1, &uptime, 4);
+  memcpy(clientsig, &uptime, 4);
 
-  memset(&clientsig[5], 0, 4);
+  memset(&clientsig[4], 0, 4);
 
 #ifdef _DEBUG
-  for (i = 9; i < RTMP_SIG_SIZE; i++)
+  for (i = 8; i < RTMP_SIG_SIZE; i++)
     clientsig[i] = 0xff;
 #else
-  for (i = 9; i < RTMP_SIG_SIZE; i++)
+  for (i = 8; i < RTMP_SIG_SIZE; i++)
     clientsig[i] = (char) (rand() % 256);
 #endif
 
-  if (!WriteN(r, clientsig, RTMP_SIG_SIZE + 1))
+  if (!WriteN(r, clientbuf, RTMP_SIG_SIZE + 1))
     return false;
 
   char type;
@@ -1990,9 +1990,9 @@ HandShake(RTMP * r, bool FP9HandShake)
 
   Log(LOGDEBUG, "%s: Type Answer   : %02X", __FUNCTION__, type);
 
-  if (type != clientsig[0])
+  if (type != clientbuf[0])
     Log(LOGWARNING, "%s: Type mismatch: client sent %d, server answered %d",
-	__FUNCTION__, clientsig[0], type);
+	__FUNCTION__, clientbuf[0], type);
 
   if (ReadN(r, serversig, RTMP_SIG_SIZE) != RTMP_SIG_SIZE)
     return false;
@@ -2011,11 +2011,72 @@ HandShake(RTMP * r, bool FP9HandShake)
   if (!WriteN(r, serversig, RTMP_SIG_SIZE))
     return false;
 
-  char resp[RTMP_SIG_SIZE];
-  if (ReadN(r, resp, RTMP_SIG_SIZE) != RTMP_SIG_SIZE)
+  if (ReadN(r, serversig, RTMP_SIG_SIZE) != RTMP_SIG_SIZE)
     return false;
 
-  bool bMatch = (memcmp(resp, clientsig + 1, RTMP_SIG_SIZE) == 0);
+  bool bMatch = (memcmp(serversig, clientsig, RTMP_SIG_SIZE) == 0);
+  if (!bMatch)
+    {
+      Log(LOGWARNING, "%s, client signature does not match!", __FUNCTION__);
+    }
+  return true;
+}
+
+static bool
+SHandShake(RTMP * r)
+{
+  int i;
+  char serverbuf[RTMP_SIG_SIZE + 1], *serversig = serverbuf+1;
+  char clientsig[RTMP_SIG_SIZE];
+  uint32_t uptime;
+
+  if (ReadN(r, serverbuf, 1) != 1)	// 0x03 or 0x06
+    return false;
+
+  Log(LOGDEBUG, "%s: Type Request  : %02X", __FUNCTION__, serverbuf[0]);
+
+  if (serverbuf[0] != 3)
+    {
+      Log(LOGERROR, "%s: Type unknown: client sent %02X",
+	  __FUNCTION__, serverbuf[0]);
+      return false;
+    }
+
+  uptime = htonl(RTMP_GetTime());
+  memcpy(serversig, &uptime, 4);
+
+  memset(&serversig[4], 0, 4);
+#ifdef _DEBUG
+  for (i = 8; i < RTMP_SIG_SIZE; i++)
+    serversig[i] = 0xff;
+#else
+  for (i = 8; i < RTMP_SIG_SIZE; i++)
+    serversig[i] = (char) (rand() % 256);
+#endif
+
+  if (!WriteN(r, serverbuf, RTMP_SIG_SIZE + 1))
+    return false;
+
+  if (ReadN(r, clientsig, RTMP_SIG_SIZE) != RTMP_SIG_SIZE)
+    return false;
+
+  // decode client response
+
+  memcpy(&uptime, clientsig, 4);
+  uptime = ntohl(uptime);
+
+  Log(LOGDEBUG, "%s: Client Uptime : %d", __FUNCTION__, uptime);
+  Log(LOGDEBUG, "%s: Player Version: %d.%d.%d.%d", __FUNCTION__, clientsig[4],
+      clientsig[5], clientsig[6], clientsig[7]);
+
+  // 2nd part of handshake
+  if (!WriteN(r, clientsig, RTMP_SIG_SIZE))
+    return false;
+
+  if (ReadN(r, clientsig, RTMP_SIG_SIZE) != RTMP_SIG_SIZE)
+    return false;
+
+  bool bMatch = (memcmp(serversig, clientsig, RTMP_SIG_SIZE) == 0);
   if (!bMatch)
     {
       Log(LOGWARNING, "%s, client signature does not match!", __FUNCTION__);
@@ -2113,6 +2174,12 @@ SendRTMP(RTMP * r, RTMPPacket * packet, bool queue)
     r->m_vecChannelsOut[packet->m_nChannel] = malloc(sizeof(RTMPPacket));
   memcpy(r->m_vecChannelsOut[packet->m_nChannel], packet, sizeof(RTMPPacket));
   return true;
+}
+
+bool
+RTMP_Serve(RTMP *r)
+{
+  return SHandShake(r);
 }
 
 void

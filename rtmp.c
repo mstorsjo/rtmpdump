@@ -781,7 +781,7 @@ ReadN(RTMP * r, char *buffer, int n)
 
       if (nBytes == 0)
 	{
-	  Log(LOGDEBUG, "%s, RTMP socket closed by server", __FUNCTION__);
+	  Log(LOGDEBUG, "%s, RTMP socket closed by peer", __FUNCTION__);
 	  //goto again;
 	  RTMP_Close(r);
 	  break;

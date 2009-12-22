@@ -170,7 +170,7 @@ SendConnectResult(RTMP *r, double txn)
   enc = AMF_EncodeNamedString(enc, pend, &av_code, &av);
   STR2AVAL(av, "Connection succeeded.");
   enc = AMF_EncodeNamedString(enc, pend, &av_description, &av);
-  enc = AMF_EncodeNamedNumber(enc, pend, &av_objectEncoding, 0.0);
+  enc = AMF_EncodeNamedNumber(enc, pend, &av_objectEncoding, r->m_fEncoding);
   STR2AVAL(p.p_name, "version");
   STR2AVAL(p.p_vu.p_aval, "3,5,1,525");
   p.p_type = AMF_STRING;
@@ -246,31 +246,43 @@ ServeInvoke(STREAMING_SERVER *server, RTMP * r, const char *body, unsigned int n
   if (AVMATCH(&method, &av_connect))
     {
       AMFObject cobj;
-      AVal pname;
+      AVal pname, pval;
       int i;
       AMFProp_GetObject(AMF_GetProp(&obj, NULL, 2), &cobj);
       for (i=0; i<cobj.o_num; i++)
         {
           pname = cobj.o_props[i].p_name;
+          pval.av_val = NULL;
+          if (cobj.o_props[i].p_type == AMF_STRING)
+            {
+              pval = cobj.o_props[i].p_vu.p_aval;
+              if (pval.av_val)
+                pval.av_val = strdup(pval.av_val);
+            }
           if (AVMATCH(&pname, &av_app))
             {
-              r->Link.app = cobj.o_props[i].p_vu.p_aval;
+              r->Link.app = pval;
+              pval.av_val = NULL;
             }
           else if (AVMATCH(&pname, &av_flashVer))
             {
-              r->Link.flashVer = cobj.o_props[i].p_vu.p_aval;
+              r->Link.flashVer = pval;
+              pval.av_val = NULL;
             }
           else if (AVMATCH(&pname, &av_swfUrl))
             {
-              r->Link.swfUrl = cobj.o_props[i].p_vu.p_aval;
+              r->Link.swfUrl = pval;
+              pval.av_val = NULL;
             }
           else if (AVMATCH(&pname, &av_tcUrl))
             {
-              r->Link.tcUrl = cobj.o_props[i].p_vu.p_aval;
+              r->Link.tcUrl = pval;
+              pval.av_val = NULL;
             }
           else if (AVMATCH(&pname, &av_pageUrl))
             {
-              r->Link.pageUrl = cobj.o_props[i].p_vu.p_aval;
+              r->Link.pageUrl = pval;
+              pval.av_val = NULL;
             }
           else if (AVMATCH(&pname, &av_audioCodecs))
             {
@@ -280,6 +292,13 @@ ServeInvoke(STREAMING_SERVER *server, RTMP * r, const char *body, unsigned int n
             {
               r->m_fVideoCodecs = cobj.o_props[i].p_vu.p_number;
             }
+          else if (AVMATCH(&pname, &av_objectEncoding))
+            {
+              r->m_fEncoding = cobj.o_props[i].p_vu.p_number;
+            }
+          /* Dup'd a sting we didn't recognize? */
+          if (pval.av_val)
+            free(pval.av_val);
         }
       SendConnectResult(r, txn);
     }
@@ -290,6 +309,8 @@ ServeInvoke(STREAMING_SERVER *server, RTMP * r, const char *body, unsigned int n
   else if (AVMATCH(&method, &av_play))
     {
       AMFProp_GetString(AMF_GetProp(&obj, NULL, 3), &r->Link.playpath);
+      if (r->Link.playpath.av_val)
+        r->Link.playpath.av_val = strdup(r->Link.playpath.av_val);
       r->Link.seekTime = AMFProp_GetNumber(AMF_GetProp(&obj, NULL, 4));
       if (obj.o_num > 5)
         r->Link.length = AMFProp_GetNumber(AMF_GetProp(&obj, NULL, 5));
@@ -485,6 +506,14 @@ void doServe(STREAMING_SERVER * server,	// server socket and state (our listenin
 cleanup:
   LogPrintf("Closing connection... ");
   RTMP_Close(&rtmp);
+  /* Should probably be done by RTMP_Close() ... */
+  free(rtmp.Link.playpath.av_val);
+  free(rtmp.Link.tcUrl.av_val);
+  free(rtmp.Link.swfUrl.av_val);
+  free(rtmp.Link.pageUrl.av_val);
+  free(rtmp.Link.app.av_val);
+  free(rtmp.Link.auth.av_val);
+  free(rtmp.Link.flashVer.av_val);
   LogPrintf("done!\n\n");
 
 quit:

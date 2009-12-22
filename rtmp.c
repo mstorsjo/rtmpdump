@@ -178,6 +178,7 @@ RTMP_Init(RTMP * r)
   r->m_pBufferStart = NULL;
   r->m_fAudioCodecs = 3191.0;
   r->m_fVideoCodecs = 252.0;
+  r->m_fEncoding = 0.0;
   r->m_bTimedout = false;
   r->m_pausing = 0;
   r->m_mediaChannel = 0;
@@ -936,7 +937,7 @@ SendConnectPacket(RTMP * r)
       if (!enc)
         return false;
     }
-  enc = AMF_EncodeNamedNumber(enc, pend, &av_objectEncoding, 0.0);	// AMF0, AMF3 not supported yet
+  enc = AMF_EncodeNamedNumber(enc, pend, &av_objectEncoding, r->m_fEncoding);	// AMF0, AMF3 not supported yet
   if (!enc)
     return false;
   if (enc+3 >= pend)

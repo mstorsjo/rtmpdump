@@ -156,6 +156,7 @@ typedef struct RTMP
 
   double m_fAudioCodecs;	// audioCodecs for the connect packet
   double m_fVideoCodecs;	// videoCodecs for the connect packet
+  double m_fEncoding;		/* AMF0 or AMF3 */
 
   double m_fDuration;		// duration of stream in seconds
   char m_pBuffer[RTMP_BUFFER_CACHE_SIZE];		// data read from socket

@@ -59,7 +59,7 @@
 extern const char RTMPProtocolStringsLower[][7];
 extern bool RTMP_ctrlC;
 
-int32_t RTMP_GetTime();
+uint32_t RTMP_GetTime();
 
 #define RTMP_PACKET_TYPE_AUDIO 0x08
 #define RTMP_PACKET_TYPE_VIDEO 0x09
@@ -184,6 +184,8 @@ void RTMP_SetupStream(RTMP *r, int protocol,
 bool RTMP_Connect(RTMP *r);
 bool RTMP_Serve(RTMP *r);
 
+bool RTMP_ReadPacket(RTMP * r, RTMPPacket * packet);
+bool RTMP_SendPacket(RTMP * r, RTMPPacket * packet, bool queue);
 bool RTMP_IsConnected(RTMP *r);
 bool RTMP_IsTimedout(RTMP *r);
 double RTMP_GetDuration(RTMP *r);

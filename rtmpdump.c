@@ -406,7 +406,7 @@ WriteStream(RTMP * rtmp, char **buf,	// target pointer, maybe preallocated
 	      break;
 	    }
 	}
-      char *ptr = *buf;
+      char *ptr = *buf, *pend = ptr+size+4;
 
       uint32_t nTimeStamp = 0;	// use to return timestamp of last processed packet
 
@@ -425,7 +425,7 @@ WriteStream(RTMP * rtmp, char **buf,	// target pointer, maybe preallocated
 
 	  *ptr = packet.m_packetType;
 	  ptr++;
-	  ptr += AMF_EncodeInt24(ptr, nPacketLen);
+	  ptr = AMF_EncodeInt24(ptr, pend, nPacketLen);
 
 	  /*if(packet.m_packetType == 0x09) { // video
 
@@ -444,12 +444,12 @@ WriteStream(RTMP * rtmp, char **buf,	// target pointer, maybe preallocated
 	     Log(LOGDEBUG, "VIDEO: nTimeStamp: 0x%08X (%d)\n", nTimeStamp, nTimeStamp);
 	     } */
 
-	  ptr += AMF_EncodeInt24(ptr, nTimeStamp);
+	  ptr = AMF_EncodeInt24(ptr, pend, nTimeStamp);
 	  *ptr = (char) ((nTimeStamp & 0xFF000000) >> 24);
 	  ptr++;
 
 	  // stream id
-	  ptr += AMF_EncodeInt24(ptr, 0);
+	  ptr = AMF_EncodeInt24(ptr, pend, 0);
 	}
 
       memcpy(ptr, packetBody, nPacketLen);
@@ -489,7 +489,7 @@ WriteStream(RTMP * rtmp, char **buf,	// target pointer, maybe preallocated
 
 		  // we have to append a last tagSize!
 		  prevTagSize = dataSize + 11;
-		  AMF_EncodeInt32(ptr + pos + 11 + dataSize, prevTagSize);
+		  AMF_EncodeInt32(ptr + pos + 11 + dataSize, pend, prevTagSize);
 		  size += 4;
 		  len += 4;
 		}
@@ -514,7 +514,7 @@ WriteStream(RTMP * rtmp, char **buf,	// target pointer, maybe preallocated
 #endif
 
 		      prevTagSize = dataSize + 11;
-		      AMF_EncodeInt32(ptr + pos + 11 + dataSize, prevTagSize);
+		      AMF_EncodeInt32(ptr + pos + 11 + dataSize, pend, prevTagSize);
 		    }
 		}
 
@@ -525,7 +525,7 @@ WriteStream(RTMP * rtmp, char **buf,	// target pointer, maybe preallocated
 
       if (packet.m_packetType != 0x16)
 	{			// FLV tag packets contain their own prevTagSize
-	  AMF_EncodeInt32(ptr, prevTagSize);
+	  AMF_EncodeInt32(ptr, pend, prevTagSize);
 	  //ptr += 4;
 	}
 
@@ -569,7 +569,7 @@ OpenResumeFile(const char *flvFile,	// file name [in]
 
   if (*size > 0)
     {
-      // verify FLV format and read header 
+      // verify FLV format and read header
       uint32_t prevTagSize = 0;
 
       // check we've got a valid FLV file to continue!
@@ -704,7 +704,7 @@ GetLastKeyframe(FILE * file,	// output file [in]
   Log(LOGDEBUG, "bAudioOnly: %d, size: %llu", bAudioOnly,
       (unsigned long long) size);
 
-  // ok, we have to get the timestamp of the last keyframe (only keyframes are seekable) / last audio frame (audio only streams) 
+  // ok, we have to get the timestamp of the last keyframe (only keyframes are seekable) / last audio frame (audio only streams)
 
   //if(!bAudioOnly) // we have to handle video/video+audio different since we have non-seekable frames
   //{
@@ -798,7 +798,7 @@ GetLastKeyframe(FILE * file,	// output file [in]
 
   *dSeek = AMF_DecodeInt24(buffer + 4);	// set seek position to keyframe tmestamp
   *dSeek |= (buffer[7] << 24);
-  //} 
+  //}
   //else // handle audio only, we can seek anywhere we'd like
   //{
   //}
@@ -1521,7 +1521,7 @@ main(int argc, char **argv)
 
   off_t size = 0;
 
-  // ok, we have to get the timestamp of the last keyframe (only keyframes are seekable) / last audio frame (audio only streams) 
+  // ok, we have to get the timestamp of the last keyframe (only keyframes are seekable) / last audio frame (audio only streams)
   if (bResume)
     {
       nStatus =

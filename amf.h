@@ -80,12 +80,17 @@ extern "C"
     int16_t p_UTCoffset;
   } AMFObjectProperty;
 
-  int AMF_EncodeString(char *output, const AVal * str);
-  int AMF_EncodeNumber(char *output, double dVal);
-  int AMF_EncodeInt16(char *output, short nVal);
-  int AMF_EncodeInt24(char *output, int nVal);
-  int AMF_EncodeInt32(char *output, int nVal);
-  int AMF_EncodeBoolean(char *output, bool bVal);
+  char *AMF_EncodeString(char *output, char *outend, const AVal * str);
+  char *AMF_EncodeNumber(char *output, char *outend, double dVal);
+  char *AMF_EncodeInt16(char *output, char *outend, short nVal);
+  char *AMF_EncodeInt24(char *output, char *outend, int nVal);
+  char *AMF_EncodeInt32(char *output, char *outend, int nVal);
+  char *AMF_EncodeBoolean(char *output, char *outend, bool bVal);
+
+  /* Shortcuts for AMFProp_Encode */
+  char *AMF_EncodeNamedString(char *output, char *outend, const AVal * name, const AVal * value);
+  char *AMF_EncodeNamedNumber(char *output, char *outend, const AVal * name, double dVal);
+  char *AMF_EncodeNamedBoolean(char *output, char *outend, const AVal * name, bool bVal);
 
   unsigned short AMF_DecodeInt16(const char *data);
   unsigned int AMF_DecodeInt24(const char *data);
@@ -94,7 +99,7 @@ extern "C"
   bool AMF_DecodeBoolean(const char *data);
   double AMF_DecodeNumber(const char *data);
 
-  int AMF_Encode(AMFObject * obj, char *pBuffer, int nSize);
+  char *AMF_Encode(AMFObject * obj, char *pBuffer, char *pBufEnd);
   int AMF_Decode(AMFObject * obj, const char *pBuffer, int nSize,
 		 bool bDecodeName);
   int AMF_DecodeArray(AMFObject * obj, const char *pBuffer, int nSize,
@@ -124,7 +129,7 @@ extern "C"
 
   bool AMFProp_IsValid(AMFObjectProperty * prop);
 
-  int AMFProp_Encode(AMFObjectProperty * prop, char *pBuffer, int nSize);
+  char *AMFProp_Encode(AMFObjectProperty * prop, char *pBuffer, char *pBufEnd);
   int AMF3Prop_Decode(AMFObjectProperty * prop, const char *pBuffer,
 		      int nSize, bool bDecodeName);
   int AMFProp_Decode(AMFObjectProperty * prop, const char *pBuffer,

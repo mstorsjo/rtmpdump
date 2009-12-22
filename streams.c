@@ -262,7 +262,7 @@ WriteStream(RTMP * rtmp, char **buf,	// target pointer, maybe preallocated
 	      break;
 	    }
 	}
-      char *ptr = *buf;
+      char *ptr = *buf, *pend = ptr + size+4;
 
       // audio (0x08), video (0x09) or metadata (0x12) packets :
       // construct 11 byte header then add rtmp packet's data
@@ -275,15 +275,14 @@ WriteStream(RTMP * rtmp, char **buf,	// target pointer, maybe preallocated
 	  (*nTimeStamp) = packet.m_nTimeStamp;
 	  prevTagSize = 11 + nPacketLen;
 
-	  *ptr = packet.m_packetType;
-	  ptr++;
-	  ptr += AMF_EncodeInt24(ptr, nPacketLen);
-	  ptr += AMF_EncodeInt24(ptr, *nTimeStamp);
+	  *ptr++ = packet.m_packetType;
+	  ptr = AMF_EncodeInt24(ptr, pend, nPacketLen);
+	  ptr = AMF_EncodeInt24(ptr, pend, *nTimeStamp);
 	  *ptr = (char) (((*nTimeStamp) & 0xFF000000) >> 24);
 	  ptr++;
 
 	  // stream id
-	  ptr += AMF_EncodeInt24(ptr, 0);
+	  ptr = AMF_EncodeInt24(ptr, pend, 0);
 	}
 
       memcpy(ptr, packetBody, nPacketLen);
@@ -317,7 +316,7 @@ WriteStream(RTMP * rtmp, char **buf,	// target pointer, maybe preallocated
 
 		  // we have to append a last tagSize!
 		  prevTagSize = dataSize + 11;
-		  AMF_EncodeInt32(ptr + pos + 11 + dataSize, prevTagSize);
+		  AMF_EncodeInt32(ptr + pos + 11 + dataSize, pend, prevTagSize);
 		  size += 4;
 		  len += 4;
 		}
@@ -342,7 +341,7 @@ WriteStream(RTMP * rtmp, char **buf,	// target pointer, maybe preallocated
 #endif
 
 		      prevTagSize = dataSize + 11;
-		      AMF_EncodeInt32(ptr + pos + 11 + dataSize, prevTagSize);
+		      AMF_EncodeInt32(ptr + pos + 11 + dataSize, pend, prevTagSize);
 		    }
 		}
 
@@ -353,7 +352,7 @@ WriteStream(RTMP * rtmp, char **buf,	// target pointer, maybe preallocated
 
       if (packet.m_packetType != 0x16)
 	{			// FLV tag packets contain their own prevTagSize
-	  AMF_EncodeInt32(ptr, prevTagSize);
+	  AMF_EncodeInt32(ptr, pend, prevTagSize);
 	  //ptr += 4;
 	}
 
@@ -469,7 +468,7 @@ void processTCPrequest(STREAMING_SERVER * server,	// server socket and state (ou
   )
 {
   char buf[512] = { 0 };	// answer buffer
-  char header[2048] = { 0 };	// request header 
+  char header[2048] = { 0 };	// request header
   char *filename = NULL;	// GET request: file name //512 not enuf
   char *buffer = NULL;		// stream buffer
   char *ptr = NULL;		// header pointer
@@ -602,7 +601,7 @@ void processTCPrequest(STREAMING_SERVER * server,	// server socket and state (ou
 		__FUNCTION__);
     }
 
-  // do necessary checks right here to make sure the combined request of default values and GET parameters is correct 
+  // do necessary checks right here to make sure the combined request of default values and GET parameters is correct
   if (req.hostname == 0)
     {
       Log(LOGERROR,
@@ -699,7 +698,7 @@ void processTCPrequest(STREAMING_SERVER * server,	// server socket and state (ou
 	    {
 	      Log(LOGERROR, "%s, sending failed, error: %d", __FUNCTION__,
 		  GetSockError());
-	      goto cleanup;	// we are in STREAMING_IN_PROGRESS, so we'll go to STREAMING_ACCEPTING    
+	      goto cleanup;	// we are in STREAMING_IN_PROGRESS, so we'll go to STREAMING_ACCEPTING
 	    }
 
 	  size += nRead;
@@ -724,7 +723,7 @@ void processTCPrequest(STREAMING_SERVER * server,	// server socket and state (ou
 		{
 		  Log(LOGERROR, "%s, sending failed, error: %d", __FUNCTION__,
 		      GetSockError());
-		  goto cleanup;	// we are in STREAMING_IN_PROGRESS, so we'll go to STREAMING_ACCEPTING    
+		  goto cleanup;	// we are in STREAMING_IN_PROGRESS, so we'll go to STREAMING_ACCEPTING
 		}
 
 	      size += nRead;
@@ -902,7 +901,7 @@ sigIntHandler(int sig)
 }
 
 // this will parse RTMP related options as needed
-// excludes the following options: h, d, g 
+// excludes the following options: h, d, g
 
 // Return values: true (option parsing ok)
 //                false (option not parsed/invalid)

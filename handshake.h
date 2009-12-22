@@ -414,10 +414,11 @@ HandShake(RTMP * r, bool FP9HandShake)
       if (r->Link.SWFHash.av_len)
 	{
 	  const char swfVerify[] = { 0x01, 0x01 };
+          char *vend = r->Link.SWFVerificationResponse+sizeof(r->Link.SWFVerificationResponse);
 
 	  memcpy(r->Link.SWFVerificationResponse, swfVerify, 2);
-	  AMF_EncodeInt32(&r->Link.SWFVerificationResponse[2], r->Link.SWFSize);
-	  AMF_EncodeInt32(&r->Link.SWFVerificationResponse[6], r->Link.SWFSize);
+	  AMF_EncodeInt32(&r->Link.SWFVerificationResponse[2], vend, r->Link.SWFSize);
+	  AMF_EncodeInt32(&r->Link.SWFVerificationResponse[6], vend, r->Link.SWFSize);
 	  HMACsha256(r->Link.SWFHash.av_val, SHA256_DIGEST_LENGTH,
 		     &serversig[RTMP_SIG_SIZE - SHA256_DIGEST_LENGTH],
 		     SHA256_DIGEST_LENGTH, &r->Link.SWFVerificationResponse[10]);
@@ -731,10 +732,11 @@ SHandShake(RTMP * r)
       if (r->Link.SWFHash.av_len)
 	{
 	  const char swfVerify[] = { 0x01, 0x01 };
+          char *vend = r->Link.SWFVerificationResponse+sizeof(r->Link.SWFVerificationResponse);
 
 	  memcpy(r->Link.SWFVerificationResponse, swfVerify, 2);
-	  AMF_EncodeInt32(&r->Link.SWFVerificationResponse[2], r->Link.SWFSize);
-	  AMF_EncodeInt32(&r->Link.SWFVerificationResponse[6], r->Link.SWFSize);
+	  AMF_EncodeInt32(&r->Link.SWFVerificationResponse[2], vend, r->Link.SWFSize);
+	  AMF_EncodeInt32(&r->Link.SWFVerificationResponse[6], vend, r->Link.SWFSize);
 	  HMACsha256(r->Link.SWFHash.av_val, SHA256_DIGEST_LENGTH,
 		     &serversig[RTMP_SIG_SIZE - SHA256_DIGEST_LENGTH],
 		     SHA256_DIGEST_LENGTH, &r->Link.SWFVerificationResponse[10]);

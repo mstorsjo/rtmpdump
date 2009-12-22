@@ -113,50 +113,64 @@ AMF_DecodeBoolean(const char *data)
   return *data != 0;
 }
 
-int
-AMF_EncodeInt16(char *output, short nVal)
+char *
+AMF_EncodeInt16(char *output, char *outend, short nVal)
 {
+  if (output+2 >= outend)
+    return NULL;
+
   output[1] = nVal & 0xff;
   output[0] = nVal >> 8;
-  return 2;
+  return output+2;
 }
 
-int
-AMF_EncodeInt24(char *output, int nVal)
+char *
+AMF_EncodeInt24(char *output, char *outend, int nVal)
 {
+  if (output+3 >= outend)
+    return NULL;
+
   output[2] = nVal & 0xff;
   output[1] = nVal >> 8;
   output[0] = nVal >> 16;
-  return 3;
+  return output+3;
 }
 
-int
-AMF_EncodeInt32(char *output, int nVal)
+char *
+AMF_EncodeInt32(char *output, char *outend, int nVal)
 {
+  if (output+4 >= outend)
+    return NULL;
+
   output[3] = nVal & 0xff;
   output[2] = nVal >> 8;
   output[1] = nVal >> 16;
   output[0] = nVal >> 24;
-  return 4;
+  return output+4;
 }
 
-int
-AMF_EncodeString(char *output, const AVal * bv)
+char *
+AMF_EncodeString(char *output, char *outend, const AVal * bv)
 {
-  char *buf = output;
-  *buf++ = AMF_STRING;
+  if (output + 1 + 2 + bv->av_len >= outend)
+    return NULL;
 
-  buf += AMF_EncodeInt16(buf, bv->av_len);
+  *output++ = AMF_STRING;
 
-  memcpy(buf, bv->av_val, bv->av_len);
-  buf += bv->av_len;
+  output = AMF_EncodeInt16(output, outend, bv->av_len);
 
-  return buf - output;
+  memcpy(output, bv->av_val, bv->av_len);
+  output += bv->av_len;
+
+  return output;
 }
 
-int
-AMF_EncodeNumber(char *output, double dVal)
+char *
+AMF_EncodeNumber(char *output, char *outend, double dVal)
 {
+  if (output+1+8 >= outend)
+    return NULL;
+
   *output++ = AMF_NUMBER;	// type: Number
 
 #if __FLOAT_WORD_ORDER == __BYTE_ORDER
@@ -209,19 +223,59 @@ AMF_EncodeNumber(char *output, double dVal)
 #endif
 #endif
 
-  return 9;
+  return output+8;
 }
 
-int
-AMF_EncodeBoolean(char *output, bool bVal)
+char *
+AMF_EncodeBoolean(char *output, char *outend, bool bVal)
 {
-  char *buf = output;
+  if (output+2 >= outend)
+    return NULL;
 
-  *buf++ = AMF_BOOLEAN;
+  *output++ = AMF_BOOLEAN;
 
-  *buf = bVal ? 0x01 : 0x00;
+  *output++ = bVal ? 0x01 : 0x00;
 
-  return 2;
+  return output;
+}
+
+char *
+AMF_EncodeNamedString(char *output, char *outend, const AVal * strName, const AVal * strValue)
+{
+  if (output+2+strName->av_len >= outend)
+    return NULL;
+  output = AMF_EncodeInt16(output, outend, strName->av_len);
+
+  memcpy(output, strName->av_val, strName->av_len);
+  output += strName->av_len;
+
+  return AMF_EncodeString(output, outend, strValue);
+}
+
+char *
+AMF_EncodeNamedNumber(char *output, char *outend, const AVal * strName, double dVal)
+{
+  if (output+2+strName->av_len >= outend)
+    return NULL;
+  output = AMF_EncodeInt16(output, outend, strName->av_len);
+
+  memcpy(output, strName->av_val, strName->av_len);
+  output += strName->av_len;
+
+  return AMF_EncodeNumber(output, outend, dVal);
+}
+
+char *
+AMF_EncodeNamedBoolean(char *output, char *outend, const AVal * strName, bool bVal)
+{
+  if (output+2+strName->av_len >= outend)
+    return NULL;
+  output = AMF_EncodeInt16(output, outend, strName->av_len);
+
+  memcpy(output, strName->av_val, strName->av_len);
+  output += strName->av_len;
+
+  return AMF_EncodeBoolean(output, outend, bVal);
 }
 
 void
@@ -272,16 +326,14 @@ AMFProp_IsValid(AMFObjectProperty * prop)
   return prop->p_type != AMF_INVALID;
 }
 
-int
-AMFProp_Encode(AMFObjectProperty * prop, char *pBuffer, int nSize)
+char *
+AMFProp_Encode(AMFObjectProperty * prop, char *pBuffer, char *pBufEnd)
 {
-  int nBytes = 0;
-
   if (prop->p_type == AMF_INVALID)
-    return -1;
+    return NULL;
 
-  if (prop->p_type != AMF_NULL && nSize < prop->p_name.av_len + 2 + 1)
-    return -1;
+  if (prop->p_type != AMF_NULL && pBuffer + prop->p_name.av_len + 2 + 1 >= pBufEnd)
+    return NULL;
 
   if (prop->p_type != AMF_NULL && prop->p_name.av_len)
     {
@@ -289,52 +341,38 @@ AMFProp_Encode(AMFObjectProperty * prop, char *pBuffer, int nSize)
       *pBuffer++ = prop->p_name.av_len & 0xff;
       memcpy(pBuffer, prop->p_name.av_val, prop->p_name.av_len);
       pBuffer += prop->p_name.av_len;
-      nBytes += prop->p_name.av_len + 2;
-      nSize -= nBytes;
     }
 
   switch (prop->p_type)
     {
     case AMF_NUMBER:
-      if (nSize < 9)
-	return -1;
-      nBytes += AMF_EncodeNumber(pBuffer, prop->p_vu.p_number);
+      pBuffer = AMF_EncodeNumber(pBuffer, pBufEnd, prop->p_vu.p_number);
       break;
 
     case AMF_BOOLEAN:
-      if (nSize < 2)
-	return -1;
-      nBytes += AMF_EncodeBoolean(pBuffer, prop->p_vu.p_number != 0);
+      pBuffer = AMF_EncodeBoolean(pBuffer, pBufEnd, prop->p_vu.p_number != 0);
       break;
 
     case AMF_STRING:
-      if (nSize < prop->p_vu.p_aval.av_len + (int) sizeof(short))
-	return -1;
-      nBytes += AMF_EncodeString(pBuffer, &prop->p_vu.p_aval);
+      pBuffer = AMF_EncodeString(pBuffer, pBufEnd, &prop->p_vu.p_aval);
       break;
 
     case AMF_NULL:
-      if (nSize < 1)
-	return -1;
-      *pBuffer = AMF_NULL;
-      nBytes += 1;
+      if (pBuffer+1 >= pBufEnd)
+        return NULL;
+      *pBuffer++ = AMF_NULL;
       break;
 
     case AMF_OBJECT:
-      {
-	int nRes = AMF_Encode(&prop->p_vu.p_object, pBuffer, nSize);
-	if (nRes == -1)
-	  return -1;
+      pBuffer = AMF_Encode(&prop->p_vu.p_object, pBuffer, pBufEnd);
+      break;
 
-	nBytes += nRes;
-	break;
-      }
     default:
       Log(LOGERROR, "%s, invalid type. %d", __FUNCTION__, prop->p_type);
-      return -1;
+      pBuffer = NULL;
     };
 
-  return nBytes;
+  return pBuffer;
 }
 
 #define AMF3_INTEGER_MAX	268435455
@@ -790,39 +828,37 @@ AMFProp_Reset(AMFObjectProperty * prop)
 
 /* AMFObject */
 
-int
-AMF_Encode(AMFObject * obj, char *pBuffer, int nSize)
+char *
+AMF_Encode(AMFObject * obj, char *pBuffer, char *pBufEnd)
 {
-  int nOriginalSize = nSize;
   int i;
 
-  if (nSize < 4)
-    return -1;
+  if (pBuffer+4 >= pBufEnd)
+    return NULL;
 
-  *pBuffer = AMF_OBJECT;
+  *pBuffer++ = AMF_OBJECT;
 
   for (i = 0; i < obj->o_num; i++)
     {
-      int nRes = AMFProp_Encode(&obj->o_props[i], pBuffer, nSize);
-      if (nRes == -1)
+      char *res = AMFProp_Encode(&obj->o_props[i], pBuffer, pBufEnd);
+      if (res == NULL)
 	{
 	  Log(LOGERROR, "AMF_Encode - failed to encode property in index %d",
 	      i);
+	  break;
 	}
       else
 	{
-	  nSize -= nRes;
-	  pBuffer += nRes;
+	  pBuffer = res;
 	}
     }
 
-  if (nSize < 3)
-    return -1;			// no room for the end marker
+  if (pBuffer + 3 >= pBufEnd)
+    return NULL;			// no room for the end marker
 
-  AMF_EncodeInt24(pBuffer, AMF_OBJECT_END);
-  nSize -= 3;
+  pBuffer = AMF_EncodeInt24(pBuffer, pBufEnd, AMF_OBJECT_END);
 
-  return nOriginalSize - nSize;
+  return pBuffer;
 }
 
 int
@@ -1077,10 +1113,12 @@ void
 AMF_Dump(AMFObject * obj)
 {
   int n;
+  Log(LOGDEBUG, "(object begin)");
   for (n = 0; n < obj->o_num; n++)
     {
       AMFProp_Dump(&obj->o_props[n]);
     }
+  Log(LOGDEBUG, "(object end)");
 }
 
 void

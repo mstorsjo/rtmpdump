@@ -26,6 +26,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <limits.h>
 
 #include <signal.h>
 #include <getopt.h>
@@ -35,6 +36,7 @@
 #include "rtmp.h"
 #include "parseurl.h"
 
+#include <linux/netfilter_ipv4.h>
 #include <pthread.h>
 
 #define RTMPDUMP_SERVER_VERSION	"v2.0"
@@ -253,6 +255,7 @@ ServeInvoke(STREAMING_SERVER *server, RTMP * r, const char *body, unsigned int n
         {
           pname = cobj.o_props[i].p_name;
           pval.av_val = NULL;
+          pval.av_len = 0;
           if (cobj.o_props[i].p_type == AMF_STRING)
             {
               pval = cobj.o_props[i].p_vu.p_aval;
@@ -537,9 +540,15 @@ serverThread(STREAMING_SERVER * server)
 
       if (sockfd > 0)
 	{
+          struct sockaddr_in dest;
+	  char destch[16];
+          socklen_t destlen = sizeof(struct sockaddr_in);
+	  getsockopt(sockfd, SOL_IP, SO_ORIGINAL_DST, &dest, &destlen);
+          strcpy(destch, inet_ntoa(dest.sin_addr));
 	  /* Create a new process and transfer the control to that */
-	  Log(LOGDEBUG, "%s: accepted connection from %s\n", __FUNCTION__,
-	      inet_ntoa(addr.sin_addr));
+	  Log(LOGDEBUG, "%s: accepted connection from %s to %s\n", __FUNCTION__,
+	      inet_ntoa(addr.sin_addr), destch);
+	  /* Create a new process and transfer the control to that */
 	  doServe(server, sockfd);
 	  Log(LOGDEBUG, "%s: processed request\n", __FUNCTION__);
 	}

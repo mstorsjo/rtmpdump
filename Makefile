@@ -43,9 +43,13 @@ streams: log.o rtmp.o amf.o streams.o parseurl.o
 rtmpdump: log.o rtmp.o amf.o rtmpdump.o parseurl.o
 	$(CC) $(LDFLAGS) $^ -o $@$(EXT) $(LIBS)
 
+rtmpsrv: log.o rtmp.o amf.o rtmpsrv.o
+	$(CC) $(LDFLAGS) $^ -o $@$(EXT) $(SLIBS)
+
 log.o: log.c log.h Makefile
 parseurl.o: parseurl.c parseurl.h log.h Makefile
 streams.o: streams.c rtmp.h log.h Makefile
 rtmp.o: rtmp.c rtmp.h handshake.h dh.h log.h amf.h Makefile
 amf.o: amf.c amf.h bytes.h log.h Makefile
 rtmpdump.o: rtmpdump.c rtmp.h log.h amf.h Makefile
+rtmpsrv.o: rtmpsrv.c rtmp.h log.h amf.h Makefile

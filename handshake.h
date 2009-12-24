@@ -819,7 +819,7 @@ SHandShake(RTMP * r)
 	     SHA256_DIGEST_LENGTH);
 
       /* verify client response */
-      HMACsha256(&clientsig[digestPosServer], SHA256_DIGEST_LENGTH,
+      HMACsha256(&serversig[digestPosServer], SHA256_DIGEST_LENGTH,
 		 GenuineFPKey, sizeof(GenuineFPKey), digest);
       HMACsha256(clientsig, RTMP_SIG_SIZE - SHA256_DIGEST_LENGTH, digest,
 		 SHA256_DIGEST_LENGTH, signature);

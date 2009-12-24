@@ -713,7 +713,7 @@ SHandShake(RTMP * r)
 	  Log(LOGWARNING, "Trying different position for client digest!\n");
 	  digestPosClient = GetDigestOffset2(clientsig, RTMP_SIG_SIZE);
 
-	  if (!VerifyDigest(digestPosServer, clientsig, GenuineFPKey, 30))
+	  if (!VerifyDigest(digestPosClient, clientsig, GenuineFPKey, 30))
 	    {
 	      Log(LOGERROR, "Couldn't verify the client digest\n");	/* continuing anyway will probably fail */
 	      return false;

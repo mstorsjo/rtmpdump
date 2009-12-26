@@ -110,6 +110,8 @@ static bool WriteN(RTMP * r, const char *buffer, int n);
 
 static bool FillBuffer(RTMP * r);
 
+static void DecodeTEA(AVal *key, AVal *text);
+
 uint32_t
 RTMP_GetTime()
 {
@@ -872,6 +874,8 @@ SAVC(audioCodecs);
 SAVC(videoCodecs);
 SAVC(videoFunction);
 SAVC(objectEncoding);
+SAVC(secureToken);
+SAVC(secureTokenResponse);
 
 static bool
 SendConnectPacket(RTMP * r)
@@ -1292,6 +1296,33 @@ SendPlay(RTMP * r)
   return RTMP_SendPacket(r, &packet, true);
 }
 
+static bool
+SendSecureTokenResponse(RTMP *r, AVal *resp)
+{
+  RTMPPacket packet;
+  char pbuf[1024], *pend = pbuf+sizeof(pbuf);
+
+  packet.m_nChannel = 0x03;	/* control channel (invoke) */
+  packet.m_headerType = RTMP_PACKET_SIZE_MEDIUM;
+  packet.m_packetType = 0x14;
+  packet.m_nInfoField2 = 0;
+  packet.m_nInfoField1 = 0;
+  packet.m_hasAbsTimestamp = 0;
+  packet.m_body = pbuf + RTMP_MAX_HEADER_SIZE;
+
+  char *enc = packet.m_body;
+  enc = AMF_EncodeString(enc, pend, &av_secureTokenResponse);
+  enc = AMF_EncodeNumber(enc, pend, 0.0);
+  *enc++ = AMF_NULL;
+  enc = AMF_EncodeString(enc, pend, resp);
+  if (!enc)
+    return false;
+
+  packet.m_nBodySize = enc - packet.m_body;
+
+  return RTMP_SendPacket(r, &packet, false);
+}
+
 /*
 from http://jira.red5.org/confluence/display/docs/Ping:
 
@@ -1445,12 +1476,21 @@ HandleInvoke(RTMP * r, const char *body, unsigned int nBodySize)
 
       if (AVMATCH(&methodInvoked, &av_connect))
 	{
+          if (r->Link.token.av_len)
+            {
+              AMFObjectProperty p;
+              if (RTMP_FindFirstMatchingProperty(&obj, &av_secureToken, &p))
+                {
+                  DecodeTEA(&r->Link.token, &p.p_vu.p_aval);
+                  SendSecureTokenResponse(r, &p.p_vu.p_aval);
+                }
+            }
 	  SendServerBW(r);
 	  SendCtrl(r, 3, 0, 300);
 
 	  SendCreateStream(r, 2.0);
 
-	  // Send the FCSubscribe if live stream or if subscribepath is set
+	  /* Send the FCSubscribe if live stream or if subscribepath is set */
 	  if (r->Link.subscribepath.av_len)
 	    SendFCSubscribe(r, &r->Link.subscribepath);
 	  else if (r->Link.bLiveStream)
@@ -1572,8 +1612,8 @@ RTMP_FindFirstMatchingProperty(AMFObject * obj, const AVal * name,
 
       if (prop->p_type == AMF_OBJECT)
 	{
-	  return RTMP_FindFirstMatchingProperty(&prop->p_vu.p_object, name,
-						p);
+	  if (RTMP_FindFirstMatchingProperty(&prop->p_vu.p_object, name, p))
+            return true;
 	}
     }
   return false;
@@ -2272,4 +2312,72 @@ again:
     }
 
   return true;
+}
+
+#define HEX2BIN(a)	(((a)&0x40)?((a)&0xf)+9:((a)&0xf))
+#define BIN2HEX(a)	(((a)>9)?((a)+96):((a)+48))
+
+static void
+DecodeTEA(AVal *key, AVal *text)
+{
+  uint32_t *v, k[4] = {0}, u;
+  uint32_t z, y, sum=0, e, DELTA=0x9e3779b9;
+  int32_t p, q;
+  int i, n;
+  unsigned char *ptr, *out;
+
+  /* prep key */
+  ptr = (unsigned char *)key->av_val;
+  u = 0; n = 0;
+  v = k;
+  p = key->av_len > 16 ? 16:key->av_len;
+  for (i=0; i<p; i++)
+    {
+      u |= ptr[i] << (n*8);
+      if (n==3)
+        {
+          *v++ = u;
+          u = 0;
+          n = 0;
+        }
+      else
+        {
+          n++;
+        }
+    }
+  *v = u;
+
+  /* prep text */
+  n = (text->av_len+7)/8;
+  out = malloc(n*8);
+  ptr = (unsigned char *)text->av_val;
+  v = (uint32_t *)out;
+  for (i=0; i<n; i++)
+    {
+      u = (HEX2BIN(ptr[0]) << 4) + HEX2BIN(ptr[1]);
+      u |= ((HEX2BIN(ptr[2]) << 4) + HEX2BIN(ptr[3])) << 8;
+      u |= ((HEX2BIN(ptr[4]) << 4) + HEX2BIN(ptr[5])) << 16;
+      u |= ((HEX2BIN(ptr[6]) << 4) + HEX2BIN(ptr[7])) << 24;
+      *v++ = u;
+      ptr += 8;
+    }
+  v = (uint32_t *)out;
+
+#define MX (((z>>5)^(y<<2)) + ((y>>3)^(z<<4))) ^ ((sum^y) + (k[(p&3)^e]^z));
+  z=v[n-1];
+  y=v[0];
+  q = 6+52/n ;
+  sum = q*DELTA ;
+  while (sum != 0)
+    {
+      e = sum>>2 & 3;
+      for (p=n-1; p>0; p--) z = v[p-1], y = v[p] -= MX;
+      z = v[n-1];
+      y = v[0] -= MX;
+      sum -= DELTA;
+    }
+  /* bin 2 hex */
+  text->av_len /= 2;
+  memcpy(text->av_val, out, text->av_len);
+  free(out);
 }

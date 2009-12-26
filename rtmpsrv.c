@@ -133,6 +133,7 @@ SAVC(mode);
 SAVC(level);
 SAVC(code);
 SAVC(description);
+SAVC(secureToken);
 
 static bool
 SendConnectResult(RTMP *r, double txn)
@@ -173,6 +174,10 @@ SendConnectResult(RTMP *r, double txn)
   STR2AVAL(av, "Connection succeeded.");
   enc = AMF_EncodeNamedString(enc, pend, &av_description, &av);
   enc = AMF_EncodeNamedNumber(enc, pend, &av_objectEncoding, r->m_fEncoding);
+#if 0
+  STR2AVAL(av, "58656322c972d6cdf2d776167575045f8484ea888e31c086f7b5ffbd0baec55ce442c2fb");
+  enc = AMF_EncodeNamedString(enc, pend, &av_secureToken, &av);
+#endif
   STR2AVAL(p.p_name, "version");
   STR2AVAL(p.p_vu.p_aval, "3,5,1,525");
   p.p_type = AMF_STRING;

@@ -1096,6 +1096,7 @@ main(int argc, char **argv)
   AVal swfHash = { 0, 0 };
   uint32_t swfSize = 0;
   AVal flashVer = { 0, 0 };
+  AVal token = { 0, 0 };
   char *sockshost = 0;
 
   char *flvFile = 0;
@@ -1161,6 +1162,7 @@ main(int argc, char **argv)
     {"subscribe", 1, NULL, 'd'},
     {"start", 1, NULL, 'A'},
     {"stop", 1, NULL, 'B'},
+    {"token", 1, NULL, 'T'},
     {"hashes", 0, NULL, '#'},
     {"debug", 0, NULL, 'z'},
     {"quiet", 0, NULL, 'q'},
@@ -1170,7 +1172,7 @@ main(int argc, char **argv)
 
   while ((opt =
 	  getopt_long(argc, argv,
-		      "hVveqzr:s:t:p:a:b:f:o:u:n:c:l:y:m:k:d:A:B:w:x:S:#",
+		      "hVveqzr:s:t:p:a:b:f:o:u:n:c:l:y:m:k:d:A:B:T:w:x:S:#",
 		      longopts, NULL)) != -1)
     {
       switch (opt)
@@ -1222,6 +1224,8 @@ main(int argc, char **argv)
 	    ("--start|-A num          Start at num seconds into stream (not valid when using --live)\n");
 	  LogPrintf
 	    ("--stop|-B num           Stop at num seconds into stream\n");
+	  LogPrintf
+	    ("--token|-T key          Key for SecureToken response\n");
 	  LogPrintf
 	    ("--hashes|-#             Display progress with hashes, not with the byte counter\n");
 	  LogPrintf
@@ -1391,6 +1395,9 @@ main(int argc, char **argv)
 	case 'B':
 	  dStopOffset = (int) (atof(optarg) * 1000.0);
 	  break;
+	case 'T':
+	  STR2AVAL(token, optarg);
+	  break;
 	case '#':
 	  bHashes = true;
 	  break;
@@ -1519,6 +1526,7 @@ main(int argc, char **argv)
 		   &tcUrl, &swfUrl, &pageUrl, &app, &auth, &swfHash, swfSize,
 		   &flashVer, &subscribepath, dSeek, 0, bLiveStream, timeout);
 
+  rtmp.Link.token = token;
   off_t size = 0;
 
   // ok, we have to get the timestamp of the last keyframe (only keyframes are seekable) / last audio frame (audio only streams)

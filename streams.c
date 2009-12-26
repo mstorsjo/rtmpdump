@@ -100,6 +100,7 @@ typedef struct
   AVal auth;
   AVal swfHash;
   AVal flashVer;
+  AVal token;
   AVal subscribepath;
   uint32_t swfSize;
 
@@ -674,6 +675,7 @@ void processTCPrequest(STREAMING_SERVER * server,	// server socket and state (ou
   RTMP_SetupStream(&rtmp, req.protocol, req.hostname, req.rtmpport, NULL,	// sockshost
 		   &req.playpath, &req.tcUrl, &req.swfUrl, &req.pageUrl, &req.app, &req.auth, &req.swfHash, req.swfSize, &req.flashVer, &req.subscribepath, dSeek, -1,	// length
 		   req.bLiveStream, req.timeout);
+  rtmp.Link.token = req.token;
 
   LogPrintf("Connecting ... port: %d, app: %s\n", req.rtmpport, req.app);
   if (!RTMP_Connect(&rtmp))
@@ -1044,6 +1046,9 @@ ParseOption(char opt, char *arg, RTMP_REQUEST * req)
       req->dStopOffset = atoi(arg) * 1000;
       //printf("dStartOffset = %d\n", dStartOffset);
       break;
+    case 'T':
+      STR2AVAL(req->token, arg);
+      break;
     case 'q':
       debuglevel = LOGCRIT;
       break;
@@ -1112,6 +1117,7 @@ main(int argc, char **argv)
     {"subscribe", 1, NULL, 'd'},
     {"start", 1, NULL, 'A'},
     {"stop", 1, NULL, 'B'},
+    {"token", 1, NULL, 'T'},
     {"debug", 0, NULL, 'z'},
     {"quiet", 0, NULL, 'q'},
     {"verbose", 0, NULL, 'V'},
@@ -1123,7 +1129,7 @@ main(int argc, char **argv)
 
   while ((opt =
 	  getopt_long(argc, argv,
-		      "hvqVzr:s:t:p:a:f:u:n:c:l:y:m:d:D:A:B:g:w:x:", longopts,
+		      "hvqVzr:s:t:p:a:f:u:n:c:l:y:m:d:D:A:B:T:g:w:x:", longopts,
 		      NULL)) != -1)
     {
       switch (opt)
@@ -1167,6 +1173,8 @@ main(int argc, char **argv)
 	    ("--start|-A num          Start at num seconds into stream (not valid when using --live)\n");
 	  LogPrintf
 	    ("--stop|-B num           Stop at num seconds into stream\n");
+	  LogPrintf
+	    ("--token|-T key          Key for SecureToken response\n");
 	  LogPrintf
 	    ("--buffer|-b             Buffer time in milliseconds (default: %lu)\n\n",
 	     defaultRTMPRequest.bufferTime);

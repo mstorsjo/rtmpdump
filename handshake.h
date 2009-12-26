@@ -302,7 +302,7 @@ HandShake(RTMP * r, bool FP9HandShake)
 
   /* generate random data */
 #ifdef _DEBUG
-  memset(clientsig+8, 0, RTMP_SIG_SIZE=8);
+  memset(clientsig+8, 0, RTMP_SIG_SIZE-8);
 #else
   ip = (int32_t *)(clientsig+8);
   for (i = 2; i < RTMP_SIG_SIZE/4; i++)

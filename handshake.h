@@ -257,15 +257,18 @@ HandShake(RTMP * r, bool FP9HandShake)
   int i;
   int dhposClient = 0;
   int digestPosClient = 0;
-  RC4_KEY *keyIn = 0;
-  RC4_KEY *keyOut = 0;
   bool encrypted = r->Link.protocol == RTMP_PROTOCOL_RTMPE
     || r->Link.protocol == RTMP_PROTOCOL_RTMPTE;
 
-  char clientbuf[RTMP_SIG_SIZE + 1], *clientsig=clientbuf+1;
+  RC4_KEY *keyIn = 0;
+  RC4_KEY *keyOut = 0;
+
+  int32_t *ip;
+  uint32_t uptime;
+
+  char clientbuf[RTMP_SIG_SIZE + 4], *clientsig=clientbuf+4;
   char serversig[RTMP_SIG_SIZE];
   char type;
-  uint32_t uptime;
 
   if (encrypted || r->Link.SWFHash.av_len)
     FP9HandShake = true;
@@ -275,9 +278,9 @@ HandShake(RTMP * r, bool FP9HandShake)
   r->Link.rc4keyIn = r->Link.rc4keyOut = 0;
 
   if (encrypted)
-    clientbuf[0] = 0x06;	/* 0x08 is RTMPE as well */
+    clientsig[-1] = 0x06;	/* 0x08 is RTMPE as well */
   else
-    clientbuf[0] = 0x03;
+    clientsig[-1] = 0x03;
 
   uptime = htonl(RTMP_GetTime());
   memcpy(clientsig, &uptime, 4);
@@ -290,7 +293,7 @@ HandShake(RTMP * r, bool FP9HandShake)
       clientsig[6] = 124;
       clientsig[7] = 2;
 
-      Log(LOGDEBUG, "%s: Client type: %02X\n", __FUNCTION__, clientbuf[0]);
+      Log(LOGDEBUG, "%s: Client type: %02X\n", __FUNCTION__, clientsig[-1]);
     }
   else
     {
@@ -299,11 +302,11 @@ HandShake(RTMP * r, bool FP9HandShake)
 
   /* generate random data */
 #ifdef _DEBUG
-  for (i = 8; i < RTMP_SIG_SIZE; i++)
-    clientsig[i] = 0;
+  memset(clientsig+8, 0, RTMP_SIG_SIZE=8);
 #else
-  for (i = 8; i < RTMP_SIG_SIZE; i++)
-    clientsig[i] = (char) (rand() % 256);
+  ip = (int32_t *)(clientsig+8);
+  for (i = 2; i < RTMP_SIG_SIZE/4; i++)
+    *ip++ = rand();
 #endif
 
   /* set handshake digest */
@@ -355,7 +358,7 @@ HandShake(RTMP * r, bool FP9HandShake)
   LogHex(LOGDEBUG, clientsig, RTMP_SIG_SIZE);
 #endif
 
-  if (!WriteN(r, clientbuf, RTMP_SIG_SIZE + 1))
+  if (!WriteN(r, clientsig-1, RTMP_SIG_SIZE + 1))
     return false;
 
   if (ReadN(r, &type, 1) != 1)	/* 0x03 or 0x06 */
@@ -363,9 +366,9 @@ HandShake(RTMP * r, bool FP9HandShake)
 
   Log(LOGDEBUG, "%s: Type Answer   : %02X", __FUNCTION__, type);
 
-  if (type != clientbuf[0])
+  if (type != clientsig[-1])
     Log(LOGWARNING, "%s: Type mismatch: client sent %d, server answered %d",
-	__FUNCTION__, clientbuf[0], type);
+	__FUNCTION__, clientsig[-1], type);
 
   if (ReadN(r, serversig, RTMP_SIG_SIZE) != RTMP_SIG_SIZE)
     return false;
@@ -577,9 +580,10 @@ SHandShake(RTMP * r)
   RC4_KEY *keyOut = 0;
   bool FP9HandShake = false;
   bool encrypted;
+  int32_t *ip;
 
   char clientsig[RTMP_SIG_SIZE];
-  char serverbuf[RTMP_SIG_SIZE + 1], *serversig = serverbuf+1;
+  char serverbuf[RTMP_SIG_SIZE + 4], *serversig = serverbuf+4;
   char type;
   uint32_t uptime;
 
@@ -606,7 +610,7 @@ SHandShake(RTMP * r)
       return false;
     }
 
-  serverbuf[0] = type;
+  serversig[-1] = type;
 
   r->Link.rc4keyIn = r->Link.rc4keyOut = 0;
 
@@ -628,11 +632,11 @@ SHandShake(RTMP * r)
 
   /* generate random data */
 #ifdef _DEBUG
-  for (i = 8; i < RTMP_SIG_SIZE; i++)
-    serversig[i] = 0;
+  memset(serversig+8, 0, RTMP_SIG_SIZE-8);
 #else
-  for (i = 8; i < RTMP_SIG_SIZE; i++)
-    serversig[i] = (char) (rand() % 256);
+  ip = (int32_t *)(serversig+8);
+  for (i = 2; i < RTMP_SIG_SIZE/4; i++)
+    *ip++ = rand();
 #endif
 
   /* set handshake digest */
@@ -684,7 +688,7 @@ SHandShake(RTMP * r)
   LogHex(LOGDEBUG, serversig, RTMP_SIG_SIZE);
 #endif
 
-  if (!WriteN(r, serverbuf, RTMP_SIG_SIZE + 1))
+  if (!WriteN(r, serversig-1, RTMP_SIG_SIZE + 1))
     return false;
 
   if (ReadN(r, clientsig, RTMP_SIG_SIZE) != RTMP_SIG_SIZE)

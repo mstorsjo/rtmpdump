@@ -43,7 +43,7 @@ void dh_pg_init()
 {
 	if(dh_shared_p || dh_shared_g)
 		return;
-	
+
 	dh_shared_p = BN_new();
 	dh_shared_g = BN_new();
 	assert(dh_shared_p && dh_shared_g);
@@ -88,7 +88,7 @@ isValidPublicKey(BIGNUM * y, BIGNUM * p, BIGNUM * q)
   // Verify with Sophie-Germain prime
   //
   // This is a nice test to make sure the public key position is calculated
-  // correctly. This test will fail in about 50% of the cases if applied to 
+  // correctly. This test will fail in about 50% of the cases if applied to
   // random data.
   //
   if (q)
@@ -192,6 +192,7 @@ DHGetPublicKey(DH * dh, uint8_t * pubkey, size_t nPubkeyLen)
   return 1;
 }
 
+#if 0	/* unused */
 static int
 DHGetPrivateKey(DH * dh, uint8_t * privkey, size_t nPrivkeyLen)
 {
@@ -206,6 +207,7 @@ DHGetPrivateKey(DH * dh, uint8_t * privkey, size_t nPrivkeyLen)
   BN_bn2bin(dh->priv_key, privkey + (nPrivkeyLen - len));
   return 1;
 }
+#endif
 
 // computes the shared secret key from the private DH value and the othe parties public key (pubkey)
 static int

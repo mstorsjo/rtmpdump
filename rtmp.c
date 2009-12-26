@@ -2315,7 +2315,6 @@ again:
 }
 
 #define HEX2BIN(a)	(((a)&0x40)?((a)&0xf)+9:((a)&0xf))
-#define BIN2HEX(a)	(((a)>9)?((a)+96):((a)+48))
 
 static void
 DecodeTEA(AVal *key, AVal *text)
@@ -2326,7 +2325,7 @@ DecodeTEA(AVal *key, AVal *text)
   int i, n;
   unsigned char *ptr, *out;
 
-  /* prep key */
+  /* prep key: pack 1st 16 chars into 4 LittleEndian ints */
   ptr = (unsigned char *)key->av_val;
   u = 0; n = 0;
   v = k;
@@ -2345,9 +2344,11 @@ DecodeTEA(AVal *key, AVal *text)
           n++;
         }
     }
-  *v = u;
+  /* any trailing chars */
+  if (u)
+    *v = u;
 
-  /* prep text */
+  /* prep text: hex2bin, multiples of 4 */
   n = (text->av_len+7)/8;
   out = malloc(n*8);
   ptr = (unsigned char *)text->av_val;
@@ -2363,6 +2364,7 @@ DecodeTEA(AVal *key, AVal *text)
     }
   v = (uint32_t *)out;
 
+  /* http://www.movable-type.co.uk/scripts/tea-block.html */
 #define MX (((z>>5)^(y<<2)) + ((y>>3)^(z<<4))) ^ ((sum^y) + (k[(p&3)^e]^z));
   z=v[n-1];
   y=v[0];
@@ -2376,7 +2378,7 @@ DecodeTEA(AVal *key, AVal *text)
       y = v[0] -= MX;
       sum -= DELTA;
     }
-  /* bin 2 hex */
+
   text->av_len /= 2;
   memcpy(text->av_val, out, text->av_len);
   free(out);

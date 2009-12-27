@@ -1,6 +1,9 @@
 #ifndef __AMF_H__
 #define __AMF_H__
 /*
+ *      Copyright (C) 2005-2008 Team XBMC
+ *      http://www.xbmc.org
+ *      Copyright (C) 2008-2009 Andrej Stepanchuk
  *	Copyright (C) 2009 Howard Chu
  *
  *  This Program is free software; you can redistribute it and/or modify

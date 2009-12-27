@@ -482,6 +482,8 @@ RTMP_ConnectStream(RTMP * r, double seekTime, uint32_t dLength)
     {
       if (RTMPPacket_IsReady(&packet))
 	{
+	  if (!packet.m_nBodySize)
+	    continue;
 	  if ((packet.m_packetType == RTMP_PACKET_TYPE_AUDIO) ||
 	      (packet.m_packetType == RTMP_PACKET_TYPE_VIDEO) ||
 	      (packet.m_packetType == RTMP_PACKET_TYPE_INFO))

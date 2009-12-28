@@ -37,6 +37,17 @@
 #include <pthread.h>
 #endif
 
+#ifdef CRYPTO
+#include <curl/curl.h>
+#define HASHLEN	32
+extern int SWFVerify(const char *url, unsigned int *size, unsigned char *hash);
+#define	InitCurl()	curl_global_init(CURL_GLOBAL_ALL)
+#define FreeCurl()	curl_global_cleanup()
+#else
+#define	InitCurl()
+#define FreeCurl()
+#endif
+
 #define RTMPDUMP_STREAMS_VERSION	"v2.0"
 
 #define RD_SUCCESS		0
@@ -915,13 +926,13 @@ ParseOption(char opt, char *arg, RTMP_REQUEST * req)
     case 'w':
       {
 	int res = hex2bin(arg, &req->swfHash.av_val);
-	if (!res || res != 32)
+	if (!res || res != HASHLEN)
 	  {
 	    req->swfHash.av_val = NULL;
 	    Log(LOGWARNING,
-		"Couldn't parse swf hash hex string, not heyxstring or not 32 bytes, ignoring!");
+		"Couldn't parse swf hash hex string, not hexstring or not %d bytes, ignoring!", HASHLEN);
 	  }
-	req->swfHash.av_len = 32;
+	req->swfHash.av_len = HASHLEN;
 	break;
       }
     case 'x':
@@ -937,6 +948,17 @@ ParseOption(char opt, char *arg, RTMP_REQUEST * req)
 	  }
 	break;
       }
+    case 'W':
+      {
+        unsigned char hash[HASHLEN];
+        if (SWFVerify(arg, &req->swfSize, hash) == 0)
+          {
+            req->swfHash.av_val = malloc(HASHLEN);
+            req->swfHash.av_len = HASHLEN;
+            memcpy(req->swfHash.av_val, hash, HASHLEN);
+          }
+      }
+      break;
     case 'b':
       {
 	int32_t bt = atol(arg);
@@ -1102,8 +1124,11 @@ main(int argc, char **argv)
     {"tcUrl", 1, NULL, 't'},
     {"pageUrl", 1, NULL, 'p'},
     {"app", 1, NULL, 'a'},
+#ifdef CRYPTO
     {"swfhash", 1, NULL, 'w'},
     {"swfsize", 1, NULL, 'x'},
+    {"swfVfy", 1, NULL, 'W'},
+#endif
     {"auth", 1, NULL, 'u'},
     {"flashVer", 1, NULL, 'f'},
     {"live", 0, NULL, 'v'},
@@ -1127,9 +1152,13 @@ main(int argc, char **argv)
   signal(SIGINT, sigIntHandler);
   signal(SIGPIPE, SIG_IGN);
 
+  InitSockets();
+
+  InitCurl();
+
   while ((opt =
 	  getopt_long(argc, argv,
-		      "hvqVzr:s:t:p:a:f:u:n:c:l:y:m:d:D:A:B:T:g:w:x:", longopts,
+		      "hvqVzr:s:t:p:a:f:u:n:c:l:y:m:d:D:A:B:T:g:w:x:W:", longopts,
 		      NULL)) != -1)
     {
       switch (opt)
@@ -1153,10 +1182,14 @@ main(int argc, char **argv)
 	    ("--tcUrl|-t url          URL to played stream (default: \"rtmp://host[:port]/app\")\n");
 	  LogPrintf("--pageUrl|-p url        Web URL of played programme\n");
 	  LogPrintf("--app|-a app            Name of player used\n");
+#ifdef CRYPTO
 	  LogPrintf
 	    ("--swfhash|-w hexstring  SHA256 hash of the decompressed SWF file (32 bytes)\n");
 	  LogPrintf
 	    ("--swfsize|-x num        Size of the decompressed SWF file, required for SWFVerification\n");
+	  LogPrintf
+	    ("--swfVfy|-W url         URL to player swf file, compute hash/size automatically\n");
+#endif
 	  LogPrintf
 	    ("--auth|-u string        Authentication string to be appended to the connect string\n");
 	  LogPrintf
@@ -1234,8 +1267,6 @@ main(int argc, char **argv)
   netstackdump_read = fopen("netstackdump_read", "wb");
 #endif
 
-  InitSockets();
-
   // start text UI
   ThreadCreate(controlServerThread, 0);
 
@@ -1254,6 +1285,8 @@ main(int argc, char **argv)
       sleep(1);
     }
   Log(LOGDEBUG, "Done, exiting...");
+
+  FreeCurl();
 
   CleanupSockets();
 

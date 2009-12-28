@@ -45,6 +45,17 @@
 #include "log.h"
 #include "parseurl.h"
 
+#ifdef CRYPTO
+#include <curl/curl.h>
+#define HASHLEN	32
+extern int SWFVerify(const char *url, unsigned int *size, unsigned char *hash);
+#define	InitCurl()	curl_global_init(CURL_GLOBAL_ALL)
+#define FreeCurl()	curl_global_cleanup()
+#else
+#define	InitCurl()
+#define FreeCurl()
+#endif
+
 #define RTMPDUMP_VERSION	"v2.0"
 
 #define RD_SUCCESS		0
@@ -1099,6 +1110,10 @@ main(int argc, char **argv)
   AVal token = { 0, 0 };
   char *sockshost = 0;
 
+#ifdef CRYPTO
+  unsigned char hash[HASHLEN];
+#endif
+
   char *flvFile = 0;
 
 #undef OSS
@@ -1118,8 +1133,6 @@ main(int argc, char **argv)
   signal(SIGQUIT, sigIntHandler);
 #endif
 
-  /* sleep(30); */
-
   // Check for --quiet option before printing any output
   int index = 0;
   while (index < argc)
@@ -1133,6 +1146,17 @@ main(int argc, char **argv)
   LogPrintf("RTMPDump %s\n", RTMPDUMP_VERSION);
   LogPrintf
     ("(c) 2009 Andrej Stepanchuk, Howard Chu, The Flvstreamer Team; license: GPL\n");
+
+  if (!InitSockets())
+    {
+      Log(LOGERROR,
+	  "Couldn't load sockets support on your platform, exiting!");
+      return RD_FAILED;
+    }
+
+  InitCurl();
+
+  /* sleep(30); */
 
   int opt;
   struct option longopts[] = {
@@ -1151,6 +1175,7 @@ main(int argc, char **argv)
 #ifdef CRYPTO
     {"swfhash", 1, NULL, 'w'},
     {"swfsize", 1, NULL, 'x'},
+    {"swfVfy", 1, NULL, 'W'},
 #endif
     {"flashVer", 1, NULL, 'f'},
     {"live", 0, NULL, 'v'},
@@ -1172,7 +1197,7 @@ main(int argc, char **argv)
 
   while ((opt =
 	  getopt_long(argc, argv,
-		      "hVveqzr:s:t:p:a:b:f:o:u:n:c:l:y:m:k:d:A:B:T:w:x:S:#",
+		      "hVveqzr:s:t:p:a:b:f:o:u:n:c:l:y:m:k:d:A:B:T:w:x:W:S:#",
 		      longopts, NULL)) != -1)
     {
       switch (opt)
@@ -1203,6 +1228,8 @@ main(int argc, char **argv)
 	    ("--swfhash|-w hexstring  SHA256 hash of the decompressed SWF file (32 bytes)\n");
 	  LogPrintf
 	    ("--swfsize|-x num        Size of the decompressed SWF file, required for SWFVerification\n");
+	  LogPrintf
+	    ("--swfVfy|-W url         URL to player swf file, compute hash/size automatically\n");
 #endif
 	  LogPrintf
 	    ("--auth|-u string        Authentication string to be appended to the connect string\n");
@@ -1246,13 +1273,13 @@ main(int argc, char **argv)
 	case 'w':
 	  {
 	    int res = hex2bin(optarg, &swfHash.av_val);
-	    if (res != 32)
+	    if (res != HASHLEN)
 	      {
 		swfHash.av_val = NULL;
 		Log(LOGWARNING,
-		    "Couldn't parse swf hash hex string, not heyxstring or not 32 bytes, ignoring!");
+		    "Couldn't parse swf hash hex string, not heyxstring or not %d bytes, ignoring!", HASHLEN);
 	      }
-	    swfHash.av_len = 32;
+	    swfHash.av_len = HASHLEN;
 	    break;
 	  }
 	case 'x':
@@ -1268,6 +1295,13 @@ main(int argc, char **argv)
 	      }
 	    break;
 	  }
+        case 'W':
+          if (SWFVerify(optarg, &swfSize, hash) == 0)
+            {
+              swfHash.av_val = (char *)hash;
+              swfHash.av_len = HASHLEN;
+            }
+          break;
 #endif
 	case 'k':
 	  nSkipKeyFrames = atoi(optarg);
@@ -1488,12 +1522,6 @@ main(int argc, char **argv)
       STR2AVAL(flashVer, DEFAULT_FLASH_VER);
     }
 
-  if (!InitSockets())
-    {
-      Log(LOGERROR,
-	  "Couldn't load sockets support on your platform, exiting!");
-      return RD_FAILED;
-    }
 
   if (tcUrl.av_len == 0 && app.av_len != 0)
     {
@@ -1688,6 +1716,8 @@ clean:
 
   if (file != 0)
     fclose(file);
+
+  FreeCurl();
 
   CleanupSockets();
 

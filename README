@@ -55,3 +55,40 @@ OpenSSL cross-compiling can be a difficult beast.
 Credit goes to team boxee for the XBMC RTMP code originally used in RTMPDumper.
 The current code is based on the XBMC code but rewritten in C by Howard Chu.
 
+RTMP Server
+-----------
+You can also use "make rtmpsrv" to build a stub server. Note that this is
+very incomplete code, and I haven't yet decided whether or not to finish
+it. In its current form it is useful for obtaining all the parameters
+that a real Flash client would send to an RTMP server, so that they can be
+used with rtmpdump.
+
+All you need to do is redirect your Flash clients to the machine running this
+server and it will dump out all the connect / play parameters that the Flash
+client sent. The simplest way to cause the redirect is by editing /etc/hosts
+when you know the hostname of the RTMP server, and point it to localhost while
+running rtmpsrv on your machine. (This approach should work on any OS; on
+Windows you would edit %SystemRoot%\system32\drivers\etc\hosts.)
+
+On Linux you can also use iptables to redirect all outbound RTMP traffic.
+You can do this as root:
+
+iptables -t nat -A OUTPUT -p tcp --dport 1935 -j REDIRECT
+
+In my original plan I would have the transparent proxy running as a special
+user (e.g. user "proxy"), and regular Flash clients running as any other user.
+In that case the proxy would make the connection to the real RTMP server. The
+iptables rule would look like this:
+
+iptables -t nat -A OUTPUT -p tcp --dport 1935 -m owner \! --uid-owner proxy \
+ -j REDIRECT
+
+(But the proxying part of the code has not been written, and I'm not sure
+it's even needed at this point.)
+
+Using it in this mode takes advantage of the Linux support for IP redirects;
+in particular it uses a special getsockopt() call to retrieve the original
+destination address of the connection. That way the proxy can create the
+real outbound connection without any other help from the user. I'm not aware
+of equivalent functionality on BSD, Windows, or any other platform; if you
+know how to handle this I'd be interested in hearing about it.

@@ -951,6 +951,8 @@ ParseOption(char opt, char *arg, RTMP_REQUEST * req)
     case 'W':
       {
         unsigned char hash[HASHLEN];
+
+        STR2AVAL(req->swfUrl, arg);
         if (SWFVerify(arg, &req->swfSize, hash) == 0)
           {
             req->swfHash.av_val = malloc(HASHLEN);

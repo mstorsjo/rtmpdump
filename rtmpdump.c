@@ -1296,6 +1296,7 @@ main(int argc, char **argv)
 	    break;
 	  }
         case 'W':
+	  STR2AVAL(swfUrl, optarg);
           if (SWFVerify(optarg, &swfSize, hash) == 0)
             {
               swfHash.av_val = (char *)hash;

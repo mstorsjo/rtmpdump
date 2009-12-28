@@ -37,6 +37,10 @@ and use the --swfhash "01234..." option to pass it.
 
 e.g. $ ./rtmpdump --swfhash "123456..." --swfsize 987...
 
+Note: all of this is now done automatically if you provide the SWF URL using
+the -W (--swfVfy) option instead of the -s (--swfUrl) option. Also, the hash info
+is cached in ~/.swfinfo so it doesn't need to be recalculated all the time.
+
 Building OpenSSL 0.9.8k
 -----------------------
 arm:

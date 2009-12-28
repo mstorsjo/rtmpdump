@@ -36,8 +36,14 @@
 #include "rtmp.h"
 #include "parseurl.h"
 
+#ifdef WIN32
+#include <process.h>
+#else
+#ifdef linux
 #include <linux/netfilter_ipv4.h>
+#endif
 #include <pthread.h>
+#endif
 
 #define RTMPDUMP_SERVER_VERSION	"v2.0"
 
@@ -46,6 +52,20 @@
 #define RD_INCOMPLETE		2
 
 #define PACKET_SIZE 1024*1024
+
+#ifdef WIN32
+#define InitSockets()	{\
+        WORD version;			\
+        WSADATA wsaData;		\
+					\
+        version = MAKEWORD(1,1);	\
+        WSAStartup(version, &wsaData);	}
+
+#define	CleanupSockets()	WSACleanup()
+#else
+#define InitSockets()
+#define	CleanupSockets()
+#endif
 
 enum
 {
@@ -428,6 +448,19 @@ ServePacket(STREAMING_SERVER *server, RTMP *r, RTMPPacket *packet)
   return ret;
 }
 
+#ifdef WIN32
+HANDLE
+ThreadCreate(void *(*routine) (void *), void *args)
+{
+  HANDLE thd;
+
+  thd = (HANDLE) _beginthread(routine, 0, args);
+  if (thd == -1L)
+    LogPrintf("%s, _beginthread failed with %d\n", __FUNCTION__, errno);
+
+  return thd;
+}
+#else
 pthread_t
 ThreadCreate(void *(*routine) (void *), void *args)
 {
@@ -446,6 +479,7 @@ ThreadCreate(void *(*routine) (void *), void *args)
 
   return id;
 }
+#endif
 
 void *
 controlServerThread(void *unused)
@@ -545,15 +579,19 @@ serverThread(STREAMING_SERVER * server)
 
       if (sockfd > 0)
 	{
+#ifdef linux
           struct sockaddr_in dest;
 	  char destch[16];
           socklen_t destlen = sizeof(struct sockaddr_in);
 	  getsockopt(sockfd, SOL_IP, SO_ORIGINAL_DST, &dest, &destlen);
           strcpy(destch, inet_ntoa(dest.sin_addr));
-	  /* Create a new process and transfer the control to that */
 	  Log(LOGDEBUG, "%s: accepted connection from %s to %s\n", __FUNCTION__,
 	      inet_ntoa(addr.sin_addr), destch);
-	  /* Create a new process and transfer the control to that */
+#else
+	  Log(LOGDEBUG, "%s: accepted connection from %s\n", __FUNCTION__,
+	      inet_ntoa(addr.sin_addr));
+#endif
+	  /* Create a new thread and transfer the control to that */
 	  doServe(server, sockfd);
 	  Log(LOGDEBUG, "%s: processed request\n", __FUNCTION__);
 	}
@@ -677,6 +715,8 @@ main(int argc, char **argv)
   netstackdump_read = fopen("netstackdump_read", "wb");
 #endif
 
+  InitSockets();
+
   // start text UI
   ThreadCreate(controlServerThread, 0);
 
@@ -695,6 +735,8 @@ main(int argc, char **argv)
       sleep(1);
     }
   Log(LOGDEBUG, "Done, exiting...");
+
+  CleanupSockets();
 
 #ifdef _DEBUG
   if (netstackdump != 0)

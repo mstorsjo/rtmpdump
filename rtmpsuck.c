@@ -1001,7 +1001,8 @@ main(int argc, char **argv)
   LogPrintf("RTMP Proxy Server %s\n", RTMPDUMP_PROXY_VERSION);
   LogPrintf("(c) 2009 Andrej Stepanchuk, Howard Chu; license: GPL\n\n");
 
-  debuglevel = LOGALL;
+  if (argc > 1 && !strcmp(argv[1], "-z"))
+    debuglevel = LOGALL;
 
   // init request
   memset(&defaultRTMPRequest, 0, sizeof(RTMP_REQUEST));

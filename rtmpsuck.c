@@ -46,14 +46,8 @@
 #endif
 
 #ifdef CRYPTO
-#include <curl/curl.h>
 #define HASHLEN	32
 extern int SWFVerify(const char *url, unsigned int *size, unsigned char *hash);
-#define	InitCurl()	curl_global_init(CURL_GLOBAL_ALL)
-#define FreeCurl()	curl_global_cleanup()
-#else
-#define	InitCurl()
-#define FreeCurl()
 #endif
 
 #define RTMPDUMP_PROXY_VERSION	"v2.0"
@@ -1016,8 +1010,6 @@ main(int argc, char **argv)
 
   InitSockets();
 
-  InitCurl();
-
   // start text UI
   ThreadCreate(controlServerThread, 0);
 
@@ -1036,8 +1028,6 @@ main(int argc, char **argv)
       sleep(1);
     }
   Log(LOGDEBUG, "Done, exiting...");
-
-  FreeCurl();
 
   CleanupSockets();
 

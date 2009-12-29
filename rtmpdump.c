@@ -46,14 +46,8 @@
 #include "parseurl.h"
 
 #ifdef CRYPTO
-#include <curl/curl.h>
 #define HASHLEN	32
 extern int SWFVerify(const char *url, unsigned int *size, unsigned char *hash);
-#define	InitCurl()	curl_global_init(CURL_GLOBAL_ALL)
-#define FreeCurl()	curl_global_cleanup()
-#else
-#define	InitCurl()
-#define FreeCurl()
 #endif
 
 #define RTMPDUMP_VERSION	"v2.0"
@@ -1154,8 +1148,6 @@ main(int argc, char **argv)
       return RD_FAILED;
     }
 
-  InitCurl();
-
   /* sleep(30); */
 
   int opt;
@@ -1717,8 +1709,6 @@ clean:
 
   if (file != 0)
     fclose(file);
-
-  FreeCurl();
 
   CleanupSockets();
 

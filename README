@@ -19,7 +19,7 @@ but you may need to override the CROSS_COMPILE and INC variables, e.g.
 
 Please read the Makefile to see what other make variables are used.
 
-This code also requires you to have OpenSSL, curl, and zlib installed.
+This code also requires you to have OpenSSL and zlib installed.
 
 
 SWF Verification

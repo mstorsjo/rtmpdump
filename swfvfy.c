@@ -21,9 +21,18 @@
 #include <stdio.h>
 #include <string.h>
 
+#ifdef WIN32
+#include <winsock.h>
+#else
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <netdb.h>
+#include <arpa/inet.h>
+#endif
+
 #include <openssl/sha.h>
 #include <openssl/hmac.h>
-#include <curl/curl.h>
 #include <zlib.h>
 
 struct info {
@@ -82,24 +91,129 @@ swfcrunch(void *ptr, size_t size, size_t nmemb, void *stream)
   return size * nmemb;
 }
 
-static size_t
-hdrcrunch(void *ptr, size_t size, size_t nmemb, void *stream)
-{
-  struct info *i = stream;
-  char *p = ptr;
-  size_t len = size * nmemb;
+#define	AGENT	"Mozilla/5.0"
 
-  if (!strncmp(p, "Last-Modified: ", 15))
+static int
+http_get(const char *url, struct info *in)
+{
+  char *host, *path;
+  char *p1, *p2;
+  char hbuf[256];
+  int port = 80;
+  int ssl = 0;
+  int hlen, flen;
+  int s = -1, rc, i, ret = 0;
+  FILE *sf = NULL;
+  struct sockaddr_in sa;
+  char buf[4096];
+
+  memset(&sa, 0, sizeof(struct sockaddr_in));
+  sa.sin_family = AF_INET;
+
+  /* we only handle http here */
+  if (strncasecmp(url, "http", 4))
+    return -1;
+
+  if (url[4] == 's')
     {
-      int l = len-15;
-      strncpy(i->date, p+15, l);
-      if (i->date[l-1] == '\n')
-        l--;
-      if (i->date[l-1] == '\r')
-        l--;
-      i->date[l] = '\0';
+      ssl = 1;
+      port = 443;
     }
-  return len;
+
+  p1 = strchr(url+4, ':');
+  if (!p1 || strncmp(p1, "://", 3))
+    return -1;
+
+  host = p1+3;
+  path = strchr(host, '/');
+  hlen = path - host;
+  strncpy(hbuf, host, hlen);
+  hbuf[hlen] = '\0';
+  host = hbuf;
+  p1 = strrchr(host, ':');
+  if (p1)
+    {
+      *p1++ = '\0';
+      port = atoi(p1);
+    }
+
+  sa.sin_addr.s_addr = inet_addr(host);
+  if (sa.sin_addr.s_addr == INADDR_NONE)
+    {
+      struct hostent *hp = gethostbyname(host);
+      if (!hp || !hp->h_addr)
+        return -1;
+      sa.sin_addr = *(struct in_addr *)hp->h_addr;
+    }
+  sa.sin_port = htons(port);
+  s = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+  if (s < 0)
+    return -1;
+  i = sprintf(buf, "GET %s HTTP/1.0\r\nUser-Agent: %s\r\nHost: %s\r\n", path, AGENT, host);
+  if (in->date[0])
+    i += sprintf(buf+i, "If-Modified-Since: %s\r\n", in->date);
+  i += sprintf(buf+i, "\r\n");
+
+  if (connect(s, (struct sockaddr *)&sa, sizeof(struct sockaddr)) < 0)
+    {
+      ret = -1;
+      goto leave;
+    }
+  write(s, buf, i);
+  sf = fdopen(s, "rb");
+
+  if (!fgets(buf, sizeof(buf), sf))
+    {
+      ret = -1;
+      goto leave;
+    }
+  if (strncmp(buf, "HTTP/1", 6))
+    {
+      ret = -1;
+      goto leave;
+    }
+
+  p1 = strchr(buf, ' ');
+  rc = atoi(p1+1);
+
+  /* not modified */
+  if (rc == 304)
+    goto leave;
+
+  while(fgets(buf, sizeof(buf), sf))
+    {
+      if (!strncasecmp(buf, "Content-Length: ", sizeof("Content-Length: ")-1))
+        {
+          flen = atoi(buf+sizeof("Content-Length: ")-1);
+        }
+      else if (!strncasecmp(buf, "Last-Modified: ", sizeof("Last-Modified: ")-1))
+        {
+          p1 = buf+sizeof("Last-Modified: ")-1;
+          p2 = strchr(p1, '\r');
+          *p2 = '\0';
+          strcpy(in->date, p1);
+        }
+      else if (buf[0] == '\r')
+        break;
+    }
+
+  hlen = sizeof(buf);
+  while ((i=fread(buf, 1, hlen, sf))>0)
+    {
+      swfcrunch(buf, 1, i, in);
+      flen -= i;
+      if (flen < 1)
+        break;
+      if (hlen > flen)
+        hlen = flen;
+    }
+
+leave:
+  if (sf)
+    fclose(sf);
+  else if (s >= 0)
+    close(s);
+  return ret;
 }
 
 #define HEX2BIN(a)      (((a)&0x40)?((a)&0xf)+9:((a)&0xf))
@@ -112,10 +226,7 @@ SWFVerify(const char *url, unsigned int *size, unsigned char *hash)
   long pos = 0;
   int i, got = 0, ret = 0;
   unsigned int hlen;
-  CURL *c;
-  char csbuf[96];
-  struct curl_slist cs = {csbuf};
-  struct info in;
+  struct info in = {0};
   z_stream zs = {0};
   HMAC_CTX ctx;
 
@@ -167,7 +278,7 @@ SWFVerify(const char *url, unsigned int *size, unsigned char *hash)
               else if (!strncmp(buf, "date: ", 6))
                 {
                   buf[strlen(buf)-1] = '\0';
-                  strncpy(date, buf, sizeof(date));
+                  strncpy(date, buf+6, sizeof(date));
                   got++;
                 }
               else if (!strncmp(buf, "url: ", 5))
@@ -185,19 +296,7 @@ SWFVerify(const char *url, unsigned int *size, unsigned char *hash)
   in.ctx = &ctx;
   in.zs = &zs;
 
-  c = curl_easy_init();
-  curl_easy_setopt(c, CURLOPT_WRITEFUNCTION, swfcrunch);
-  curl_easy_setopt(c, CURLOPT_WRITEDATA, &in);
-  curl_easy_setopt(c, CURLOPT_HEADERFUNCTION, hdrcrunch);
-  curl_easy_setopt(c, CURLOPT_HEADERDATA, &in);
-  curl_easy_setopt(c, CURLOPT_URL, url);
-  if (date[0])
-    {
-      sprintf(csbuf, "If-Modified-Since: %s", date);
-      curl_easy_setopt(c, CURLOPT_HTTPHEADER, &cs);
-    }
-  ret = curl_easy_perform(c);
-  curl_easy_cleanup(c);
+  ret = http_get(url, &in);
 
   inflateEnd(&zs);
 

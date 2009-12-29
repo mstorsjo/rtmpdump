@@ -4,7 +4,7 @@ LD=$(CROSS_COMPILE)ld
 OPT=-O2
 CFLAGS=-Wall $(XCFLAGS) $(INC) $(OPT)
 LDFLAGS=-Wall $(XLDFLAGS)
-LIBS=-lcrypto -lcurl -lz
+LIBS=-lcrypto -lz
 THREADLIB=-lpthread
 SLIBS=$(THREADLIB) $(LIBS)
 

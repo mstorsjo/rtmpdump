@@ -38,14 +38,8 @@
 #endif
 
 #ifdef CRYPTO
-#include <curl/curl.h>
 #define HASHLEN	32
 extern int SWFVerify(const char *url, unsigned int *size, unsigned char *hash);
-#define	InitCurl()	curl_global_init(CURL_GLOBAL_ALL)
-#define FreeCurl()	curl_global_cleanup()
-#else
-#define	InitCurl()
-#define FreeCurl()
 #endif
 
 #define RTMPDUMP_STREAMS_VERSION	"v2.0"
@@ -1156,8 +1150,6 @@ main(int argc, char **argv)
 
   InitSockets();
 
-  InitCurl();
-
   while ((opt =
 	  getopt_long(argc, argv,
 		      "hvqVzr:s:t:p:a:f:u:n:c:l:y:m:d:D:A:B:T:g:w:x:W:", longopts,
@@ -1287,8 +1279,6 @@ main(int argc, char **argv)
       sleep(1);
     }
   Log(LOGDEBUG, "Done, exiting...");
-
-  FreeCurl();
 
   CleanupSockets();
 

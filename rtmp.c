@@ -945,9 +945,12 @@ SendConnectPacket(RTMP * r)
       if (!enc)
         return false;
     }
-  enc = AMF_EncodeNamedNumber(enc, pend, &av_objectEncoding, r->m_fEncoding);	// AMF0, AMF3 not supported yet
-  if (!enc)
-    return false;
+  if (r->m_fEncoding != 0.0)
+    {
+      enc = AMF_EncodeNamedNumber(enc, pend, &av_objectEncoding, r->m_fEncoding);	// AMF0, AMF3 not supported yet
+      if (!enc)
+        return false;
+    }
   if (enc+3 >= pend)
     return false;
   *enc++ = 0;
@@ -1718,9 +1721,9 @@ HandleChangeChunkSize(RTMP * r, const RTMPPacket * packet)
 {
   if (packet->m_nBodySize >= 4)
     {
-      r->m_chunkSize = AMF_DecodeInt32(packet->m_body);
+      r->m_inChunkSize = AMF_DecodeInt32(packet->m_body);
       Log(LOGDEBUG, "%s, received: chunk size change to %d", __FUNCTION__,
-	  r->m_chunkSize);
+	  r->m_inChunkSize);
     }
 }
 
@@ -1870,39 +1873,44 @@ EncodeInt32LE(char *output, int nVal)
 bool
 RTMP_ReadPacket(RTMP * r, RTMPPacket * packet)
 {
-  char type;
-  if (ReadN(r, &type, 1) == 0)
+  char hbuf[RTMP_MAX_HEADER_SIZE+1] = { 0 }, *header = hbuf;
+
+  Log(LOGDEBUG2, "%s: fd=%d", __FUNCTION__, r->m_socket);
+
+  if (ReadN(r, hbuf, 1) == 0)
     {
       Log(LOGERROR, "%s, failed to read RTMP packet header", __FUNCTION__);
       return false;
     }
 
-  packet->m_headerType = (type & 0xc0) >> 6;
-  packet->m_nChannel = (type & 0x3f);
+  packet->m_headerType = (hbuf[0] & 0xc0) >> 6;
+  packet->m_nChannel = (hbuf[0] & 0x3f);
+  header++;
   if (packet->m_nChannel == 0)
     {
-      if (ReadN(r, &type, 1) != 1)
+      if (ReadN(r, &hbuf[1], 1) != 1)
 	{
 	  Log(LOGERROR, "%s, failed to read RTMP packet header 2nd byte",
 	      __FUNCTION__);
 	  return false;
 	}
-      packet->m_nChannel = (unsigned) type;
+      packet->m_nChannel = (unsigned) hbuf[1];
       packet->m_nChannel += 64;
+      header++;
     }
   else if (packet->m_nChannel == 1)
     {
-      char t[2];
       int tmp;
-      if (ReadN(r, t, 2) != 2)
+      if (ReadN(r, &hbuf[1], 2) != 2)
 	{
 	  Log(LOGERROR, "%s, failed to read RTMP packet header 3nd byte",
 	      __FUNCTION__);
 	  return false;
 	}
-      tmp = (((unsigned) t[1]) << 8) + (unsigned) t[0];
+      tmp = (((unsigned) hbuf[2]) << 8) + (unsigned) hbuf[1];
       packet->m_nChannel = tmp + 64;
       Log(LOGDEBUG, "%s, m_nChannel: %0x", __FUNCTION__, packet->m_nChannel);
+      header += 2;
     }
 
   int nSize = packetSize[packet->m_headerType];
@@ -1919,13 +1927,14 @@ RTMP_ReadPacket(RTMP * r, RTMPPacket * packet)
 
   nSize--;
 
-  char header[RTMP_LARGE_HEADER_SIZE] = { 0 };
   if (nSize > 0 && ReadN(r, header, nSize) != nSize)
     {
       Log(LOGERROR, "%s, failed to read RTMP packet header. type: %x",
-	  __FUNCTION__, (unsigned int) type);
+	  __FUNCTION__, (unsigned int) hbuf[0]);
       return false;
     }
+
+  LogHexString(LOGDEBUG2, hbuf, nSize+(header-hbuf));
 
   if (nSize >= 3)
     {
@@ -1958,10 +1967,11 @@ RTMP_ReadPacket(RTMP * r, RTMPPacket * packet)
 	  return false;
 	}
       didAlloc = true;
+      packet->m_headerType = (hbuf[0] & 0xc0) >> 6;
     }
 
   int nToRead = packet->m_nBodySize - packet->m_nBytesRead;
-  int nChunk = r->m_chunkSize;
+  int nChunk = r->m_inChunkSize;
   if (nToRead < nChunk)
     nChunk = nToRead;
 
@@ -1971,6 +1981,8 @@ RTMP_ReadPacket(RTMP * r, RTMPPacket * packet)
 	  __FUNCTION__, packet->m_nBodySize);
       return false;
     }
+
+  LogHexString(LOGDEBUG2, packet->m_body+packet->m_nBytesRead, nChunk);
 
   packet->m_nBytesRead += nChunk;
 
@@ -2157,25 +2169,57 @@ RTMP_SendPacket(RTMP * r, RTMPPacket * packet, bool queue)
     }
 
   int nSize = packetSize[packet->m_headerType];
-  int hSize = nSize;
-  char *header = packet->m_body - nSize;
-  header[0] = (char) ((packet->m_headerType << 6) | packet->m_nChannel);
+  int hSize = nSize, cSize = 0;
+  char *header, *hptr, *hend, hbuf[RTMP_MAX_HEADER_SIZE];
+
+  if (packet->m_body)
+    {
+      header = packet->m_body - nSize;
+      hend = packet->m_body;
+    }
+  else
+    {
+      header = hbuf+2;
+      hend = hbuf+sizeof(hbuf);
+    }
+
+  if (packet->m_nChannel > 319)
+    cSize = 2;
+  else if (packet->m_nChannel > 63)
+    cSize = 1;
+  if (cSize)
+    {
+      header -= cSize;
+      hSize += cSize;
+    }
+
+  hptr = header;
+  *hptr++ = (char) ((packet->m_headerType << 6) | (packet->m_nChannel & 0x3f));
+  if (cSize)
+    {
+      int tmp = packet->m_nChannel - 64;
+      *hptr++ = tmp & 0xff;
+      if (cSize == 2)
+        *hptr++ = tmp >> 8;
+    }
+
   if (nSize > 1)
-    AMF_EncodeInt24(header + 1, packet->m_body, packet->m_nInfoField1);
+    hptr = AMF_EncodeInt24(hptr, hend, packet->m_nInfoField1);
 
   if (nSize > 4)
     {
-      AMF_EncodeInt24(header + 4, packet->m_body, packet->m_nBodySize);
-      header[7] = packet->m_packetType;
+      hptr = AMF_EncodeInt24(hptr, hend, packet->m_nBodySize);
+      *hptr++ = packet->m_packetType;
     }
 
   if (nSize > 8)
-    EncodeInt32LE(header + 8, packet->m_nInfoField2);
+    EncodeInt32LE(hptr, packet->m_nInfoField2);
 
   nSize = packet->m_nBodySize;
   char *buffer = packet->m_body;
   int nChunkSize = RTMP_DEFAULT_CHUNKSIZE;
 
+  Log(LOGDEBUG2, "%s: fd=%d, size=%d", __FUNCTION__, r->m_socket, nSize);
   while (nSize)
     {
       int wrote;
@@ -2185,11 +2229,14 @@ RTMP_SendPacket(RTMP * r, RTMPPacket * packet, bool queue)
 
       if (header)
 	{
+          LogHexString(LOGDEBUG2, header, hSize);
+          LogHexString(LOGDEBUG2, buffer, nChunkSize);
 	  wrote = WriteN(r, header, nChunkSize + hSize);
 	  header = NULL;
 	}
       else
 	{
+          LogHexString(LOGDEBUG2, buffer, nChunkSize);
 	  wrote = WriteN(r, buffer, nChunkSize);
 	}
       if (!wrote)
@@ -2202,7 +2249,19 @@ RTMP_SendPacket(RTMP * r, RTMPPacket * packet, bool queue)
 	{
 	  header = buffer - 1;
 	  hSize = 1;
-	  *header = (0xc0 | packet->m_nChannel);
+          if (cSize)
+            {
+              header -= cSize;
+              hSize += cSize;
+            }
+	  *header = (0xc0 | (packet->m_nChannel & 0x3f));
+          if (cSize)
+            {
+              int tmp = packet->m_nChannel - 64;
+              header[1] = tmp & 0xff;
+              if (cSize == 2)
+                header[2] = tmp >> 8;
+            }
 	}
     }
 
@@ -2239,7 +2298,8 @@ RTMP_Close(RTMP * r)
 
   r->m_stream_id = -1;
   r->m_socket = 0;
-  r->m_chunkSize = RTMP_DEFAULT_CHUNKSIZE;
+  r->m_inChunkSize = RTMP_DEFAULT_CHUNKSIZE;
+  r->m_outChunkSize = RTMP_DEFAULT_CHUNKSIZE;
   r->m_nBWCheckCounter = 0;
   r->m_nBytesIn = 0;
   r->m_nBytesInSent = 0;

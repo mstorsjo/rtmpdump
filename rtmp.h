@@ -129,7 +129,8 @@ typedef struct RTMP_LNK
 typedef struct RTMP
 {
   int m_socket;
-  int m_chunkSize;
+  int m_inChunkSize;
+  int m_outChunkSize;
   int m_nBWCheckCounter;
   int m_nBytesIn;
   int m_nBytesInSent;

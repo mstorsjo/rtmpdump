@@ -39,8 +39,9 @@ extern "C" {
 #define LOGERROR        1
 #define LOGWARNING	2
 #define LOGINFO		3
-#define LOGDEBUG		4
-#define LOGALL		5
+#define LOGDEBUG	4
+#define LOGDEBUG2	5
+#define LOGALL		6
 
 #define Log	AMF_Log
 #define LogHex	AMF_LogHex
@@ -57,7 +58,7 @@ void LogPrintf(const char *format, ...);
 void LogStatus(const char *format, ...);
 void Log(int level, const char *format, ...);
 void LogHex(int level, const char *data, unsigned long len);
-void LogHexString(const char *data, unsigned long len);
+void LogHexString(int level, const char *data, unsigned long len);
 
 #ifdef __cplusplus
 }

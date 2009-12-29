@@ -2217,7 +2217,7 @@ RTMP_SendPacket(RTMP * r, RTMPPacket * packet, bool queue)
 
   nSize = packet->m_nBodySize;
   char *buffer = packet->m_body;
-  int nChunkSize = RTMP_DEFAULT_CHUNKSIZE;
+  int nChunkSize = r->m_outChunkSize;
 
   Log(LOGDEBUG2, "%s: fd=%d, size=%d", __FUNCTION__, r->m_socket, nSize);
   while (nSize)

@@ -47,7 +47,7 @@
 
 #ifdef CRYPTO
 #define HASHLEN	32
-extern int SWFVerify(const char *url, unsigned int *size, unsigned char *hash);
+extern int SWFVerify(const char *url, unsigned int *size, unsigned char *hash, int ask);
 #endif
 
 #define RTMPDUMP_PROXY_VERSION	"v2.0"
@@ -261,7 +261,7 @@ ServeInvoke(STREAMING_SERVER *server, RTMPPacket *pack, const char *body)
             {
               unsigned char hash[HASHLEN];
               server->rc.Link.swfUrl = pval;
-              if (SWFVerify(pval.av_val, &server->rc.Link.SWFSize, hash) == 0)
+              if (SWFVerify(pval.av_val, &server->rc.Link.SWFSize, hash, 0) == 0)
                 {
                   server->rc.Link.SWFHash.av_val = malloc(HASHLEN);
                   memcpy(server->rc.Link.SWFHash.av_val, hash, HASHLEN);
@@ -692,7 +692,7 @@ void doServe(STREAMING_SERVER * server,	// server socket and state (our listenin
   unsigned int buflen = 131072;
 
   // timeout for http requests
-  fd_set rfds, wfds;
+  fd_set rfds;
   struct timeval tv;
 
   server->state = STREAMING_IN_PROGRESS;
@@ -743,8 +743,6 @@ void doServe(STREAMING_SERVER * server,	// server socket and state (our listenin
 
       if (cr || sr)
         {
-	  FD_SET(server->rc.m_socket, &wfds);
-	  FD_SET(server->rs.m_socket, &wfds);
         }
       else
         {
@@ -752,21 +750,15 @@ void doServe(STREAMING_SERVER * server,	// server socket and state (our listenin
 	  if (server->rc.m_socket > n)
 	    n = server->rc.m_socket;
 	  FD_ZERO(&rfds);
-	  FD_ZERO(&wfds);
 	  if (RTMP_IsConnected(&server->rs))
 	    FD_SET(sockfd, &rfds);
 	  if (RTMP_IsConnected(&server->rc))
 	    FD_SET(server->rc.m_socket, &rfds);
 
-          if (server->rs_pkt[0])
-	    FD_SET(server->rc.m_socket, &wfds);
-          if (server->rc_pkt[0])
-	    FD_SET(server->rs.m_socket, &wfds);
-
-	  tv.tv_sec = 5;
+	  tv.tv_sec = 30;
 	  tv.tv_usec = 0;
 
-	  if (select(n + 1, &rfds, &wfds, NULL, &tv) <= 0)
+	  if (select(n + 1, &rfds, NULL, NULL, &tv) <= 0)
 	    {
 	      Log(LOGERROR, "Request timeout/select failed, ignoring request");
 	      goto cleanup;
@@ -781,7 +773,21 @@ void doServe(STREAMING_SERVER * server,	// server socket and state (our listenin
           while (RTMP_ReadPacket(&server->rs, &ps))
             if (RTMPPacket_IsReady(&ps))
               {
-                QueuePkt(server->rs_pkt, &ps);
+                /* change chunk size */
+                if (ps.m_packetType == 0x01)
+                  {
+                    if (ps.m_nBodySize >= 4)
+                      {
+                        server->rs.m_inChunkSize = AMF_DecodeInt32(ps.m_body);
+                        Log(LOGDEBUG, "%s, client: chunk size change to %d", __FUNCTION__,
+                            server->rs.m_inChunkSize);
+                        server->rc.m_outChunkSize = server->rs.m_inChunkSize;
+                      }
+                  }
+                else if (!server->out && (ps.m_packetType == 0x11 || ps.m_packetType == 0x14))
+                  ServePacket(server, &ps);
+                RTMP_SendPacket(&server->rc, &ps, false);
+                RTMPPacket_Free(&ps);
                 break;
               }
         }
@@ -790,46 +796,43 @@ void doServe(STREAMING_SERVER * server,	// server socket and state (our listenin
           while (RTMP_ReadPacket(&server->rc, &pc))
             if (RTMPPacket_IsReady(&pc))
               {
-                QueuePkt(server->rc_pkt, &pc);
+                int sendit = 1;
+                /* change chunk size */
+                if (pc.m_packetType == 0x01)
+                  {
+                    if (pc.m_nBodySize >= 4)
+                      {
+                        server->rc.m_inChunkSize = AMF_DecodeInt32(pc.m_body);
+                        Log(LOGDEBUG, "%s, server: chunk size change to %d", __FUNCTION__,
+                            server->rc.m_inChunkSize);
+                        server->rs.m_outChunkSize = server->rc.m_inChunkSize;
+                      }
+                  }
+                else if (pc.m_packetType == 0x04)
+                  {
+                    short nType = AMF_DecodeInt16(pc.m_body);
+                    /* SWFverification */
+                    if (nType == 0x1a && server->rc.Link.SWFHash.av_len)
+                      {
+                        RTMP_SendCtrl(&server->rc, 0x1b, 0, 0);
+                        sendit = 0;
+                      }
+                  }
+                else if (server->out && (
+                     pc.m_packetType == 0x08 ||
+                     pc.m_packetType == 0x09 ||
+                     pc.m_packetType == 0x12 ||
+                     pc.m_packetType == 0x16))
+                  {
+                    int len = WriteStream(&buf, &buflen, &server->stamp, &pc);
+                    if (len > 0 && fwrite(buf, 1, len, server->out) != len)
+                      goto cleanup;
+                  }
+                if (sendit && RTMP_IsConnected(&server->rs))
+                  RTMP_SendPacket(&server->rs, &pc, false);
+                RTMPPacket_Free(&pc);
                 break;
               }
-        }
-      if (server->rs_pkt[0] && FD_ISSET(server->rc.m_socket, &wfds))
-        {
-          DequeuePkt(server->rs_pkt, &ps);
-          if (!server->out && (ps.m_packetType == 0x11 || ps.m_packetType == 0x14))
-            ServePacket(server, &ps);
-          RTMP_SendPacket(&server->rc, &ps, false);
-          RTMPPacket_Free(&ps);
-        }
-      if (server->rc_pkt[0] && FD_ISSET(server->rs.m_socket, &wfds))
-        {
-          int sendit = 1;
-          DequeuePkt(server->rc_pkt, &pc);
-          if (pc.m_packetType == 0x04)
-            {
-              short nType = AMF_DecodeInt16(pc.m_body);
-              /* SWFverification */
-              if (nType == 0x1a && server->rc.Link.SWFHash.av_len)
-                {
-                  RTMP_SendCtrl(&server->rc, 0x1b, 0, 0);
-                  sendit = 0;
-                }
-            }
-          else if (server->out && (
-               pc.m_packetType == 0x08 ||
-               pc.m_packetType == 0x09 ||
-               pc.m_packetType == 0x12 ||
-               pc.m_packetType == 0x16))
-            {
-              int len = WriteStream(&buf, &buflen, &server->stamp, &pc);
-              if (len > 0 && fwrite(buf, 1, len, server->out) != len)
-                goto cleanup;
-              pc.m_headerType = 1;
-            }
-          if (sendit && RTMP_IsConnected(&server->rs))
-            RTMP_SendPacket(&server->rs, &pc, false);
-          RTMPPacket_Free(&pc);
         }
     }
 
@@ -837,15 +840,25 @@ cleanup:
   LogPrintf("Closing connection... ");
   RTMP_Close(&server->rs);
   if (server->out)
-    fclose(server->out);
+    {
+      fclose(server->out);
+      server->out = NULL;
+    }
   /* Should probably be done by RTMP_Close() ... */
   free((void *)server->rc.Link.hostname);
+  server->rc.Link.hostname = NULL;
   free(server->rc.Link.tcUrl.av_val);
+  server->rc.Link.tcUrl.av_val = NULL;
   free(server->rc.Link.swfUrl.av_val);
+  server->rc.Link.swfUrl.av_val = NULL;
   free(server->rc.Link.pageUrl.av_val);
+  server->rc.Link.pageUrl.av_val = NULL;
   free(server->rc.Link.app.av_val);
+  server->rc.Link.app.av_val = NULL;
   free(server->rc.Link.auth.av_val);
+  server->rc.Link.auth.av_val = NULL;
   free(server->rc.Link.flashVer.av_val);
+  server->rc.Link.flashVer.av_val = NULL;
   LogPrintf("done!\n\n");
 
 quit:

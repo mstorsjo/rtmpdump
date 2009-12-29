@@ -211,6 +211,8 @@ SWFVerify(const char *url, unsigned int *size, unsigned char *hash)
           char *q;
           if (!f)
             f = fopen(path, "w");
+          if (!f)
+            return -1;
           fseek(f, 0, SEEK_END);
           q = strchr(url, '?');
           if (q)

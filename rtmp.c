@@ -2170,7 +2170,7 @@ RTMP_SendPacket(RTMP * r, RTMPPacket * packet, bool queue)
 
   int nSize = packetSize[packet->m_headerType];
   int hSize = nSize, cSize = 0;
-  char *header, *hptr, *hend, hbuf[RTMP_MAX_HEADER_SIZE];
+  char *header, *hptr, *hend, hbuf[RTMP_MAX_HEADER_SIZE], c;
 
   if (packet->m_body)
     {
@@ -2194,7 +2194,19 @@ RTMP_SendPacket(RTMP * r, RTMPPacket * packet, bool queue)
     }
 
   hptr = header;
-  *hptr++ = (char) ((packet->m_headerType << 6) | (packet->m_nChannel & 0x3f));
+  c = packet->m_headerType << 6;
+  switch(cSize)
+    {
+    case 0:
+      c |= packet->m_nChannel;
+      break;
+    case 1:
+      break;
+    case 2:
+      c |= 1;
+      break;
+    }
+  *hptr++ = c;
   if (cSize)
     {
       int tmp = packet->m_nChannel - 64;
@@ -2254,7 +2266,7 @@ RTMP_SendPacket(RTMP * r, RTMPPacket * packet, bool queue)
               header -= cSize;
               hSize += cSize;
             }
-	  *header = (0xc0 | (packet->m_nChannel & 0x3f));
+	  *header = (0xc0 | c);
           if (cSize)
             {
               int tmp = packet->m_nChannel - 64;

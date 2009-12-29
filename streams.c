@@ -39,7 +39,7 @@
 
 #ifdef CRYPTO
 #define HASHLEN	32
-extern int SWFVerify(const char *url, unsigned int *size, unsigned char *hash);
+extern int SWFVerify(const char *url, unsigned int *size, unsigned char *hash, int ask);
 #endif
 
 #define RTMPDUMP_STREAMS_VERSION	"v2.0"
@@ -947,7 +947,7 @@ ParseOption(char opt, char *arg, RTMP_REQUEST * req)
         unsigned char hash[HASHLEN];
 
         STR2AVAL(req->swfUrl, arg);
-        if (SWFVerify(arg, &req->swfSize, hash) == 0)
+        if (SWFVerify(arg, &req->swfSize, hash, 1) == 0)
           {
             req->swfHash.av_val = malloc(HASHLEN);
             req->swfHash.av_len = HASHLEN;

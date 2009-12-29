@@ -144,8 +144,9 @@ SWFVerify(const char *url, unsigned int *size, unsigned char *hash)
           if (strncmp(buf, "url: ", 5))
             continue;
           r1 = strrchr(buf, '/');
-          buf[strlen(buf)-1] = '\0';
-          if (strcmp(r1, file))
+          i = strlen(r1);
+          r1[--i] = '\0';
+          if (strncmp(r1, file, i))
             continue;
           pos = ftell(f);
           while (got < 3 && fgets(buf, sizeof(buf), f))
@@ -207,10 +208,17 @@ SWFVerify(const char *url, unsigned int *size, unsigned char *hash)
         fseek(f, pos, SEEK_SET);
       else
         {
+          char *q;
           if (!f)
             f = fopen(path, "w");
           fseek(f, 0, SEEK_END);
-          fprintf(f, "url: %s\n", url);
+          q = strchr(url, '?');
+          if (q)
+            i = q - url;
+          else
+            i = strlen(url);
+
+          fprintf(f, "url: %.*s\n", i, url);
         }
       fprintf(f, "date: %s\n", date);
       fprintf(f, "size: %08x\n", in.size);

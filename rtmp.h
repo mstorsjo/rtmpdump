@@ -201,6 +201,7 @@ int RTMP_GetNextMediaPacket(RTMP *r, RTMPPacket *packet);
 void RTMP_Init(RTMP *r);
 void RTMP_Close(RTMP *r);
 
+bool RTMP_SendCtrl(RTMP * r, short nType, unsigned int nObject, unsigned int nTime);
 bool RTMP_SendPause(RTMP *r, bool DoPause, double dTime);
 bool RTMP_FindFirstMatchingProperty(AMFObject *obj, const AVal *name,
 				      AMFObjectProperty *p);

@@ -85,8 +85,6 @@ static bool SendConnectPacket(RTMP * r);
 static bool SendServerBW(RTMP * r);
 static bool SendCheckBW(RTMP * r);
 static bool SendCheckBWResult(RTMP * r, double txn);
-static bool SendCtrl(RTMP * r, short nType, unsigned int nObject,
-		     unsigned int nTime);
 static bool SendBGHasStream(RTMP * r, double dId, AVal * playpath);
 static bool SendCreateStream(RTMP * r, double dStreamId);
 static bool SendDeleteStream(RTMP * r, double dStreamId);
@@ -141,7 +139,8 @@ RTMPPacket_Reset(RTMPPacket * p)
 bool
 RTMPPacket_Alloc(RTMPPacket * p, int nSize)
 {
-  p->m_body = calloc(1, nSize);
+  char *ptr = calloc(1, nSize+RTMP_MAX_HEADER_SIZE);
+  p->m_body = ptr + RTMP_MAX_HEADER_SIZE;
   if (!p->m_body)
     return false;
   p->m_nBytesRead = 0;
@@ -151,8 +150,11 @@ RTMPPacket_Alloc(RTMPPacket * p, int nSize)
 void
 RTMPPacket_Free(RTMPPacket * p)
 {
-  free(p->m_body);
-  p->m_body = NULL;
+  if (p->m_body)
+    {
+      free(p->m_body-RTMP_MAX_HEADER_SIZE);
+      p->m_body = NULL;
+    }
 }
 
 void
@@ -213,7 +215,7 @@ RTMP_SetBufferMS(RTMP * r, int size)
 void
 RTMP_UpdateBufferMS(RTMP * r)
 {
-  SendCtrl(r, 3, r->m_stream_id, r->m_nBufferMS);
+  RTMP_SendCtrl(r, 3, r->m_stream_id, r->m_nBufferMS);
 }
 
 void
@@ -1341,8 +1343,8 @@ The type of Ping packet is 0x4 and contains two mandatory parameters and two opt
     * type 26: SWFVerification request
     * type 27: SWFVerification response
 */
-static bool
-SendCtrl(RTMP * r, short nType, unsigned int nObject, unsigned int nTime)
+bool
+RTMP_SendCtrl(RTMP * r, short nType, unsigned int nObject, unsigned int nTime)
 {
   Log(LOGDEBUG, "sending ctrl. type: 0x%04x", (unsigned short) nType);
 
@@ -1488,7 +1490,7 @@ HandleInvoke(RTMP * r, const char *body, unsigned int nBodySize)
                 }
             }
 	  SendServerBW(r);
-	  SendCtrl(r, 3, 0, 300);
+	  RTMP_SendCtrl(r, 3, 0, 300);
 
 	  SendCreateStream(r, 2.0);
 
@@ -1504,7 +1506,7 @@ HandleInvoke(RTMP * r, const char *body, unsigned int nBodySize)
 	    (int) AMFProp_GetNumber(AMF_GetProp(&obj, NULL, 3));
 
 	  SendPlay(r);
-	  SendCtrl(r, 3, r->m_stream_id, r->m_nBufferMS);
+	  RTMP_SendCtrl(r, 3, r->m_stream_id, r->m_nBufferMS);
 	}
       else if (AVMATCH(&methodInvoked, &av_play))
 	{
@@ -1772,7 +1774,7 @@ HandleCtrl(RTMP * r, const RTMPPacket * packet)
 	case 6:		// server ping. reply with pong.
 	  tmp = AMF_DecodeInt32(packet->m_body + 2);
 	  Log(LOGDEBUG, "%s, Ping %d", __FUNCTION__, tmp);
-	  SendCtrl(r, 0x07, tmp, 0);
+	  RTMP_SendCtrl(r, 0x07, tmp, 0);
 	  break;
 
 	case 31:
@@ -1812,7 +1814,7 @@ HandleCtrl(RTMP * r, const RTMPPacket * packet)
       // respond with HMAC SHA256 of decompressed SWF, key is the 30byte player key, also the last 30 bytes of the server handshake are applied
       if (r->Link.SWFHash.av_len)
 	{
-	  SendCtrl(r, 0x1B, 0, 0);
+	  RTMP_SendCtrl(r, 0x1B, 0, 0);
 	}
       else
 	{

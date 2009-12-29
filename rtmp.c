@@ -140,9 +140,9 @@ bool
 RTMPPacket_Alloc(RTMPPacket * p, int nSize)
 {
   char *ptr = calloc(1, nSize+RTMP_MAX_HEADER_SIZE);
-  p->m_body = ptr + RTMP_MAX_HEADER_SIZE;
-  if (!p->m_body)
+  if (!ptr)
     return false;
+  p->m_body = ptr + RTMP_MAX_HEADER_SIZE;
   p->m_nBytesRead = 0;
   return true;
 }

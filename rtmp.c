@@ -2232,7 +2232,7 @@ RTMP_SendPacket(RTMP * r, RTMPPacket * packet, bool queue)
   int nChunkSize = r->m_outChunkSize;
 
   Log(LOGDEBUG2, "%s: fd=%d, size=%d", __FUNCTION__, r->m_socket, nSize);
-  while (nSize)
+  while (nSize+hSize)
     {
       int wrote;
 
@@ -2245,6 +2245,7 @@ RTMP_SendPacket(RTMP * r, RTMPPacket * packet, bool queue)
           LogHexString(LOGDEBUG2, buffer, nChunkSize);
 	  wrote = WriteN(r, header, nChunkSize + hSize);
 	  header = NULL;
+          hSize = 0;
 	}
       else
 	{

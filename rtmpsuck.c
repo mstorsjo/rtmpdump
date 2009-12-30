@@ -209,7 +209,7 @@ ServeInvoke(STREAMING_SERVER *server, RTMPPacket *pack, const char *body)
             {
               unsigned char hash[HASHLEN];
               server->rc.Link.swfUrl = pval;
-              if (RTMP_HashSWF(pval.av_val, &server->rc.Link.SWFSize, hash) == 0)
+              if (RTMP_HashSWF(pval.av_val, &server->rc.Link.SWFSize, hash, 0) == 0)
                 {
                   server->rc.Link.SWFHash.av_val = malloc(HASHLEN);
                   memcpy(server->rc.Link.SWFHash.av_val, hash, HASHLEN);

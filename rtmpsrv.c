@@ -45,7 +45,7 @@
 #include <pthread.h>
 #endif
 
-#define RTMPDUMP_SERVER_VERSION	"v2.0"
+#define RTMPDUMP_SERVER_VERSION	"v2.1"
 
 #define RD_SUCCESS		0
 #define RD_FAILED		1

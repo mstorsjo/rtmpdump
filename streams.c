@@ -37,7 +37,7 @@
 #include <pthread.h>
 #endif
 
-#define RTMPDUMP_STREAMS_VERSION	"v2.0"
+#define RTMPDUMP_STREAMS_VERSION	"v2.1"
 
 #define RD_SUCCESS		0
 #define RD_FAILED		1
@@ -942,7 +942,7 @@ ParseOption(char opt, char *arg, RTMP_REQUEST * req)
         unsigned char hash[HASHLEN];
 
         STR2AVAL(req->swfUrl, arg);
-        if (RTMP_HashSWF(arg, &req->swfSize, hash, 1) == 0)
+        if (RTMP_HashSWF(arg, &req->swfSize, hash) == 0)
           {
             req->swfHash.av_val = malloc(HASHLEN);
             req->swfHash.av_len = HASHLEN;

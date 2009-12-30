@@ -211,7 +211,7 @@ bool RTMP_FindFirstMatchingProperty(AMFObject *obj, const AVal *name,
 /* hashswf.c */
 #define HASHLEN	32
 
-int RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash, int ask);
+int RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash);
 #endif
 
 #endif

@@ -151,7 +151,8 @@ http_get(const char *url, struct info *in)
   s = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
   if (s < 0)
     return -1;
-  i = sprintf(buf, "GET %s HTTP/1.0\r\nUser-Agent: %s\r\nHost: %s\r\n", path, AGENT, host);
+  i = sprintf(buf, "GET %s HTTP/1.0\r\nUser-Agent: %s\r\nHost: %s\r\nReferrer: %.*s\r\n", path, AGENT, host,
+    path-url+1, url);
   if (in->date[0])
     i += sprintf(buf+i, "If-Modified-Since: %s\r\n", in->date);
   i += sprintf(buf+i, "\r\n");
@@ -221,7 +222,7 @@ leave:
 #define HEX2BIN(a)      (((a)&0x40)?((a)&0xf)+9:((a)&0xf))
 
 int
-RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash, int ask)
+RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash)
 {
   FILE *f = NULL;
   char *path, *home, date[64];
@@ -289,9 +290,6 @@ RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash, int ask)
           break;
         }
     }
-
-  if (got && !ask)
-    return 0;
 
   in.first = 1;
   in.date = date;

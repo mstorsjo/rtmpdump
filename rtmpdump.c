@@ -45,7 +45,7 @@
 #include "log.h"
 #include "parseurl.h"
 
-#define RTMPDUMP_VERSION	"v2.0"
+#define RTMPDUMP_VERSION	"v2.1"
 
 #define RD_SUCCESS		0
 #define RD_FAILED		1
@@ -1284,7 +1284,7 @@ main(int argc, char **argv)
 	  }
         case 'W':
 	  STR2AVAL(swfUrl, optarg);
-          if (RTMP_HashSWF(optarg, &swfSize, hash, 1) == 0)
+          if (RTMP_HashSWF(optarg, &swfSize, hash) == 0)
             {
               swfHash.av_val = (char *)hash;
               swfHash.av_len = HASHLEN;

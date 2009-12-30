@@ -110,6 +110,8 @@ FILE *netstackdump = NULL;
 FILE *netstackdump_read = NULL;
 #endif
 
+#define BUFFERTIME	(4*60*60*1000)	/* 4 hours */
+
 #define SAVC(x) static const AVal av_##x = AVC(#x)
 
 SAVC(app);
@@ -299,6 +301,11 @@ ServeInvoke(STREAMING_SERVER *server, RTMPPacket *pack, const char *body)
       for (p=file; *p; p++)
         if (*p == '/')
           *p = '_';
+        else if (*p == '?')
+          {
+            *p = '\0';
+            break;
+          }
       LogPrintf("Playpath: %.*s, writing to %s\n", server->rc.Link.playpath.av_len,
         server->rc.Link.playpath.av_val, file);
       server->out = fopen(file, "wb");
@@ -664,6 +671,7 @@ void doServe(STREAMING_SERVER * server,	// server socket and state (our listenin
   RTMPPacket pc = { 0 }, ps = { 0 };
   char *buf;
   unsigned int buflen = 131072;
+  bool paused = false;
 
   // timeout for http requests
   fd_set rfds;
@@ -708,8 +716,8 @@ void doServe(STREAMING_SERVER * server,	// server socket and state (our listenin
     }
 
   /* We have our own timeout in select() */
-  server->rc.Link.timeout = 1;
-  server->rs.Link.timeout = 1;
+  server->rc.Link.timeout = 10;
+  server->rs.Link.timeout = 10;
   while (RTMP_IsConnected(&server->rs) || RTMP_IsConnected(&server->rc))
     {
       int n;
@@ -738,12 +746,17 @@ void doServe(STREAMING_SERVER * server,	// server socket and state (our listenin
 
 	  if (select(n + 1, &rfds, NULL, NULL, &tv) <= 0)
 	    {
-              /* FIXME: Need to get the ToggleStream support in place */
-              /* if (!server->out || !RTMP_ToggleStream(&server->rc)) */
+              if (server->out && server->rc.m_mediaChannel && !paused)
                 {
-	          Log(LOGERROR, "Request timeout/select failed, ignoring request");
-	          goto cleanup;
+                  server->rc.m_pauseStamp = server->rc.m_channelTimestamp[server->rc.m_mediaChannel];
+                  if (RTMP_ToggleStream(&server->rc))
+                    {
+                      paused = true;
+                      continue;
+                    }
                 }
+	      Log(LOGERROR, "Request timeout/select failed, ignoring request");
+	      goto cleanup;
 	    }
           if (FD_ISSET(server->rs.m_socket, &rfds))
             sr = 1;
@@ -766,6 +779,31 @@ void doServe(STREAMING_SERVER * server,	// server socket and state (our listenin
                         server->rc.m_outChunkSize = server->rs.m_inChunkSize;
                       }
                   }
+                /* ctrl */
+                else if (ps.m_packetType == 0x04)
+                  {
+                    short nType = AMF_DecodeInt16(ps.m_body);
+                    /* UpdateBufferMS */
+                    if (nType == 0x03)
+                      {
+                        char *ptr = ps.m_body+2;
+                        int id;
+                        int len;
+                        id = AMF_DecodeInt32(ptr);
+                        /* Assume the interesting media is on a non-zero stream */
+                        if (id)
+                          {
+                            len = AMF_DecodeInt32(ptr+4);
+                            /* request a big buffer */
+                            if (len < BUFFERTIME)
+                              {
+                                AMF_EncodeInt32(ptr+4, ptr+8, BUFFERTIME);
+                              }
+                            Log(LOGDEBUG, "%s, client: BufferTime change in stream %d to %d", __FUNCTION__,
+                                id, len);
+                          }
+                      }
+                  }
                 else if (!server->out && (ps.m_packetType == 0x11 || ps.m_packetType == 0x14))
                   ServePacket(server, &ps);
                 RTMP_SendPacket(&server->rc, &ps, false);
@@ -779,6 +817,13 @@ void doServe(STREAMING_SERVER * server,	// server socket and state (our listenin
             if (RTMPPacket_IsReady(&pc))
               {
                 int sendit = 1;
+                if (paused)
+                  {
+                    if (pc.m_nTimeStamp <= server->rc.m_mediaStamp)
+                      continue;
+                    paused = 0;
+                    server->rc.m_pausing = 0;
+                  }
                 /* change chunk size */
                 if (pc.m_packetType == 0x01)
                   {
@@ -804,7 +849,8 @@ void doServe(STREAMING_SERVER * server,	// server socket and state (our listenin
                      pc.m_packetType == 0x08 ||
                      pc.m_packetType == 0x09 ||
                      pc.m_packetType == 0x12 ||
-                     pc.m_packetType == 0x16))
+                     pc.m_packetType == 0x16) &&
+                     RTMP_ClientPacket(&server->rc, &pc))
                   {
                     int len = WriteStream(&buf, &buflen, &server->stamp, &pc);
                     if (len > 0 && fwrite(buf, 1, len, server->out) != len)
@@ -814,11 +860,11 @@ void doServe(STREAMING_SERVER * server,	// server socket and state (our listenin
                      pc.m_packetType == 0x11 ||
                      pc.m_packetType == 0x14))
                   {
-                     if (ServePacket(server, &pc))
-                       {
-                         fclose(server->out);
-                         server->out = NULL;
-                       }
+                    if (ServePacket(server, &pc))
+                      {
+                        fclose(server->out);
+                        server->out = NULL;
+                      }
                   }
 
                 if (sendit && RTMP_IsConnected(&server->rs))
@@ -993,6 +1039,8 @@ main(int argc, char **argv)
 
   LogPrintf("RTMP Proxy Server %s\n", RTMPDUMP_PROXY_VERSION);
   LogPrintf("(c) 2009 Andrej Stepanchuk, Howard Chu; license: GPL\n\n");
+
+  debuglevel = LOGDEBUG;
 
   if (argc > 1 && !strcmp(argv[1], "-z"))
     debuglevel = LOGALL;

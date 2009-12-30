@@ -93,7 +93,6 @@ static bool SendPlay(RTMP * r);
 static bool SendSeek(RTMP * r, double dTime);
 static bool SendBytesReceived(RTMP * r);
 
-static int HandlePacket(RTMP * r, RTMPPacket * packet);
 static int HandleInvoke(RTMP * r, const char *body, unsigned int nBodySize);
 static bool HandleMetadata(RTMP * r, char *body, unsigned int len);
 static void HandleChangeChunkSize(RTMP * r, const RTMPPacket * packet);
@@ -495,7 +494,7 @@ RTMP_ConnectStream(RTMP * r, double seekTime, uint32_t dLength)
 	      break;
 	    }
 
-	  HandlePacket(r, &packet);
+	  RTMP_ClientPacket(r, &packet);
 	  RTMPPacket_Free(&packet);
 	}
     }
@@ -555,7 +554,7 @@ RTMP_GetNextMediaPacket(RTMP * r, RTMPPacket * packet)
 	  continue;
 	}
 
-      bHasMediaPacket = HandlePacket(r, packet);
+      bHasMediaPacket = RTMP_ClientPacket(r, packet);
 
       if (!bHasMediaPacket)
 	{
@@ -587,8 +586,8 @@ RTMP_GetNextMediaPacket(RTMP * r, RTMPPacket * packet)
   return bHasMediaPacket;
 }
 
-static int
-HandlePacket(RTMP * r, RTMPPacket * packet)
+int
+RTMP_ClientPacket(RTMP * r, RTMPPacket * packet)
 {
   int bHasMediaPacket = 0;
   switch (packet->m_packetType)

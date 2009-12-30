@@ -198,6 +198,7 @@ bool RTMP_ConnectStream(RTMP *r, double seekTime, uint32_t dLength);
 bool RTMP_ReconnectStream(RTMP *r, int bufferTime, double seekTime, uint32_t dLength);
 void RTMP_DeleteStream(RTMP *r);
 int RTMP_GetNextMediaPacket(RTMP *r, RTMPPacket *packet);
+int RTMP_ClientPacket(RTMP *r, RTMPPacket *packet);
 
 void RTMP_Init(RTMP *r);
 void RTMP_Close(RTMP *r);
@@ -211,7 +212,7 @@ bool RTMP_FindFirstMatchingProperty(AMFObject *obj, const AVal *name,
 /* hashswf.c */
 #define HASHLEN	32
 
-int RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash);
+int RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash, int ask);
 #endif
 
 #endif

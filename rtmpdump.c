@@ -1284,7 +1284,7 @@ main(int argc, char **argv)
 	  }
         case 'W':
 	  STR2AVAL(swfUrl, optarg);
-          if (RTMP_HashSWF(optarg, &swfSize, hash) == 0)
+          if (RTMP_HashSWF(optarg, &swfSize, hash, 1) == 0)
             {
               swfHash.av_val = (char *)hash;
               swfHash.av_len = HASHLEN;

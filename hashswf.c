@@ -222,7 +222,7 @@ leave:
 #define HEX2BIN(a)      (((a)&0x40)?((a)&0xf)+9:((a)&0xf))
 
 int
-RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash)
+RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash, int ask)
 {
   FILE *f = NULL;
   char *path, *home, date[64];
@@ -290,6 +290,9 @@ RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash)
           break;
         }
     }
+
+  if (got && !ask)
+    return 0;
 
   in.first = 1;
   in.date = date;

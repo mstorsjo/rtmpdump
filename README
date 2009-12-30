@@ -61,13 +61,15 @@ OpenSSL cross-compiling can be a difficult beast.
 Credit goes to team boxee for the XBMC RTMP code originally used in RTMPDumper.
 The current code is based on the XBMC code but rewritten in C by Howard Chu.
 
-RTMP Server
+RTMP Servers
 -----------
 You can also use "make rtmpsrv" to build a stub server. Note that this is
 very incomplete code, and I haven't yet decided whether or not to finish
 it. In its current form it is useful for obtaining all the parameters
 that a real Flash client would send to an RTMP server, so that they can be
 used with rtmpdump.
+
+You can also use "make rtmpsuck" to build a proxy server. See below...
 
 All you need to do is redirect your Flash clients to the machine running this
 server and it will dump out all the connect / play parameters that the Flash
@@ -89,8 +91,7 @@ iptables rule would look like this:
 iptables -t nat -A OUTPUT -p tcp --dport 1935 -m owner \! --uid-owner proxy \
  -j REDIRECT
 
-(But the proxying part of the code has not been written, and I'm not sure
-it's even needed at this point.)
+A rule like the above will be needed to use rtmpsuck.
 
 Using it in this mode takes advantage of the Linux support for IP redirects;
 in particular it uses a special getsockopt() call to retrieve the original
@@ -98,3 +99,27 @@ destination address of the connection. That way the proxy can create the
 real outbound connection without any other help from the user. I'm not aware
 of equivalent functionality on BSD, Windows, or any other platform; if you
 know how to handle this I'd be interested in hearing about it.
+
+The rtmpsuck command has only one option: "-z" to turn on debug logging.
+It listens on port 1935 for RTMP sessions, but you can also redirect other
+ports to it as needed (read the iptables docs). It first performs an RTMP
+handshake with the client, then waits for the client to send a connect
+request. It parses and prints the connect parameters, then makes an
+outbound connection to the real RTMP server. It performs an RTMP handshake
+with that server, forwards the connect request, and from that point on it
+just relays packets back and forth between the two endpoints.
+
+It also checks for a few packets that it treats specially: a play packet
+from the client will get parsed so that the playpath can be displayed. It
+also handles SWF Verification requests from the server, without forwarding
+them to the client. (There would be no point, since the response is tied to
+each session's handshake.)
+
+Once the play command is processed, all subsequent audio/video data received
+from the server will be written to a file, as well as being delivered back
+to the client.
+
+The point of all this, instead of just using a sniffer, is that since rtmpsuck
+has performed real handshakes with both the client and the server, it can
+negotiate whatever encryption keys are needed and so record the unencrypted
+data.

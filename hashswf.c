@@ -31,6 +31,8 @@
 #include <arpa/inet.h>
 #endif
 
+#include "rtmp.h"
+
 #include <openssl/sha.h>
 #include <openssl/hmac.h>
 #include <zlib.h>
@@ -219,7 +221,7 @@ leave:
 #define HEX2BIN(a)      (((a)&0x40)?((a)&0xf)+9:((a)&0xf))
 
 int
-SWFVerify(const char *url, unsigned int *size, unsigned char *hash, int ask)
+RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash, int ask)
 {
   FILE *f = NULL;
   char *path, *home, date[64];

@@ -207,5 +207,11 @@ bool RTMP_SendPause(RTMP *r, bool DoPause, double dTime);
 bool RTMP_FindFirstMatchingProperty(AMFObject *obj, const AVal *name,
 				      AMFObjectProperty *p);
 
+#ifdef CRYPTO
+/* hashswf.c */
+#define HASHLEN	32
+
+int RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash, int ask);
+#endif
 
 #endif

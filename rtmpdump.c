@@ -45,11 +45,6 @@
 #include "log.h"
 #include "parseurl.h"
 
-#ifdef CRYPTO
-#define HASHLEN	32
-extern int SWFVerify(const char *url, unsigned int *size, unsigned char *hash, int ask);
-#endif
-
 #define RTMPDUMP_VERSION	"v2.0"
 
 #define RD_SUCCESS		0
@@ -1289,7 +1284,7 @@ main(int argc, char **argv)
 	  }
         case 'W':
 	  STR2AVAL(swfUrl, optarg);
-          if (SWFVerify(optarg, &swfSize, hash, 1) == 0)
+          if (RTMP_HashSWF(optarg, &swfSize, hash, 1) == 0)
             {
               swfHash.av_val = (char *)hash;
               swfHash.av_len = HASHLEN;

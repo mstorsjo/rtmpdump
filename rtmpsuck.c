@@ -45,11 +45,6 @@
 #include <pthread.h>
 #endif
 
-#ifdef CRYPTO
-#define HASHLEN	32
-extern int SWFVerify(const char *url, unsigned int *size, unsigned char *hash, int ask);
-#endif
-
 #define RTMPDUMP_PROXY_VERSION	"v2.0"
 
 #define RD_SUCCESS		0
@@ -212,7 +207,7 @@ ServeInvoke(STREAMING_SERVER *server, RTMPPacket *pack, const char *body)
             {
               unsigned char hash[HASHLEN];
               server->rc.Link.swfUrl = pval;
-              if (SWFVerify(pval.av_val, &server->rc.Link.SWFSize, hash, 0) == 0)
+              if (RTMP_HashSWF(pval.av_val, &server->rc.Link.SWFSize, hash, 0) == 0)
                 {
                   server->rc.Link.SWFHash.av_val = malloc(HASHLEN);
                   memcpy(server->rc.Link.SWFHash.av_val, hash, HASHLEN);

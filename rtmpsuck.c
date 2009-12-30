@@ -104,39 +104,7 @@ STREAMING_SERVER *rtmpServer = 0;	// server structure pointer
 STREAMING_SERVER *startStreaming(const char *address, int port);
 void stopStreaming(STREAMING_SERVER * server);
 
-typedef struct
-{
-  char *hostname;
-  int rtmpport;
-  int protocol;
-  bool bLiveStream;		// is it a live stream? then we can't seek/resume
-
-  long int timeout;		// timeout connection afte 300 seconds
-  uint32_t bufferTime;
-
-  char *rtmpurl;
-  AVal playpath;
-  AVal swfUrl;
-  AVal tcUrl;
-  AVal pageUrl;
-  AVal app;
-  AVal auth;
-  AVal swfHash;
-  AVal flashVer;
-  AVal subscribepath;
-  uint32_t swfSize;
-
-  uint32_t dStartOffset;
-  uint32_t dStopOffset;
-  uint32_t nTimeStamp;
-} RTMP_REQUEST;
-
 #define STR2AVAL(av,str)	av.av_val = str; av.av_len = strlen(av.av_val)
-
-/* this request is formed from the parameters and used to initialize a new request,
- * thus it is a default settings list. All settings can be overriden by specifying the
- * parameters in the GET request. */
-RTMP_REQUEST defaultRTMPRequest;
 
 #ifdef _DEBUG
 uint32_t debugTS = 0;
@@ -146,33 +114,6 @@ int pnum = 0;
 FILE *netstackdump = NULL;
 FILE *netstackdump_read = NULL;
 #endif
-
-static void
-QueuePkt(Plist **q, RTMPPacket *p)
-{
-  Plist *k;
-
-  k = malloc(sizeof(Plist));
-  k->p_pkt = *p;
-  k->p_next = NULL;
-  if (!q[0])
-    q[0] = k;
-  else
-    q[1]->p_next = k;
-  q[1] = k;
-  p->m_body = NULL;
-}
-
-static void
-DequeuePkt(Plist **q, RTMPPacket *p)
-{
-  Plist *k = q[0];
-  q[0] = k->p_next;
-  if (!q[0])
-    q[1] = NULL;
-  *p = k->p_pkt;
-  free(k);
-}
 
 #define SAVC(x) static const AVal av_##x = AVC(#x)
 
@@ -197,6 +138,16 @@ SAVC(level);
 SAVC(code);
 SAVC(description);
 SAVC(secureToken);
+SAVC(onStatus);
+static const AVal av_NetStream_Failed = AVC("NetStream.Failed");
+static const AVal av_NetStream_Play_Failed = AVC("NetStream.Play.Failed");
+static const AVal av_NetStream_Play_StreamNotFound =
+AVC("NetStream.Play.StreamNotFound");
+static const AVal av_NetConnection_Connect_InvalidApp =
+AVC("NetConnection.Connect.InvalidApp");
+static const AVal av_NetStream_Play_Start = AVC("NetStream.Play.Start");
+static const AVal av_NetStream_Play_Complete = AVC("NetStream.Play.Complete");
+static const AVal av_NetStream_Play_Stop = AVC("NetStream.Play.Stop");
 
 // Returns 0 for OK/Failed/error, 1 for 'Stop or Complete'
 int
@@ -361,6 +312,35 @@ ServeInvoke(STREAMING_SERVER *server, RTMPPacket *pack, const char *body)
       else
         fwrite(flvHeader, 1, sizeof(flvHeader), server->out);
     }
+  else if (AVMATCH(&method, &av_onStatus))
+    {
+      AMFObject obj2;
+      AVal code, level;
+      AMFProp_GetObject(AMF_GetProp(&obj, NULL, 3), &obj2);
+      AMFProp_GetString(AMF_GetProp(&obj2, &av_code, -1), &code);
+      AMFProp_GetString(AMF_GetProp(&obj2, &av_level, -1), &level);
+
+      Log(LOGDEBUG, "%s, onStatus: %s", __FUNCTION__, code.av_val);
+      if (AVMATCH(&code, &av_NetStream_Failed)
+	  || AVMATCH(&code, &av_NetStream_Play_Failed)
+	  || AVMATCH(&code, &av_NetStream_Play_StreamNotFound)
+	  || AVMATCH(&code, &av_NetConnection_Connect_InvalidApp))
+	{
+	  ret = 1;
+	}
+
+      if (AVMATCH(&code, &av_NetStream_Play_Start))
+	{
+	  server->rc.m_bPlaying = true;
+	}
+
+      // Return 1 if this is a Play.Complete or Play.Stop
+      if (AVMATCH(&code, &av_NetStream_Play_Complete)
+	  || AVMATCH(&code, &av_NetStream_Play_Stop))
+	{
+	  ret = 1;
+	}
+    }
   AMF_Reset(&obj);
   return ret;
 }
@@ -431,7 +411,7 @@ ServePacket(STREAMING_SERVER *server, RTMPPacket *packet)
 
 	   obj.Dump(); */
 
-	ServeInvoke(server, packet, packet->m_body + 1);
+	ret = ServeInvoke(server, packet, packet->m_body + 1);
 	break;
       }
     case 0x12:
@@ -448,8 +428,7 @@ ServePacket(STREAMING_SERVER *server, RTMPPacket *packet)
 	  packet->m_nBodySize);
       //LogHex(packet.m_body, packet.m_nBodySize);
 
-      if (ServeInvoke(server, packet, packet->m_body))
-        RTMP_Close(&server->rs);
+      ret = ServeInvoke(server, packet, packet->m_body);
       break;
 
     case 0x16:
@@ -733,6 +712,9 @@ void doServe(STREAMING_SERVER * server,	// server socket and state (our listenin
         break;
     }
 
+  /* We have our own timeout in select() */
+  server->rc.Link.timeout = 1;
+  server->rs.Link.timeout = 1;
   while (RTMP_IsConnected(&server->rs) || RTMP_IsConnected(&server->rc))
     {
       int n;
@@ -755,13 +737,18 @@ void doServe(STREAMING_SERVER * server,	// server socket and state (our listenin
 	  if (RTMP_IsConnected(&server->rc))
 	    FD_SET(server->rc.m_socket, &rfds);
 
-	  tv.tv_sec = 30;
+          /* give more time to start up if we're not playing yet */
+	  tv.tv_sec = server->out ? 30 : 60;
 	  tv.tv_usec = 0;
 
 	  if (select(n + 1, &rfds, NULL, NULL, &tv) <= 0)
 	    {
-	      Log(LOGERROR, "Request timeout/select failed, ignoring request");
-	      goto cleanup;
+              /* FIXME: Need to get the ToggleStream support in place */
+              /* if (!server->out || !RTMP_ToggleStream(&server->rc)) */
+                {
+	          Log(LOGERROR, "Request timeout/select failed, ignoring request");
+	          goto cleanup;
+                }
 	    }
           if (FD_ISSET(server->rs.m_socket, &rfds))
             sr = 1;
@@ -828,6 +815,17 @@ void doServe(STREAMING_SERVER * server,	// server socket and state (our listenin
                     if (len > 0 && fwrite(buf, 1, len, server->out) != len)
                       goto cleanup;
                   }
+                else if (server->out && (
+                     pc.m_packetType == 0x11 ||
+                     pc.m_packetType == 0x14))
+                  {
+                     if (ServePacket(server, &pc))
+                       {
+                         fclose(server->out);
+                         server->out = NULL;
+                       }
+                  }
+
                 if (sendit && RTMP_IsConnected(&server->rs))
                   RTMP_SendPacket(&server->rs, &pc, false);
                 RTMPPacket_Free(&pc);
@@ -1003,16 +1001,6 @@ main(int argc, char **argv)
 
   if (argc > 1 && !strcmp(argv[1], "-z"))
     debuglevel = LOGALL;
-
-  // init request
-  memset(&defaultRTMPRequest, 0, sizeof(RTMP_REQUEST));
-
-  defaultRTMPRequest.rtmpport = -1;
-  defaultRTMPRequest.protocol = RTMP_PROTOCOL_UNDEFINED;
-  defaultRTMPRequest.bLiveStream = false;	// is it a live stream? then we can't seek/resume
-
-  defaultRTMPRequest.timeout = 300;	// timeout connection afte 300 seconds
-  defaultRTMPRequest.bufferTime = 20 * 1000;
 
   signal(SIGINT, sigIntHandler);
   signal(SIGPIPE, SIG_IGN);

@@ -322,9 +322,16 @@ RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash, int ask)
 
   inflateEnd(&zs);
 
-  if (!ret && !in.first)
+  if (ret)
+    {
+      Log(LOGERROR, "%s: couldn't contact swfurl %s",
+        __FUNCTION__, url);
+    }
+  else if (!in.first)
     {
       HMAC_Final(&ctx, (unsigned char *)hash, &hlen);
+      *size = in.size;
+
       if (got && pos)
         fseek(f, pos, SEEK_SET);
       else
@@ -333,7 +340,12 @@ RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash, int ask)
           if (!f)
             f = fopen(path, "w");
           if (!f)
-            return -1;
+            {
+              int err = errno;
+              Log(LOGERROR, "%s: couldn't open %s for writing, errno %d (%s)",
+                __FUNCTION__, path, err, strerror(err));
+              return -1;
+            }
           fseek(f, 0, SEEK_END);
           q = strchr(url, '?');
           if (q)
@@ -349,9 +361,9 @@ RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash, int ask)
       for (i=0; i<SHA256_DIGEST_LENGTH; i++)
         fprintf(f, "%02x", hash[i]);
       fprintf(f, "\n");
-      *size = in.size;
     }
   HMAC_CTX_cleanup(&ctx);
-  fclose(f);
+  if (f)
+    fclose(f);
   return ret;
 }

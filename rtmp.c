@@ -71,13 +71,16 @@ static bool SendConnectPacket(RTMP * r);
 static bool SendServerBW(RTMP * r);
 static bool SendCheckBW(RTMP * r);
 static bool SendCheckBWResult(RTMP * r, double txn);
-static bool SendBGHasStream(RTMP * r, double dId, AVal * playpath);
 static bool SendCreateStream(RTMP * r, double dStreamId);
 static bool SendDeleteStream(RTMP * r, double dStreamId);
 static bool SendFCSubscribe(RTMP * r, AVal * subscribepath);
 static bool SendPlay(RTMP * r);
-static bool SendSeek(RTMP * r, double dTime);
 static bool SendBytesReceived(RTMP * r);
+
+#if 0 /* unused */
+static bool SendBGHasStream(RTMP * r, double dId, AVal * playpath);
+static bool SendSeek(RTMP * r, double dTime);
+#endif
 
 static int HandleInvoke(RTMP * r, const char *body, unsigned int nBodySize);
 static bool HandleMetadata(RTMP * r, char *body, unsigned int len);

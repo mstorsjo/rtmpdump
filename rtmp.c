@@ -2290,7 +2290,7 @@ RTMP_Close(RTMP * r)
   int i;
 
   if (RTMP_IsConnected(r))
-    close(r->m_socket);
+    closesocket(r->m_socket);
 
   r->m_stream_id = -1;
   r->m_socket = 0;

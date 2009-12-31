@@ -93,7 +93,7 @@ http_get(const char *url, struct info *in)
   char hbuf[256];
   int port = 80;
   int ssl = 0;
-  int hlen, flen;
+  int hlen, flen = 0;
   int rc, i, ret = 0;
   struct sockaddr_in sa;
   RTMPSockBuf sb;
@@ -223,12 +223,10 @@ http_get(const char *url, struct info *in)
         }
     }
 
-  while (sb.sb_size > 0 || RTMPSockBuf_Fill(&sb) > 0)
+  while (flen > 0 && (sb.sb_size > 0 || RTMPSockBuf_Fill(&sb) > 0))
     {
       swfcrunch(sb.sb_start, 1, sb.sb_size, in);
       flen -= sb.sb_size;
-      if (flen < 1)
-        break;
       sb.sb_size = 0;
     }
 

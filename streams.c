@@ -507,7 +507,7 @@ void processTCPrequest(STREAMING_SERVER * server,	// server socket and state (ou
     }
   else
     {
-      nRead = read(sockfd, header, 2047);
+      nRead = recv(sockfd, header, 2047, 0);
       header[2047] = '\0';
 
       Log(LOGDEBUG, "%s: header: %s", __FUNCTION__, header);
@@ -783,7 +783,7 @@ quit:
     }
 
   if (sockfd)
-    close(sockfd);
+    closesocket(sockfd);
 
   if (server->state == STREAMING_IN_PROGRESS)
     server->state = STREAMING_ACCEPTING;
@@ -855,7 +855,7 @@ startStreaming(const char *address, int port)
   if (listen(sockfd, 10) == -1)
     {
       Log(LOGERROR, "%s, listen failed", __FUNCTION__);
-      close(sockfd);
+      closesocket(sockfd);
       return 0;
     }
 
@@ -883,7 +883,7 @@ stopStreaming(STREAMING_SERVER * server)
 	    msleep(1);
 	}
 
-      if (close(server->socket))
+      if (closesocket(server->socket))
 	Log(LOGERROR, "%s: Failed to close listening socket, error %d",
 	    GetSockError());
 

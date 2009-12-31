@@ -633,7 +633,7 @@ startStreaming(const char *address, int port)
   if (listen(sockfd, 10) == -1)
     {
       Log(LOGERROR, "%s, listen failed", __FUNCTION__);
-      close(sockfd);
+      closesocket(sockfd);
       return 0;
     }
 
@@ -661,7 +661,7 @@ stopStreaming(STREAMING_SERVER * server)
 	    msleep(1);
 	}
 
-      if (close(server->socket))
+      if (closesocket(server->socket))
 	Log(LOGERROR, "%s: Failed to close listening socket, error %d",
 	    GetSockError());
 

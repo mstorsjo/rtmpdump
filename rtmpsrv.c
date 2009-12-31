@@ -36,13 +36,10 @@
 #include "rtmp.h"
 #include "parseurl.h"
 
-#ifdef WIN32
-#include <process.h>
-#else
+#include "thread.h"
+
 #ifdef linux
 #include <linux/netfilter_ipv4.h>
-#endif
-#include <pthread.h>
 #endif
 
 #define RTMPDUMP_SERVER_VERSION	"v2.1"
@@ -448,40 +445,7 @@ ServePacket(STREAMING_SERVER *server, RTMP *r, RTMPPacket *packet)
   return ret;
 }
 
-#ifdef WIN32
-HANDLE
-ThreadCreate(void *(*routine) (void *), void *args)
-{
-  HANDLE thd;
-
-  thd = (HANDLE) _beginthread(routine, 0, args);
-  if (thd == -1L)
-    LogPrintf("%s, _beginthread failed with %d\n", __FUNCTION__, errno);
-
-  return thd;
-}
-#else
-pthread_t
-ThreadCreate(void *(*routine) (void *), void *args)
-{
-  pthread_t id = 0;
-  pthread_attr_t attributes;
-  int ret;
-
-  pthread_attr_init(&attributes);
-  pthread_attr_setdetachstate(&attributes, PTHREAD_CREATE_DETACHED);
-
-  ret =
-    pthread_create(&id, &attributes, (void *(*)(void *)) routine,
-		   (void *) args);
-  if (ret != 0)
-    LogPrintf("%s, pthread_create failed with %d\n", __FUNCTION__, ret);
-
-  return id;
-}
-#endif
-
-void *
+TFTYPE
 controlServerThread(void *unused)
 {
   char ich;
@@ -499,7 +463,7 @@ controlServerThread(void *unused)
 	  LogPrintf("Unknown command \'%c\', ignoring\n", ich);
 	}
     }
-  return 0;
+  TFRET();
 }
 
 
@@ -565,7 +529,7 @@ quit:
   return;
 }
 
-void *
+TFTYPE
 serverThread(STREAMING_SERVER * server)
 {
   server->state = STREAMING_ACCEPTING;
@@ -601,7 +565,7 @@ serverThread(STREAMING_SERVER * server)
 	}
     }
   server->state = STREAMING_STOPPED;
-  return 0;
+  TFRET();
 }
 
 STREAMING_SERVER *
@@ -640,7 +604,7 @@ startStreaming(const char *address, int port)
   server = (STREAMING_SERVER *) calloc(1, sizeof(STREAMING_SERVER));
   server->socket = sockfd;
 
-  ThreadCreate((void *(*)(void *)) serverThread, server);
+  ThreadCreate((thrfunc *)serverThread, server);
 
   return server;
 }

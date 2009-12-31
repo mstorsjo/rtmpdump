@@ -37,16 +37,16 @@ arm:
 clean:
 	rm -f *.o rtmpdump$(EXT) streams$(EXT) rtmpsrv$(EXT) rtmpsuck$(EXT)
 
-streams: log.o rtmp.o amf.o streams.o parseurl.o hashswf.o
-	$(CC) $(LDFLAGS) $^ -o $@$(EXT) $(SLIBS)
-
 rtmpdump: log.o rtmp.o amf.o rtmpdump.o parseurl.o hashswf.o
 	$(CC) $(LDFLAGS) $^ -o $@$(EXT) $(LIBS)
 
-rtmpsrv: log.o rtmp.o amf.o rtmpsrv.o
+rtmpsrv: log.o rtmp.o amf.o rtmpsrv.o thread.o
 	$(CC) $(LDFLAGS) $^ -o $@$(EXT) $(SLIBS)
 
-rtmpsuck: log.o rtmp.o amf.o rtmpsuck.o hashswf.o
+rtmpsuck: log.o rtmp.o amf.o rtmpsuck.o hashswf.o thread.o
+	$(CC) $(LDFLAGS) $^ -o $@$(EXT) $(SLIBS)
+
+streams: log.o rtmp.o amf.o streams.o parseurl.o hashswf.o thread.o
 	$(CC) $(LDFLAGS) $^ -o $@$(EXT) $(SLIBS)
 
 log.o: log.c log.h Makefile
@@ -57,3 +57,4 @@ amf.o: amf.c amf.h bytes.h log.h Makefile
 rtmpdump.o: rtmpdump.c rtmp.h log.h amf.h Makefile
 rtmpsrv.o: rtmpsrv.c rtmp.h log.h amf.h Makefile
 hashswf.o: hashswf.c
+thread.o: thread.c thread.h

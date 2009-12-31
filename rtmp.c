@@ -957,6 +957,7 @@ SendConnectPacket(RTMP * r)
   return RTMP_SendPacket(r, &packet, true);
 }
 
+#if 0 /* unused */
 SAVC(bgHasStream);
 
 static bool
@@ -986,6 +987,7 @@ SendBGHasStream(RTMP * r, double dId, AVal * playpath)
 
   return RTMP_SendPacket(r, &packet, true);
 }
+#endif
 
 SAVC(createStream);
 
@@ -1099,6 +1101,7 @@ RTMP_SendPause(RTMP * r, bool DoPause, double dTime)
   return RTMP_SendPacket(r, &packet, true);
 }
 
+#if 0 /* unused */
 SAVC(seek);
 
 static bool
@@ -1125,6 +1128,7 @@ SendSeek(RTMP * r, double dTime)
 
   return RTMP_SendPacket(r, &packet, true);
 }
+#endif
 
 static bool
 SendServerBW(RTMP * r)

@@ -35,7 +35,7 @@ arm:
 	@$(MAKE) CROSS_COMPILE=armv7a-angstrom-linux-gnueabi- INC=-I/OE/tmp/staging/armv7a-angstrom-linux-gnueabi/usr/include $(MAKEFLAGS) progs
 
 clean:
-	rm -f *.o rtmpdump$(EXT) streams$(EXT)
+	rm -f *.o rtmpdump$(EXT) streams$(EXT) rtmpsrv$(EXT) rtmpsuck$(EXT)
 
 streams: log.o rtmp.o amf.o streams.o parseurl.o hashswf.o
 	$(CC) $(LDFLAGS) $^ -o $@$(EXT) $(SLIBS)

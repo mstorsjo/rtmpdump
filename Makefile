@@ -17,7 +17,7 @@ all:
 	@echo '    "make cygwin" for a CygWin build, or'
 	@echo '    "make arm"   for a cross-compiled Linux ARM build'
 
-progs:	rtmpdump streams
+progs:	rtmpdump streams rtmpsrv rtmpsuck
 
 linux:
 	@$(MAKE) $(MAKEFLAGS) progs

@@ -880,7 +880,7 @@ stopStreaming(STREAMING_SERVER * server)
 
 	  // wait for streaming threads to exit
 	  while (server->state != STREAMING_STOPPED)
-	    usleep(1 * 1000);
+	    msleep(1);
 	}
 
       if (close(server->socket))
@@ -1141,7 +1141,9 @@ main(int argc, char **argv)
   };
 
   signal(SIGINT, sigIntHandler);
+#ifndef WIN32
   signal(SIGPIPE, SIG_IGN);
+#endif
 
   InitSockets();
 

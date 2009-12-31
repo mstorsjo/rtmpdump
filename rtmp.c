@@ -24,21 +24,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 #include <assert.h>
-
-#ifdef WIN32
-#include <winsock.h>
-#define close(x)	closesocket(x)
-#define setsockopt(a,b,c,d,e)	(setsockopt)(a,b,c,(const char *)d,(int)e)
-#define	EWOULDBLOCK	EAGAIN
-#define	sleep(n)	Sleep(n*1000)
-#else
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <netinet/tcp.h>
-#include <sys/times.h>
-#endif
 
 #include "rtmp.h"
 #include "log.h"
@@ -104,8 +90,6 @@ static void HandleClientBW(RTMP * r, const RTMPPacket * packet);
 
 static int ReadN(RTMP * r, char *buffer, int n);
 static bool WriteN(RTMP * r, const char *buffer, int n);
-
-static bool FillBuffer(RTMP * r);
 
 static void DecodeTEA(AVal *key, AVal *text);
 
@@ -761,7 +745,7 @@ ReadN(RTMP * r, char *buffer, int n)
     {
       int nBytes = 0, nRead;
       if (r->m_nBufferSize == 0)
-	if (!FillBuffer(r))
+	if (RTMPSockBuf_Fill(&r->m_sb)<1)
 	  {
 	    if (!r->m_bTimedout)
 	      RTMP_Close(r);
@@ -2359,35 +2343,40 @@ RTMP_Close(RTMP * r)
 #endif
 }
 
-static bool
-FillBuffer(RTMP * r)
+int
+RTMPSockBuf_Fill(RTMPSockBuf *sb)
 {
-  assert(r->m_nBufferSize == 0);	// only fill buffer when it's empty
   int nBytes;
 
-again:
-  nBytes = recv(r->m_socket, r->m_pBuffer, sizeof(r->m_pBuffer), 0);
-  if (nBytes != -1)
-    {
-      r->m_nBufferSize += nBytes;
-      r->m_pBufferStart = r->m_pBuffer;
-    }
-  else
-    {
-      int sockerr = GetSockError();
-      Log(LOGDEBUG, "%s, recv returned %d. GetSockError(): %d (%s)",
-	  __FUNCTION__, nBytes, sockerr, strerror(sockerr));
-      if (sockerr == EINTR && !RTMP_ctrlC)
-	goto again;
+  if (!sb->sb_size)
+    sb->sb_start = sb->sb_buf;
 
-      if (sockerr == EWOULDBLOCK || sockerr == EAGAIN)
-	r->m_bTimedout = true;
+  while (1)
+    {
+      nBytes = sizeof(sb->sb_buf) - sb->sb_size - (sb->sb_start - sb->sb_buf);
+      nBytes = recv(sb->sb_socket, sb->sb_start+sb->sb_size, nBytes, 0);
+      if (nBytes != -1)
+        {
+          sb->sb_size += nBytes;
+        }
       else
-	RTMP_Close(r);
-      return false;
+        {
+          int sockerr = GetSockError();
+          Log(LOGDEBUG, "%s, recv returned %d. GetSockError(): %d (%s)",
+	      __FUNCTION__, nBytes, sockerr, strerror(sockerr));
+          if (sockerr == EINTR && !RTMP_ctrlC)
+	    continue;
+
+          if (sockerr == EWOULDBLOCK || sockerr == EAGAIN)
+            {
+	      sb->sb_timedout = true;
+              nBytes = 0;
+            }
+        }
+      break;
     }
 
-  return true;
+  return nBytes;
 }
 
 #define HEX2BIN(a)	(((a)&0x40)?((a)&0xf)+9:((a)&0xf))

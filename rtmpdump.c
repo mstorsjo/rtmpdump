@@ -24,26 +24,24 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#include <unistd.h>
+#include <stdio.h>
 
 #include <signal.h>		// to catch Ctrl-C
 #include <getopt.h>
 
+#include "rtmp.h"
+#include "log.h"
+#include "parseurl.h"
+
 #ifdef WIN32
 #define fseeko fseeko64
 #define ftello ftello64
-#include <winsock.h>
-#include <stdio.h>
 #include <io.h>
 #include <fcntl.h>
 #define	SET_BINMODE(f)	setmode(fileno(f), O_BINARY)
 #else
 #define	SET_BINMODE(f)
 #endif
-
-#include "rtmp.h"
-#include "log.h"
-#include "parseurl.h"
 
 #define RTMPDUMP_VERSION	"v2.1"
 

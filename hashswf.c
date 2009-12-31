@@ -21,16 +21,6 @@
 #include <stdio.h>
 #include <string.h>
 
-#ifdef WIN32
-#include <winsock.h>
-#else
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <netinet/tcp.h>
-#include <netdb.h>
-#include <arpa/inet.h>
-#endif
-
 #include "rtmp.h"
 
 #include <openssl/sha.h>
@@ -104,10 +94,9 @@ http_get(const char *url, struct info *in)
   int port = 80;
   int ssl = 0;
   int hlen, flen;
-  int s = -1, rc, i, ret = 0;
-  FILE *sf = NULL;
+  int rc, i, ret = 0;
   struct sockaddr_in sa;
-  char buf[4096];
+  RTMPSockBuf sb;
 
   memset(&sa, 0, sizeof(struct sockaddr_in));
   sa.sin_family = AF_INET;
@@ -148,74 +137,103 @@ http_get(const char *url, struct info *in)
       sa.sin_addr = *(struct in_addr *)hp->h_addr;
     }
   sa.sin_port = htons(port);
-  s = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-  if (s < 0)
+  sb.sb_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+  if (sb.sb_socket < 0)
     return -1;
-  i = sprintf(buf, "GET %s HTTP/1.0\r\nUser-Agent: %s\r\nHost: %s\r\nReferrer: %.*s\r\n", path, AGENT, host,
-    path-url+1, url);
+  i = sprintf(sb.sb_buf, "GET %s HTTP/1.0\r\nUser-Agent: %s\r\nHost: %s\r\nReferrer: %.*s\r\n",
+    path, AGENT, host, path-url+1, url);
   if (in->date[0])
-    i += sprintf(buf+i, "If-Modified-Since: %s\r\n", in->date);
-  i += sprintf(buf+i, "\r\n");
+    i += sprintf(sb.sb_buf+i, "If-Modified-Since: %s\r\n", in->date);
+  i += sprintf(sb.sb_buf+i, "\r\n");
 
-  if (connect(s, (struct sockaddr *)&sa, sizeof(struct sockaddr)) < 0)
+  if (connect(sb.sb_socket, (struct sockaddr *)&sa, sizeof(struct sockaddr)) < 0)
     {
       ret = -1;
       goto leave;
     }
-  write(s, buf, i);
-  sf = fdopen(s, "rb");
+  send(sb.sb_socket, sb.sb_buf, i, 0);
 
-  if (!fgets(buf, sizeof(buf), sf))
+  // set timeout
+  struct timeval tv;
+  memset(&tv, 0, sizeof(tv));
+  tv.tv_sec = 5;
+  if (setsockopt
+    (sb.sb_socket, SOL_SOCKET, SO_RCVTIMEO, (char *) &tv, sizeof(tv)))
+    {
+      Log(LOGERROR, "%s, Setting socket timeout to %ds failed!",
+          __FUNCTION__, tv.tv_sec);
+    }
+
+  sb.sb_size = 0;
+  sb.sb_timedout = false;
+  if (RTMPSockBuf_Fill(&sb) < 1)
     {
       ret = -1;
       goto leave;
     }
-  if (strncmp(buf, "HTTP/1", 6))
+  if (strncmp(sb.sb_buf, "HTTP/1", 6))
     {
       ret = -1;
       goto leave;
     }
 
-  p1 = strchr(buf, ' ');
+  p1 = strchr(sb.sb_buf, ' ');
   rc = atoi(p1+1);
 
   /* not modified */
   if (rc == 304)
     goto leave;
 
-  while(fgets(buf, sizeof(buf), sf))
+  p1 = memchr(sb.sb_buf, '\n', sb.sb_size);
+  if (!p1)
     {
-      if (!strncasecmp(buf, "Content-Length: ", sizeof("Content-Length: ")-1))
+      ret = -1;
+      goto leave;
+    }
+  sb.sb_start = p1+1;
+  sb.sb_size -= sb.sb_start - sb.sb_buf;
+
+  while((p2=memchr(sb.sb_start, '\r', sb.sb_size)))
+    {
+      if (*sb.sb_start == '\r')
         {
-          flen = atoi(buf+sizeof("Content-Length: ")-1);
+          sb.sb_start += 2;
+          sb.sb_size -= 2;
+          break;
         }
-      else if (!strncasecmp(buf, "Last-Modified: ", sizeof("Last-Modified: ")-1))
+      else if (!strncasecmp(sb.sb_start, "Content-Length: ", sizeof("Content-Length: ")-1))
         {
-          p1 = buf+sizeof("Last-Modified: ")-1;
-          p2 = strchr(p1, '\r');
+          flen = atoi(sb.sb_start+sizeof("Content-Length: ")-1);
+        }
+      else if (!strncasecmp(sb.sb_start, "Last-Modified: ", sizeof("Last-Modified: ")-1))
+        {
           *p2 = '\0';
-          strcpy(in->date, p1);
+          strcpy(in->date, sb.sb_start+sizeof("Last-Modified: ")-1);
         }
-      else if (buf[0] == '\r')
-        break;
+      p2 += 2;
+      sb.sb_size -= p2-sb.sb_start;
+      sb.sb_start = p2;
+      if (sb.sb_size < 1)
+        {
+          if (RTMPSockBuf_Fill(&sb) < 1)
+            {
+              ret = -1;
+              goto leave;
+            }
+        }
     }
 
-  hlen = sizeof(buf);
-  while ((i=fread(buf, 1, hlen, sf))>0)
+  while (sb.sb_size > 0 || RTMPSockBuf_Fill(&sb) > 0)
     {
-      swfcrunch(buf, 1, i, in);
-      flen -= i;
+      swfcrunch(sb.sb_start, 1, sb.sb_size, in);
+      flen -= sb.sb_size;
       if (flen < 1)
         break;
-      if (hlen > flen)
-        hlen = flen;
+      sb.sb_size = 0;
     }
 
 leave:
-  if (sf)
-    fclose(sf);
-  else if (s >= 0)
-    close(s);
+  closesocket(sb.sb_socket);
   return ret;
 }
 

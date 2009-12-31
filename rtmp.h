@@ -25,18 +25,27 @@
 
 #ifdef WIN32
 #include <winsock.h>
-#define	GetSockError()	WSAGetLastError()
+#define GetSockError()	WSAGetLastError()
+#define setsockopt(a,b,c,d,e)	(setsockopt)(a,b,c,(const char *)d,(int)e)
+#define EWOULDBLOCK	EAGAIN
+#define sleep(n)	Sleep(n*1000)
+#define msleep(n)	Sleep(n)
+#define socklen_t	int
 #else
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/times.h>
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <netinet/in.h>
-#include <errno.h>
-#define	GetSockError()	errno
+#include <netinet/tcp.h>
+#define GetSockError()	errno
+#define closesocket(s)	close(s)
+#define msleep(n)	usleep(n*1000)
 #endif
 
+#include <errno.h>
 #include <stdint.h>
 
 #include "log.h"
@@ -82,6 +91,15 @@ typedef struct RTMPPacket
   uint32_t m_nBytesRead;
   char *m_body;
 } RTMPPacket;
+
+typedef struct RTMPSockBuf
+{
+  int sb_socket;
+  int sb_size;				/* number of unprocessed bytes in buffer */
+  char *sb_start;			/* pointer into sb_pBuffer of next byte to process */
+  char sb_buf[RTMP_BUFFER_CACHE_SIZE];	/* data read from socket */
+  bool sb_timedout;
+} RTMPSockBuf;
 
 void RTMPPacket_Reset(RTMPPacket *p);
 void RTMPPacket_Dump(RTMPPacket *p);
@@ -144,14 +162,11 @@ typedef struct RTMP
   int m_nClientBW;
   uint8_t m_nClientBW2;
   bool m_bPlaying;
-  bool m_bTimedout;
 
   AVal *m_methodCalls;		/* remote method calls queue */
   int m_numCalls;
 
   RTMP_LNK Link;
-  char *m_pBufferStart;		// pointer into m_pBuffer of next byte to process
-  int m_nBufferSize;		// number of unprocessed bytes in buffer
   RTMPPacket *m_vecChannelsIn[RTMP_CHANNELS];
   RTMPPacket *m_vecChannelsOut[RTMP_CHANNELS];
   int m_channelTimestamp[RTMP_CHANNELS];	// abs timestamp of last packet
@@ -161,7 +176,13 @@ typedef struct RTMP
   double m_fEncoding;		/* AMF0 or AMF3 */
 
   double m_fDuration;		// duration of stream in seconds
-  char m_pBuffer[RTMP_BUFFER_CACHE_SIZE];		// data read from socket
+
+  RTMPSockBuf m_sb;
+#define m_socket	m_sb.sb_socket
+#define m_nBufferSize	m_sb.sb_size
+#define m_pBufferStart	m_sb.sb_start
+#define m_pBuffer	m_sb.sb_buf
+#define m_bTimedout	m_sb.sb_timedout
 } RTMP;
 
 void RTMP_SetBufferMS(RTMP *r, int size);
@@ -207,6 +228,8 @@ bool RTMP_SendCtrl(RTMP * r, short nType, unsigned int nObject, unsigned int nTi
 bool RTMP_SendPause(RTMP *r, bool DoPause, double dTime);
 bool RTMP_FindFirstMatchingProperty(AMFObject *obj, const AVal *name,
 				      AMFObjectProperty *p);
+
+bool RTMPSockBuf_Fill(RTMPSockBuf *sb);
 
 #ifdef CRYPTO
 /* hashswf.c */

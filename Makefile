@@ -26,7 +26,7 @@ osx:
 	@$(MAKE) XCFLAGS="-arch ppc -arch i386" $(MAKEFLAGS) progs
 
 mingw:
-	@$(MAKE) CROSS_COMPILE=mingw32- LIBS="-lws2_32 -lwinmm -lgdi32 $(LIBS)" THREADLIB= EXT=.exe $(MAKEFLAGS) progs
+	@$(MAKE) CROSS_COMPILE=mingw32- LIBS="$(LIBS) -lws2_32 -lwinmm -lgdi32" THREADLIB= EXT=.exe $(MAKEFLAGS) progs
 
 cygwin:
 	@$(MAKE) XCFLAGS=-static XLDFLAGS="-static-libgcc -static" EXT=.exe $(MAKEFLAGS) progs

@@ -22,6 +22,9 @@
 #include "log.h"
 
 #ifdef WIN32
+
+#include <errno.h>
+
 HANDLE
 ThreadCreate(thrfunc *routine, void *args)
 {

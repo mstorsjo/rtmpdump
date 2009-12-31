@@ -761,8 +761,9 @@ filenotfound:
 }
 
 TFTYPE
-serverThread(STREAMING_SERVER * server)
+serverThread(void *arg)
 {
+  STREAMING_SERVER *server = arg;
   server->state = STREAMING_ACCEPTING;
 
   while (server->state == STREAMING_ACCEPTING)
@@ -825,7 +826,7 @@ startStreaming(const char *address, int port)
   server = (STREAMING_SERVER *) calloc(1, sizeof(STREAMING_SERVER));
   server->socket = sockfd;
 
-  ThreadCreate((void *(*)(void *)) serverThread, server);
+  ThreadCreate(serverThread, server);
 
   return server;
 }

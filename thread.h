@@ -22,6 +22,7 @@
 #define __THREAD_H__ 1
 
 #ifdef WIN32
+#include <windows.h>
 #include <process.h>
 #define TFTYPE	void
 #define TFRET()

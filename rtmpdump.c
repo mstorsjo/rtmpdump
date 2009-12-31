@@ -696,7 +696,9 @@ GetLastKeyframe(FILE * file,	// output file [in]
   size = ftello(file);
 
   fseek(file, 4, SEEK_SET);
-  fread(&dataType, sizeof(uint8_t), 1, file);
+  if (fread(&dataType, sizeof(uint8_t), 1, file) != 1)
+    return RD_FAILED;
+
   bAudioOnly = (dataType & 0x4) && !(dataType & 0x1);
 
   Log(LOGDEBUG, "bAudioOnly: %d, size: %llu", bAudioOnly,

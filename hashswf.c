@@ -154,12 +154,13 @@ http_get(const char *url, struct info *in)
   send(sb.sb_socket, sb.sb_buf, i, 0);
 
   // set timeout
-  SET_RCVTIMEO(tv, 5);
+#define HTTP_TIMEOUT	5
+  SET_RCVTIMEO(tv, HTTP_TIMEOUT);
   if (setsockopt
     (sb.sb_socket, SOL_SOCKET, SO_RCVTIMEO, (char *) &tv, sizeof(tv)))
     {
       Log(LOGERROR, "%s, Setting socket timeout to %ds failed!",
-          __FUNCTION__, tv.tv_sec);
+          __FUNCTION__, HTTP_TIMEOUT);
     }
 
   sb.sb_size = 0;

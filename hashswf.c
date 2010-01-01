@@ -154,9 +154,7 @@ http_get(const char *url, struct info *in)
   send(sb.sb_socket, sb.sb_buf, i, 0);
 
   // set timeout
-  struct timeval tv;
-  memset(&tv, 0, sizeof(tv));
-  tv.tv_sec = 5;
+  SET_RCVTIMEO(tv, 5);
   if (setsockopt
     (sb.sb_socket, SOL_SOCKET, SO_RCVTIMEO, (char *) &tv, sizeof(tv)))
     {

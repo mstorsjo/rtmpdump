@@ -398,14 +398,12 @@ RTMP_Connect(RTMP * r)
 	  return false;
 	}
       // set timeout
-      struct timeval tv;
-      memset(&tv, 0, sizeof(tv));
-      tv.tv_sec = r->Link.timeout;
+      SET_RCVTIMEO(tv, r->Link.timeout);
       if (setsockopt
 	  (r->m_socket, SOL_SOCKET, SO_RCVTIMEO, (char *) &tv, sizeof(tv)))
 	{
 	  Log(LOGERROR, "%s, Setting socket timeout to %ds failed!",
-	      __FUNCTION__, tv.tv_sec);
+	      __FUNCTION__, r->Link.timeout);
 	}
     }
   else

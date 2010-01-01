@@ -44,7 +44,7 @@
 #define GetSockError()	errno
 #define closesocket(s)	close(s)
 #define msleep(n)	usleep(n*1000)
-#define SET_RCVTIMEO(tv,s)	struct timeval tv; tv.tv_sec = s; tv.tv_usec = 0
+#define SET_RCVTIMEO(tv,s)	struct timeval tv = {s,0}
 #endif
 
 #include <errno.h>

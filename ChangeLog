@@ -1,7 +1,11 @@
 RTMPDump
 Copyright 2008-2009 Andrej Stepanchuk; Distributed under the GPL v2
-Copyright 2009 Howard Chu
+Copyright 2009-2010 Howard Chu
 Copyright 2009 The Flvstreamer Team
+
+1 January 2010, v2.1a
+- fix socket receive timeouts for WIN32
+- add streams description to README
 
 29 December 2009, v2.1
 - AMF cleanup: bounds checking for all encoders, moved AMF_EncodeNamed* from rtmp.c

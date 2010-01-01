@@ -1,6 +1,6 @@
-RTMP Dump v2.0
+RTMP Dump v2.1a
 (C) 2009 Andrej Stepanchuk
-(C) 2009 Howard Chu
+(C) 2009-2010 Howard Chu
 License: GPLv2
 
 To compile type "make" with your platform name, e.g.
@@ -61,15 +61,19 @@ OpenSSL cross-compiling can be a difficult beast.
 Credit goes to team boxee for the XBMC RTMP code originally used in RTMPDumper.
 The current code is based on the XBMC code but rewritten in C by Howard Chu.
 
-RTMP Servers
------------
-You can also use "make rtmpsrv" to build a stub server. Note that this is
-very incomplete code, and I haven't yet decided whether or not to finish
-it. In its current form it is useful for obtaining all the parameters
-that a real Flash client would send to an RTMP server, so that they can be
-used with rtmpdump.
+Example Servers
+---------------
+Three different types of servers are also present in this distribution:
+ rtmpsrv - a stub server
+ rtmpsuck - a transparent proxy
+ streams - an RTMP to HTTP gateway
 
-You can also use "make rtmpsuck" to build a proxy server. See below...
+rtmpsrv - Note that this is very incomplete code, and I haven't yet decided
+whether or not to finish it. In its current form it is useful for obtaining
+all the parameters that a real Flash client would send to an RTMP server, so
+that they can be used with rtmpdump.
+
+rtmpsuck - proxy server. See below...
 
 All you need to do is redirect your Flash clients to the machine running this
 server and it will dump out all the connect / play parameters that the Flash
@@ -123,3 +127,14 @@ The point of all this, instead of just using a sniffer, is that since rtmpsuck
 has performed real handshakes with both the client and the server, it can
 negotiate whatever encryption keys are needed and so record the unencrypted
 data.
+
+streams - HTTP gateway: this is an HTTP server that accepts requests that
+consist of rtmpdump parameters. It then connects to the specified RTMP
+server and returns the retrieved data in the HTTP response. The only valid
+HTTP request is "GET /" but additional options can be provided in normal
+URL-encoded fashion. E.g.
+  GET /?r=rtmp:%2f%2fserver%2fmyapp&y=somefile HTTP/1.0
+
+is equivalent the rtmpdump parameters "-r rtmp://server/myapp -y somefile".
+
+Note that only the shortform (single letter) rtmpdump options are supported.

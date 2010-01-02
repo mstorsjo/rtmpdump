@@ -208,14 +208,16 @@ ServeInvoke(STREAMING_SERVER *server, RTMPPacket *pack, const char *body)
             }
           else if (AVMATCH(&pname, &av_swfUrl))
             {
+#ifdef CRYPTO
               unsigned char hash[HASHLEN];
-              server->rc.Link.swfUrl = pval;
               if (RTMP_HashSWF(pval.av_val, &server->rc.Link.SWFSize, hash, 0) == 0)
                 {
                   server->rc.Link.SWFHash.av_val = malloc(HASHLEN);
                   memcpy(server->rc.Link.SWFHash.av_val, hash, HASHLEN);
                   server->rc.Link.SWFHash.av_len = HASHLEN;
                 }
+#endif
+              server->rc.Link.swfUrl = pval;
               pval.av_val = NULL;
             }
           else if (AVMATCH(&pname, &av_tcUrl))
@@ -821,11 +823,17 @@ void doServe(STREAMING_SERVER * server,	// server socket and state (our listenin
                   {
                     short nType = AMF_DecodeInt16(pc.m_body);
                     /* SWFverification */
-                    if (nType == 0x1a && server->rc.Link.SWFHash.av_len)
+                    if (nType == 0x1a)
+#ifdef CRYPTO
+                      if (server->rc.Link.SWFHash.av_len)
                       {
                         RTMP_SendCtrl(&server->rc, 0x1b, 0, 0);
                         sendit = 0;
                       }
+#else
+                      /* The session will certainly fail right after this */
+                      Log(LOGERROR, "%s, server requested SWF verification, need CRYPTO support! ", __FUNCTION__);
+#endif
                   }
                 else if (server->out && (
                      pc.m_packetType == 0x08 ||

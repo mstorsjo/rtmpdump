@@ -876,6 +876,7 @@ ParseOption(char opt, char *arg, RTMP_REQUEST * req)
 {
   switch (opt)
     {
+#ifdef CRYPTO
     case 'w':
       {
 	int res = hex2bin(arg, &req->swfHash.av_val);
@@ -914,6 +915,7 @@ ParseOption(char opt, char *arg, RTMP_REQUEST * req)
           }
       }
       break;
+#endif
     case 'b':
       {
 	int32_t bt = atol(arg);

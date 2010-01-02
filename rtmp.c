@@ -252,6 +252,7 @@ RTMP_SetupStream(RTMP * r,
   Log(LOGDEBUG, "live     : %s", bLiveStream ? "yes" : "no");
   Log(LOGDEBUG, "timeout  : %d sec", timeout);
 
+#ifdef CRYPTO
   if (swfSHA256Hash != NULL && swfSize > 0)
     {
       r->Link.SWFHash = *swfSHA256Hash;
@@ -266,6 +267,7 @@ RTMP_SetupStream(RTMP * r,
       r->Link.SWFHash.av_val = NULL;
       r->Link.SWFSize = 0;
     }
+#endif
 
   if (sockshost)
     {
@@ -1798,6 +1800,7 @@ HandleCtrl(RTMP * r, const RTMPPacket * packet)
   if (nType == 0x1A)
     {
       Log(LOGDEBUG, "%s, SWFVerification ping received: ", __FUNCTION__);
+#ifdef CRYPTO
       //LogHex(packet.m_body, packet.m_nBodySize);
 
       // respond with HMAC SHA256 of decompressed SWF, key is the 30byte player key, also the last 30 bytes of the server handshake are applied
@@ -1811,6 +1814,11 @@ HandleCtrl(RTMP * r, const RTMPPacket * packet)
 	      "%s: Ignoring SWFVerification request, use --swfhash and --swfsize!",
 	      __FUNCTION__);
 	}
+#else
+      Log(LOGWARNING,
+       "%s: Ignoring SWFVerification request, no CRYPTO support!",
+	      __FUNCTION__);
+#endif
     }
 }
 

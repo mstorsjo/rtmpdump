@@ -27,7 +27,7 @@
 #include <winsock.h>
 #define GetSockError()	WSAGetLastError()
 #define setsockopt(a,b,c,d,e)	(setsockopt)(a,b,c,(const char *)d,(int)e)
-#define EWOULDBLOCK	EAGAIN
+#define EWOULDBLOCK	WSAETIMEDOUT	/* we don't use nonblocking, but we do use timeouts */
 #define sleep(n)	Sleep(n*1000)
 #define msleep(n)	Sleep(n)
 #define socklen_t	int

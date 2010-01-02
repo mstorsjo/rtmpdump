@@ -313,15 +313,16 @@ ServeInvoke(STREAMING_SERVER *server, RTMPPacket *pack, const char *body)
       memcpy(file, server->rc.Link.playpath.av_val, server->rc.Link.playpath.av_len);
       file[server->rc.Link.playpath.av_len] = '\0';
       for (p=file; *p; p++)
-        if (*p == '/')
+        if (*p == '/' || *p == ':')
           *p = '_';
         else if (*p == '?')
           {
             *p = '\0';
             break;
           }
-      LogPrintf("Playpath: %.*s, writing to %s\n", server->rc.Link.playpath.av_len,
-        server->rc.Link.playpath.av_val, file);
+      LogPrintf("Playpath: %.*s\nSaving as: %s\n",
+        server->rc.Link.playpath.av_len, server->rc.Link.playpath.av_val,
+        file);
       server->out = fopen(file, "wb");
       if (!server->out)
         ret = 1;

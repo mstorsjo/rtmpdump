@@ -59,9 +59,7 @@ void LogPrintf(const char *format, ...)
 	}
 
 	fprintf(fmsg, "%s", str);
-#ifdef _DEBUG
 	fflush(fmsg);
-#endif
 }
 
 void LogStatus(const char *format, ...)
@@ -78,9 +76,7 @@ void LogStatus(const char *format, ...)
 	if ( !fmsg ) fmsg = stderr;
 
 	fprintf(fmsg, "%s", str);
-#ifdef _DEBUG
 	fflush(fmsg);
-#endif
 	neednl = 1;
 }
 

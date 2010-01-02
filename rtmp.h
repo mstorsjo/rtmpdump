@@ -125,6 +125,7 @@ typedef struct RTMP_LNK
   AVal flashVer;
   AVal subscribepath;
   AVal token;
+  bool authflag;
 
   double seekTime;
   uint32_t length;

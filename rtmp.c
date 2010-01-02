@@ -944,11 +944,9 @@ SendConnectPacket(RTMP * r)
   // add auth string
   if (r->Link.auth.av_len)
     {
-      if (enc+2 >= pend)
+      enc = AMF_EncodeBoolean(enc, pend, r->Link.authflag);
+      if (!enc)
         return false;
-      *enc++ = 0x01;
-      *enc++ = 0x01;
-
       enc = AMF_EncodeString(enc, pend, &r->Link.auth);
       if (!enc)
         return false;

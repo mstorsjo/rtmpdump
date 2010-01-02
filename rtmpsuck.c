@@ -189,8 +189,12 @@ ServeInvoke(STREAMING_SERVER *server, RTMPPacket *pack, const char *body)
             {
               pval = cobj.o_props[i].p_vu.p_aval;
               if (pval.av_val)
-                pval.av_val = strdup(pval.av_val);
-              LogPrintf("%.*s: %.*s\n", pname.av_len, pname.av_val, pval.av_len, pval.av_val);
+              {
+                pval.av_val = malloc(pval.av_len+1);
+                memcpy(pval.av_val, cobj.o_props[i].p_vu.p_aval.av_val, pval.av_len);
+                pval.av_val[pval.av_len] = '\0';
+              }
+              LogPrintf("%.*s: %s\n", pname.av_len, pname.av_val, pval.av_val);
             }
           if (AVMATCH(&pname, &av_app))
             {
@@ -274,6 +278,19 @@ ServeInvoke(STREAMING_SERVER *server, RTMPPacket *pack, const char *body)
           /* Dup'd a string we didn't recognize? */
           if (pval.av_val)
             free(pval.av_val);
+        }
+      if (obj.o_num > 3)
+        {
+          server->rc.Link.authflag = AMFProp_GetBoolean(&obj.o_props[3]);
+          if (obj.o_num > 4)
+          {
+            AVal tmp;
+            AMFProp_GetString(&obj.o_props[4], &tmp);
+            server->rc.Link.auth.av_len = tmp.av_len;
+            server->rc.Link.auth.av_val = malloc(tmp.av_len+1);
+            memcpy(server->rc.Link.auth.av_val, tmp.av_val, tmp.av_len);
+            server->rc.Link.auth.av_val[tmp.av_len] = '\0';
+          }
         }
 
       if (!RTMP_Connect(&server->rc))

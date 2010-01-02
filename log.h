@@ -29,7 +29,7 @@ extern "C" {
 #endif
 /* Enable this to get full debugging output */
 /* #define _DEBUG */
-/*#define CRYPTO */
+#define CRYPTO
 
 #ifdef _DEBUG
 #undef NODEBUG

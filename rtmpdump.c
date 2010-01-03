@@ -551,8 +551,8 @@ OpenResumeFile(const char *flvFile,	// file name [in]
 	       uint32_t * nMetaHeaderSize,	// length of metaHeader [out]
 	       double *duration)	// duration of the stream in ms [out]
 {
-  const size_t bufferSize = 1024;
-  char buffer[bufferSize];
+  size_t bufferSize = 0;
+  char hbuf[16], *buffer = NULL;
 
   *nMetaHeaderSize = 0;
   *size = 0;
@@ -571,34 +571,34 @@ OpenResumeFile(const char *flvFile,	// file name [in]
       uint32_t prevTagSize = 0;
 
       // check we've got a valid FLV file to continue!
-      if (fread(buffer, 1, 13, *file) != 13)
+      if (fread(hbuf, 1, 13, *file) != 13)
 	{
 	  Log(LOGERROR, "Couldn't read FLV file header!");
 	  return RD_FAILED;
 	}
-      if (buffer[0] != 'F' || buffer[1] != 'L' || buffer[2] != 'V'
-	  || buffer[3] != 0x01)
+      if (hbuf[0] != 'F' || hbuf[1] != 'L' || hbuf[2] != 'V'
+	  || hbuf[3] != 0x01)
 	{
 	  Log(LOGERROR, "Inavlid FLV file!");
 	  return RD_FAILED;
 	}
 
-      if ((buffer[4] & 0x05) == 0)
+      if ((hbuf[4] & 0x05) == 0)
 	{
 	  Log(LOGERROR,
 	      "FLV file contains neither video nor audio, aborting!");
 	  return RD_FAILED;
 	}
 
-      uint32_t dataOffset = AMF_DecodeInt32(buffer + 5);
+      uint32_t dataOffset = AMF_DecodeInt32(hbuf + 5);
       fseek(*file, dataOffset, SEEK_SET);
 
-      if (fread(buffer, 1, 4, *file) != 4)
+      if (fread(hbuf, 1, 4, *file) != 4)
 	{
 	  Log(LOGERROR, "Invalid FLV file: missing first prevTagSize!");
 	  return RD_FAILED;
 	}
-      prevTagSize = AMF_DecodeInt32(buffer);
+      prevTagSize = AMF_DecodeInt32(hbuf);
       if (prevTagSize != 0)
 	{
 	  Log(LOGWARNING,
@@ -613,18 +613,22 @@ OpenResumeFile(const char *flvFile,	// file name [in]
       while (pos < *size - 4 && !bFoundMetaHeader)
 	{
 	  fseeko(*file, pos, SEEK_SET);
-	  if (fread(buffer, 1, 4, *file) != 4)
+	  if (fread(hbuf, 1, 4, *file) != 4)
 	    break;
 
-	  uint32_t dataSize = AMF_DecodeInt24(buffer + 1);
+	  uint32_t dataSize = AMF_DecodeInt24(hbuf + 1);
 
-	  if (buffer[0] == 0x12)
+	  if (hbuf[0] == 0x12)
 	    {
 	      if (dataSize > bufferSize)
 		{
-		  Log(LOGERROR, "%s: dataSize (%d) > bufferSize (%d)",
-		      __FUNCTION__, dataSize, bufferSize);
-		  return RD_FAILED;
+                  /* round up to next page boundary */
+                  bufferSize = dataSize + 4095;
+		  bufferSize ^= (bufferSize & 4095);
+		  free(buffer);
+                  buffer = malloc(bufferSize);
+                  if (!buffer)
+		    return RD_FAILED;
 		}
 
 	      fseeko(*file, pos + 11, SEEK_SET);
@@ -671,6 +675,7 @@ OpenResumeFile(const char *flvFile,	// file name [in]
 	  pos += (dataSize + 11 + 4);
 	}
 
+      free(buffer);
       if (!bFoundMetaHeader)
 	Log(LOGWARNING, "Couldn't locate meta data!");
     }

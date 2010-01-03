@@ -579,7 +579,7 @@ OpenResumeFile(const char *flvFile,	// file name [in]
       if (hbuf[0] != 'F' || hbuf[1] != 'L' || hbuf[2] != 'V'
 	  || hbuf[3] != 0x01)
 	{
-	  Log(LOGERROR, "Inavlid FLV file!");
+	  Log(LOGERROR, "Invalid FLV file!");
 	  return RD_FAILED;
 	}
 

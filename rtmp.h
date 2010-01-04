@@ -165,6 +165,7 @@ typedef struct RTMP
   int m_nClientBW;
   uint8_t m_nClientBW2;
   bool m_bPlaying;
+  bool m_bSendEncoding;
 
   AVal *m_methodCalls;		/* remote method calls queue */
   int m_numCalls;

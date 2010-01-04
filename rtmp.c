@@ -931,7 +931,7 @@ SendConnectPacket(RTMP * r)
       if (!enc)
         return false;
     }
-  if (r->m_fEncoding != 0.0)
+  if (r->m_fEncoding != 0.0 || r->m_bSendEncoding)
     {
       enc = AMF_EncodeNamedNumber(enc, pend, &av_objectEncoding, r->m_fEncoding);	// AMF0, AMF3 not supported yet
       if (!enc)

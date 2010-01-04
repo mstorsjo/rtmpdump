@@ -35,13 +35,10 @@ extern "C" {
 #undef NODEBUG
 #endif
 
-#define LOGCRIT         0
-#define LOGERROR        1
-#define LOGWARNING	2
-#define LOGINFO		3
-#define LOGDEBUG	4
-#define LOGDEBUG2	5
-#define LOGALL		6
+typedef enum
+{ LOGCRIT=0, LOGERROR, LOGWARNING, LOGINFO,
+  LOGDEBUG, LOGDEBUG2, LOGALL
+} AMF_LogLevel;
 
 #define Log	AMF_Log
 #define LogHex	AMF_LogHex
@@ -51,7 +48,7 @@ extern "C" {
 #define LogStatus	AMF_LogStatus
 #define debuglevel	AMF_debuglevel
 
-extern int debuglevel;
+extern AMF_LogLevel debuglevel;
 
 void LogSetOutput(FILE *file);
 void LogPrintf(const char *format, ...);

@@ -29,11 +29,16 @@
 
 #define MAX_PRINT_LEN	2048
 
-int debuglevel = LOGERROR;
+AMF_LogLevel debuglevel = LOGERROR;
 
 static int neednl;
 
 static FILE *fmsg;
+
+static const char *levels[] = {
+  "CRIT", "ERROR", "WARNING", "INFO",
+  "DEBUG", "DEBUG2"
+};
 
 void LogSetOutput(FILE *file)
 {
@@ -99,9 +104,7 @@ void Log(int level, const char *format, ...)
 			putc('\n', fmsg);
 			neednl = 0;
 		}
-		fprintf(fmsg, "\r%s: %s\n", level==LOGDEBUG?"DEBUG":(level==LOGERROR?
-"ERROR":(level==LOGWARNING?"WARNING":(level==LOGCRIT?"CRIT":"INFO"))), str);
-
+		fprintf(fmsg, "%s: %s\n", levels[level], str);
 #ifdef _DEBUG
 		fflush(fmsg);
 #endif

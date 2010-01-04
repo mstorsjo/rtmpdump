@@ -307,25 +307,33 @@ ServeInvoke(STREAMING_SERVER *server, int which, RTMPPacket *pack, const char *b
     }
   else if (AVMATCH(&method, &av_play))
     {
-      char *file, *p;
+      AVal av;
+      char *file, *p, *q;
       char flvHeader[] = { 'F', 'L', 'V', 0x01,
          0x05,                       // video + audio, we finalize later if the value is different
          0x00, 0x00, 0x00, 0x09,
          0x00, 0x00, 0x00, 0x00      // first prevTagSize=0
        };
 
-      AMFProp_GetString(AMF_GetProp(&obj, NULL, 3), &server->rc.Link.playpath);
-      file = malloc(server->rc.Link.playpath.av_len+1);
-      memcpy(file, server->rc.Link.playpath.av_val, server->rc.Link.playpath.av_len);
-      file[server->rc.Link.playpath.av_len] = '\0';
-      for (p=file; *p; p++)
-        if (*p == '/' || *p == ':')
-          *p = '_';
-        else if (*p == '?')
+      AMFProp_GetString(AMF_GetProp(&obj, NULL, 3), &av);
+      server->rc.Link.playpath = av;
+      q = strchr(av.av_val, '?');
+      if (q)
+        av.av_len = q - av.av_val;
+      for (p=av.av_val+av.av_len-1; p>=av.av_val; p--)
+        if (*p == '/')
           {
-            *p = '\0';
+            p++;
+            av.av_len -= p - av.av_val;
+            av.av_val = p;
             break;
           }
+      file = malloc(av.av_len+1);
+      memcpy(file, av.av_val, av.av_len);
+      file[av.av_len] = '\0';
+      for (p=file; *p; p++)
+        if (*p == ':')
+          *p = '_';
       LogPrintf("Playpath: %.*s\nSaving as: %s\n",
         server->rc.Link.playpath.av_len, server->rc.Link.playpath.av_val,
         file);
@@ -334,6 +342,7 @@ ServeInvoke(STREAMING_SERVER *server, int which, RTMPPacket *pack, const char *b
         ret = 1;
       else
         fwrite(flvHeader, 1, sizeof(flvHeader), server->out);
+      free(file);
     }
   else if (AVMATCH(&method, &av_onStatus))
     {
@@ -870,6 +879,9 @@ void doServe(STREAMING_SERVER * server,	// server socket and state (our listenin
                 break;
               }
         }
+      if (!RTMP_IsConnected(&server->rs) && RTMP_IsConnected(&server->rc)
+        && !server->out)
+        RTMP_Close(&server->rc);
     }
 
 cleanup:

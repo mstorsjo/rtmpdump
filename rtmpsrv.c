@@ -42,8 +42,6 @@
 #include <linux/netfilter_ipv4.h>
 #endif
 
-#define RTMPDUMP_SERVER_VERSION	"v2.1"
-
 #define RD_SUCCESS		0
 #define RD_FAILED		1
 #define RD_INCOMPLETE		2
@@ -661,8 +659,8 @@ main(int argc, char **argv)
   char *rtmpStreamingDevice = DEFAULT_HTTP_STREAMING_DEVICE;	// streaming device, default 0.0.0.0
   int nRtmpStreamingPort = 1935;	// port
 
-  LogPrintf("RTMP Server %s\n", RTMPDUMP_SERVER_VERSION);
-  LogPrintf("(c) 2009 Andrej Stepanchuk, Howard Chu; license: GPL\n\n");
+  LogPrintf("RTMP Server %s\n", RTMPDUMP_VERSION);
+  LogPrintf("(c) 2010 Andrej Stepanchuk, Howard Chu; license: GPL\n\n");
 
   debuglevel = LOGALL;
 

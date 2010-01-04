@@ -1,4 +1,4 @@
-RTMP Dump v2.1a
+RTMP Dump v2.1b
 (C) 2009 Andrej Stepanchuk
 (C) 2009-2010 Howard Chu
 License: GPLv2
@@ -100,9 +100,20 @@ A rule like the above will be needed to use rtmpsuck.
 Using it in this mode takes advantage of the Linux support for IP redirects;
 in particular it uses a special getsockopt() call to retrieve the original
 destination address of the connection. That way the proxy can create the
-real outbound connection without any other help from the user. I'm not aware
-of equivalent functionality on BSD, Windows, or any other platform; if you
-know how to handle this I'd be interested in hearing about it.
+real outbound connection without any other help from the user. The equivalent
+functionality may exist on other OSs but needs more investigation.
+
+(Based on reading the BSD ipfw manpage, these rules ought to work on BSD:
+
+ipfw add 40 fwd 127.0.0.1 1935 tcp from any to any 1935
+ipfw add 40 fwd 127.0.0.1 1935 tcp from any to any 1935 not uid proxy
+
+Some confirmation from any BSD users would be nice.)
+
+(We have a solution for Windows based on a TDI driver; this is known to
+work on Win2K and WinXP but is assumed to not work on Vista or Win7 as the
+TDI is no longer used on those OS versions. Also, none of the known
+solutions are available as freeware.)
 
 The rtmpsuck command has only one option: "-z" to turn on debug logging.
 It listens on port 1935 for RTMP sessions, but you can also redirect other

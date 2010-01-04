@@ -43,8 +43,6 @@
 #define	SET_BINMODE(f)
 #endif
 
-#define RTMPDUMP_VERSION	"v2.1"
-
 #define RD_SUCCESS		0
 #define RD_FAILED		1
 #define RD_INCOMPLETE		2
@@ -1139,7 +1137,7 @@ main(int argc, char **argv)
 
   LogPrintf("RTMPDump %s\n", RTMPDUMP_VERSION);
   LogPrintf
-    ("(c) 2009 Andrej Stepanchuk, Howard Chu, The Flvstreamer Team; license: GPL\n");
+    ("(c) 2010 Andrej Stepanchuk, Howard Chu, The Flvstreamer Team; license: GPL\n");
 
   if (!InitSockets())
     {

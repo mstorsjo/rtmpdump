@@ -33,8 +33,6 @@
 
 #include "thread.h"
 
-#define RTMPDUMP_STREAMS_VERSION	"v2.1"
-
 #define RD_SUCCESS		0
 #define RD_FAILED		1
 #define RD_INCOMPLETE		2
@@ -1055,8 +1053,8 @@ main(int argc, char **argv)
   char *httpStreamingDevice = DEFAULT_HTTP_STREAMING_DEVICE;	// streaming device, default 0.0.0.0
   int nHttpStreamingPort = 80;	// port
 
-  LogPrintf("HTTP-RTMP Stream Server %s\n", RTMPDUMP_STREAMS_VERSION);
-  LogPrintf("(c) 2009 Andrej Stepanchuk, Howard Chu; license: GPL\n\n");
+  LogPrintf("HTTP-RTMP Stream Server %s\n", RTMPDUMP_VERSION);
+  LogPrintf("(c) 2010 Andrej Stepanchuk, Howard Chu; license: GPL\n\n");
 
   // init request
   memset(&defaultRTMPRequest, 0, sizeof(RTMP_REQUEST));

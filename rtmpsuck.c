@@ -133,6 +133,7 @@ SAVC(code);
 SAVC(description);
 SAVC(secureToken);
 SAVC(onStatus);
+SAVC(close);
 static const AVal av_NetStream_Failed = AVC("NetStream.Failed");
 static const AVal av_NetStream_Play_Failed = AVC("NetStream.Play.Failed");
 static const AVal av_NetStream_Play_StreamNotFound =
@@ -143,9 +144,11 @@ static const AVal av_NetStream_Play_Start = AVC("NetStream.Play.Start");
 static const AVal av_NetStream_Play_Complete = AVC("NetStream.Play.Complete");
 static const AVal av_NetStream_Play_Stop = AVC("NetStream.Play.Stop");
 
+static const char *cst[] = { "client", "server" };
+
 // Returns 0 for OK/Failed/error, 1 for 'Stop or Complete'
 int
-ServeInvoke(STREAMING_SERVER *server, RTMPPacket *pack, const char *body)
+ServeInvoke(STREAMING_SERVER *server, int which, RTMPPacket *pack, const char *body)
 {
   int ret = 0, nRes;
   int nBodySize = pack->m_nBodySize;
@@ -171,7 +174,7 @@ ServeInvoke(STREAMING_SERVER *server, RTMPPacket *pack, const char *body)
   AMF_Dump(&obj);
   AVal method;
   AMFProp_GetString(AMF_GetProp(&obj, NULL, 0), &method);
-  Log(LOGDEBUG, "%s, client invoking <%s>", __FUNCTION__, method.av_val);
+  Log(LOGDEBUG, "%s, %s invoking <%s>", __FUNCTION__, cst[which], method.av_val);
 
   if (AVMATCH(&method, &av_connect))
     {
@@ -276,6 +279,7 @@ ServeInvoke(STREAMING_SERVER *server, RTMPPacket *pack, const char *body)
           else if (AVMATCH(&pname, &av_objectEncoding))
             {
               server->rc.m_fEncoding = cobj.o_props[i].p_vu.p_number;
+              server->rc.m_bSendEncoding = true;
             }
           /* Dup'd a string we didn't recognize? */
           if (pval.av_val)
@@ -360,12 +364,17 @@ ServeInvoke(STREAMING_SERVER *server, RTMPPacket *pack, const char *body)
 	  ret = 1;
 	}
     }
+  else if (AVMATCH(&method, &av_close))
+    {
+      RTMP_Close(&server->rc);
+      ret = 1;
+    }
   AMF_Reset(&obj);
   return ret;
 }
 
 int
-ServePacket(STREAMING_SERVER *server, RTMPPacket *packet)
+ServePacket(STREAMING_SERVER *server, int which, RTMPPacket *packet)
 {
   int ret = 0;
 
@@ -430,7 +439,7 @@ ServePacket(STREAMING_SERVER *server, RTMPPacket *packet)
 
 	   obj.Dump(); */
 
-	ret = ServeInvoke(server, packet, packet->m_body + 1);
+	ret = ServeInvoke(server, which, packet, packet->m_body + 1);
 	break;
       }
     case 0x12:
@@ -447,7 +456,7 @@ ServePacket(STREAMING_SERVER *server, RTMPPacket *packet)
 	  packet->m_nBodySize);
       //LogHex(packet.m_body, packet.m_nBodySize);
 
-      ret = ServeInvoke(server, packet, packet->m_body);
+      ret = ServeInvoke(server, which, packet, packet->m_body);
       break;
 
     case 0x16:
@@ -693,7 +702,7 @@ void doServe(STREAMING_SERVER * server,	// server socket and state (our listenin
     {
       if (!RTMPPacket_IsReady(&ps))
         continue;
-      ServePacket(server, &ps);
+      ServePacket(server, 0, &ps);
       RTMPPacket_Free(&ps);
       if (RTMP_IsConnected(&server->rc))
         break;
@@ -789,7 +798,7 @@ void doServe(STREAMING_SERVER * server,	// server socket and state (our listenin
                       }
                   }
                 else if (!server->out && (ps.m_packetType == 0x11 || ps.m_packetType == 0x14))
-                  ServePacket(server, &ps);
+                  ServePacket(server, 0, &ps);
                 RTMP_SendPacket(&server->rc, &ps, false);
                 RTMPPacket_Free(&ps);
                 break;
@@ -846,11 +855,9 @@ void doServe(STREAMING_SERVER * server,	// server socket and state (our listenin
                     if (len > 0 && fwrite(buf, 1, len, server->out) != len)
                       goto cleanup;
                   }
-                else if (server->out && (
-                     pc.m_packetType == 0x11 ||
-                     pc.m_packetType == 0x14))
+                else if ( pc.m_packetType == 0x11 || pc.m_packetType == 0x14)
                   {
-                    if (ServePacket(server, &pc))
+                    if (ServePacket(server, 1, &pc) && server->out)
                       {
                         fclose(server->out);
                         server->out = NULL;

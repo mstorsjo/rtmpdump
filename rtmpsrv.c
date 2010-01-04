@@ -144,6 +144,7 @@ SAVC(videoFunction);
 SAVC(objectEncoding);
 SAVC(_result);
 SAVC(createStream);
+SAVC(getStreamLength);
 SAVC(play);
 SAVC(fmsVer);
 SAVC(mode);
@@ -217,7 +218,7 @@ SendConnectResult(RTMP *r, double txn)
 }
 
 static bool
-SendCreateStreamResult(RTMP *r, double txn, double ID)
+SendResultNumber(RTMP *r, double txn, double ID)
 {
   RTMPPacket packet;
   char pbuf[256], *pend = pbuf+sizeof(pbuf);
@@ -329,7 +330,11 @@ ServeInvoke(STREAMING_SERVER *server, RTMP * r, const char *body, unsigned int n
     }
   else if (AVMATCH(&method, &av_createStream))
     {
-      SendCreateStreamResult(r, txn, ++server->streamID);
+      SendResultNumber(r, txn, ++server->streamID);
+    }
+  else if (AVMATCH(&method, &av_getStreamLength))
+    {
+      SendResultNumber(r, txn, 10.0);
     }
   else if (AVMATCH(&method, &av_play))
     {

@@ -258,11 +258,20 @@ RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash, int ask)
   strcat(path, "/.swfinfo");
 
   f = fopen(path, "r+");
-  if (f)
+  while (f)
     {
       char buf[4096], *file;
 
-      file = strrchr(url, '/');
+      file = strchr(url, '/');
+      if (!file)
+        break;
+      file += 2;
+      file = strchr(file, '/');
+      if (!file)
+        break;
+      file++;
+      hlen = file - url;
+      file = strrchr(file, '/');
 
       while (fgets(buf, sizeof(buf), f))
         {
@@ -271,6 +280,8 @@ RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash, int ask)
           got = 0;
 
           if (strncmp(buf, "url: ", 5))
+            continue;
+          if (strncmp(buf+5, url, hlen))
             continue;
           r1 = strrchr(buf, '/');
           i = strlen(r1);
@@ -304,6 +315,7 @@ RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash, int ask)
             }
           break;
         }
+      break;
     }
 
   if (got && !ask)

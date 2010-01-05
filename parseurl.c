@@ -56,7 +56,6 @@ int chr2hex(char c)
         	return c-48;
         else if(c <= 102 && c >= 97)
                 return c-97+10;
-        
         return -1;
 }
 
@@ -150,12 +149,12 @@ parsehost:
 
 	// check for sudden death
 	if(*p==0) {
-		Log(LOGWARNING, "No hostname in URL!");		
+		Log(LOGWARNING, "No hostname in URL!");
 		return 0;
 	}
 
 	int iEnd   = strlen(p);
-	int iCol   = iEnd+1; 
+	int iCol   = iEnd+1;
 	int iQues  = iEnd+1;
 	int iSlash = iEnd+1;
 
@@ -220,7 +219,7 @@ parsehost:
 
         if((temp=strstr(p, "/"))!=0)
         	iSlash2 = temp-p;
-	
+
 	if((temp=strstr(p, "?"))!=0)
 	        iQues = temp-p;
 
@@ -229,7 +228,7 @@ parsehost:
 			iSlash3 = temp-p;
 
 	//Log(LOGDEBUG, "p:%s, iEnd: %d\niSlash : %d\niSlash2: %d\niSlash3: %d", p, iEnd, iSlash, iSlash2, iSlash3);
-	
+
 	int applen = iEnd+1; // ondemand, pass all parameters as app
 	int appnamelen = 8; // ondemand length
 
@@ -245,7 +244,7 @@ parsehost:
 		appnamelen = iSlash2 < iEnd ? iSlash2 : iEnd;
         	if(iSlash3 < iEnd)
                 	appnamelen = iSlash3;
-	
+
 		applen = appnamelen;
 	}
 
@@ -254,7 +253,7 @@ parsehost:
 	(*app)[applen]=0;
 	Log(LOGDEBUG, "Parsed app     : %s", *app);
 
-	p += appnamelen; 
+	p += appnamelen;
 	iEnd -= appnamelen;
 
 	if (*p == '/') {
@@ -319,7 +318,7 @@ char *ParsePlaypath(const char *playpath) {
 	if (!streamname)
 		return NULL;
 
-	char *destptr = streamname;
+	char *destptr = streamname, *p;
 	if (addMP4 && (strncmp(ppstart, "mp4:", 4) != 0)) {
 		strcpy(destptr, "mp4:");
 		destptr += 4;
@@ -328,8 +327,19 @@ char *ParsePlaypath(const char *playpath) {
 		destptr += 4;
 	}
 
-	strncpy(destptr, ppstart, pplen);
-	destptr[pplen] = '\0';
+ 	for (p=(char *)ppstart; pplen >0;) {
+		if (*p == '%') {
+			int c;
+			sscanf(p+1, "%02x", &c);
+			*destptr++ = c;
+			pplen -= 3;
+			p += 3;
+		} else {
+			*destptr++ = *p++;
+			pplen--;
+		}
+	}
+	*destptr = '\0';
 
 	return streamname;
 }

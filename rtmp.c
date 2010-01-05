@@ -67,7 +67,7 @@ static bool DumpMetaData(AMFObject * obj);
 static bool HandShake(RTMP * r, bool FP9HandShake);
 static bool SocksNegotiate(RTMP * r);
 
-static bool SendConnectPacket(RTMP * r);
+static bool SendConnectPacket(RTMP * r, RTMPPacket *cp);
 static bool SendServerBW(RTMP * r);
 static bool SendCheckBW(RTMP * r);
 static bool SendCheckBWResult(RTMP * r, double txn);
@@ -330,7 +330,7 @@ add_addr_info(struct sockaddr_in *service, const char *hostname, int port)
 }
 
 bool
-RTMP_Connect(RTMP * r)
+RTMP_Connect(RTMP *r, RTMPPacket *cp)
 {
   struct sockaddr_in service;
   if (!r->Link.hostname)
@@ -393,7 +393,7 @@ RTMP_Connect(RTMP * r)
 	}
 
       Log(LOGDEBUG, "%s, handshaked", __FUNCTION__);
-      if (!SendConnectPacket(r))
+      if (!SendConnectPacket(r, cp))
 	{
 	  Log(LOGERROR, "%s, RTMP connect failed.", __FUNCTION__);
 	  RTMP_Close(r);
@@ -868,10 +868,13 @@ SAVC(secureToken);
 SAVC(secureTokenResponse);
 
 static bool
-SendConnectPacket(RTMP * r)
+SendConnectPacket(RTMP *r, RTMPPacket *cp)
 {
   RTMPPacket packet;
   char pbuf[4096], *pend = pbuf+sizeof(pbuf);
+
+  if (cp)
+    return RTMP_SendPacket(r, cp, true);
 
   packet.m_nChannel = 0x03;	// control channel (invoke)
   packet.m_headerType = RTMP_PACKET_SIZE_LARGE;

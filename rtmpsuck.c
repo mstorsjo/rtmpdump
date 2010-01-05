@@ -124,6 +124,7 @@ SAVC(objectEncoding);
 SAVC(_result);
 SAVC(createStream);
 SAVC(play);
+SAVC(closeStream);
 SAVC(fmsVer);
 SAVC(mode);
 SAVC(level);
@@ -297,7 +298,7 @@ ServeInvoke(STREAMING_SERVER *server, int which, RTMPPacket *pack, const char *b
           }
         }
 
-      if (!RTMP_Connect(&server->rc))
+      if (!RTMP_Connect(&server->rc, pack))
         {
           /* failed */
           return 1;
@@ -313,6 +314,7 @@ ServeInvoke(STREAMING_SERVER *server, int which, RTMPPacket *pack, const char *b
          0x00, 0x00, 0x00, 0x00      // first prevTagSize=0
        };
 
+      server->rc.m_stream_id = pack->m_nInfoField2;
       AMFProp_GetString(AMF_GetProp(&obj, NULL, 3), &av);
       server->rc.Link.playpath = av;
       q = strchr(av.av_val, '?');
@@ -371,6 +373,10 @@ ServeInvoke(STREAMING_SERVER *server, int which, RTMPPacket *pack, const char *b
 	  ret = 1;
 	}
     }
+  else if (AVMATCH(&method, &av_closeStream))
+    {
+      ret = 1;
+    }
   else if (AVMATCH(&method, &av_close))
     {
       RTMP_Close(&server->rc);
@@ -385,8 +391,8 @@ ServePacket(STREAMING_SERVER *server, int which, RTMPPacket *packet)
 {
   int ret = 0;
 
-  Log(LOGDEBUG, "%s, received packet type %02X, size %lu bytes", __FUNCTION__,
-    packet->m_packetType, packet->m_nBodySize);
+  Log(LOGDEBUG, "%s, %s sent packet type %02X, size %lu bytes", __FUNCTION__,
+    cst[which], packet->m_packetType, packet->m_nBodySize);
 
   switch (packet->m_packetType)
     {
@@ -432,20 +438,6 @@ ServePacket(STREAMING_SERVER *server, int which, RTMPPacket *packet)
 
     case 0x11:			// flex message
       {
-	Log(LOGDEBUG, "%s, flex message, size %lu bytes, not fully supported",
-	    __FUNCTION__, packet->m_nBodySize);
-	//LogHex(packet.m_body, packet.m_nBodySize);
-
-	// some DEBUG code
-	/*RTMP_LIB_AMFObject obj;
-	   int nRes = obj.Decode(packet.m_body+1, packet.m_nBodySize-1);
-	   if(nRes < 0) {
-	   Log(LOGERROR, "%s, error decoding AMF3 packet", __FUNCTION__);
-	   //return;
-	   }
-
-	   obj.Dump(); */
-
 	ret = ServeInvoke(server, which, packet, packet->m_body + 1);
 	break;
       }
@@ -459,10 +451,6 @@ ServePacket(STREAMING_SERVER *server, int which, RTMPPacket *packet)
 
     case 0x14:
       // invoke
-      Log(LOGDEBUG, "%s, received: invoke %lu bytes", __FUNCTION__,
-	  packet->m_nBodySize);
-      //LogHex(packet.m_body, packet.m_nBodySize);
-
       ret = ServeInvoke(server, which, packet, packet->m_body);
       break;
 
@@ -794,18 +782,24 @@ void doServe(STREAMING_SERVER * server,	// server socket and state (our listenin
                         if (id)
                           {
                             len = AMF_DecodeInt32(ptr+4);
+#if 1
                             /* request a big buffer */
                             if (len < BUFFERTIME)
                               {
                                 AMF_EncodeInt32(ptr+4, ptr+8, BUFFERTIME);
                               }
+#endif
                             Log(LOGDEBUG, "%s, client: BufferTime change in stream %d to %d", __FUNCTION__,
                                 id, len);
                           }
                       }
                   }
-                else if (!server->out && (ps.m_packetType == 0x11 || ps.m_packetType == 0x14))
-                  ServePacket(server, 0, &ps);
+                else if (ps.m_packetType == 0x11 || ps.m_packetType == 0x14)
+                  if (ServePacket(server, 0, &ps) && server->out)
+                    {
+                      fclose(server->out);
+                      server->out = NULL;
+                    }
                 RTMP_SendPacket(&server->rc, &ps, false);
                 RTMPPacket_Free(&ps);
                 break;
@@ -1048,7 +1042,7 @@ main(int argc, char **argv)
   LogPrintf("RTMP Proxy Server %s\n", RTMPDUMP_VERSION);
   LogPrintf("(c) 2010 Andrej Stepanchuk, Howard Chu; license: GPL\n\n");
 
-  debuglevel = LOGDEBUG;
+  debuglevel = LOGINFO;
 
   if (argc > 1 && !strcmp(argv[1], "-z"))
     debuglevel = LOGALL;

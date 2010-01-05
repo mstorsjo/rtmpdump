@@ -1615,7 +1615,7 @@ main(int argc, char **argv)
 	  first = 0;
 	  LogPrintf("Connecting ...\n");
 
-	  if (!RTMP_Connect(&rtmp))
+	  if (!RTMP_Connect(&rtmp, NULL))
 	    {
 	      nStatus = RD_FAILED;
 	      break;

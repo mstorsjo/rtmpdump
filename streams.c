@@ -639,7 +639,7 @@ void processTCPrequest(STREAMING_SERVER * server,	// server socket and state (ou
   rtmp.Link.token = req.token;
 
   LogPrintf("Connecting ... port: %d, app: %s\n", req.rtmpport, req.app);
-  if (!RTMP_Connect(&rtmp))
+  if (!RTMP_Connect(&rtmp, NULL))
     {
       LogPrintf("%s, failed to connect!\n", __FUNCTION__);
     }

@@ -209,7 +209,7 @@ void RTMP_SetupStream(RTMP *r, int protocol,
 		      double dTime,
 		      uint32_t dLength, bool bLiveStream, long int timeout);
 
-bool RTMP_Connect(RTMP *r);
+bool RTMP_Connect(RTMP *r, RTMPPacket *cp);
 bool RTMP_Serve(RTMP *r);
 
 bool RTMP_ReadPacket(RTMP * r, RTMPPacket * packet);

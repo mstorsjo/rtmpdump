@@ -1813,12 +1813,12 @@ HandleCtrl(RTMP * r, const RTMPPacket * packet)
 	}
       else
 	{
-	  Log(LOGWARNING,
-	      "%s: Ignoring SWFVerification request, use --swfhash and --swfsize!",
+	  Log(LOGERROR,
+	      "%s: Ignoring SWFVerification request, use --swfVfy!",
 	      __FUNCTION__);
 	}
 #else
-      Log(LOGWARNING,
+      Log(LOGERROR,
        "%s: Ignoring SWFVerification request, no CRYPTO support!",
 	      __FUNCTION__);
 #endif

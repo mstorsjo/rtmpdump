@@ -1348,7 +1348,7 @@ RTMP_SendCtrl(RTMP * r, short nType, unsigned int nObject, unsigned int nTime)
   packet.m_nChannel = 0x02;	// control channel (ping)
   packet.m_headerType = RTMP_PACKET_SIZE_MEDIUM;
   packet.m_packetType = 0x04;	// ctrl
-  packet.m_nInfoField1 = RTMP_GetTime();
+  packet.m_nInfoField1 = 0; /* RTMP_GetTime(); */
   packet.m_nInfoField2 = 0;
   packet.m_hasAbsTimestamp = 0;
   packet.m_body = pbuf + RTMP_MAX_HEADER_SIZE;
@@ -1969,9 +1969,9 @@ RTMP_ReadPacket(RTMP * r, RTMPPacket * packet)
   LogHexString(LOGDEBUG2, hbuf, hSize);
 
   /* Does the caller want a raw copy of the header ? */
+  packet->m_headerSize = hSize;
   if (packet->m_header)
     {
-      packet->m_headerSize = hSize;
       memcpy(packet->m_header, hbuf, hSize);
     }
 
@@ -2024,12 +2024,10 @@ RTMP_ReadPacket(RTMP * r, RTMPPacket * packet)
       r->m_vecChannelsIn[packet->m_nChannel]->m_nBytesRead = 0;
       r->m_vecChannelsIn[packet->m_nChannel]->m_hasAbsTimestamp = false;	// can only be false if we reuse header
     }
-#if 0
-  else
+  else if (!packet->m_header)
     {
       packet->m_body = NULL;	/* so it won't be erased on free */
     }
-#endif
 
   return true;
 }

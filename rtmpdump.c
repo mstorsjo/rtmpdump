@@ -1256,7 +1256,7 @@ main(int argc, char **argv)
 	  LogPrintf("--verbose|-V            Verbose command output.\n");
 	  LogPrintf("--debug|-z              Debug level command output.\n");
 	  LogPrintf
-	    ("If you don't pass parameters for swfUrl, pageUrl, app or auth these properties will not be included in the connect ");
+	    ("If you don't pass parameters for swfUrl, pageUrl, or auth these properties will not be included in the connect ");
 	  LogPrintf("packet.\n\n");
 	  return RD_SUCCESS;
 #ifdef CRYPTO

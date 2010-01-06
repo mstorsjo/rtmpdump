@@ -119,7 +119,7 @@ AMF_DecodeBoolean(const char *data)
 char *
 AMF_EncodeInt16(char *output, char *outend, short nVal)
 {
-  if (output+2 >= outend)
+  if (output+2 > outend)
     return NULL;
 
   output[1] = nVal & 0xff;
@@ -130,7 +130,7 @@ AMF_EncodeInt16(char *output, char *outend, short nVal)
 char *
 AMF_EncodeInt24(char *output, char *outend, int nVal)
 {
-  if (output+3 >= outend)
+  if (output+3 > outend)
     return NULL;
 
   output[2] = nVal & 0xff;
@@ -142,7 +142,7 @@ AMF_EncodeInt24(char *output, char *outend, int nVal)
 char *
 AMF_EncodeInt32(char *output, char *outend, int nVal)
 {
-  if (output+4 >= outend)
+  if (output+4 > outend)
     return NULL;
 
   output[3] = nVal & 0xff;
@@ -155,7 +155,7 @@ AMF_EncodeInt32(char *output, char *outend, int nVal)
 char *
 AMF_EncodeString(char *output, char *outend, const AVal * bv)
 {
-  if (output + 1 + 2 + bv->av_len >= outend)
+  if (output + 1 + 2 + bv->av_len > outend)
     return NULL;
 
   *output++ = AMF_STRING;
@@ -171,7 +171,7 @@ AMF_EncodeString(char *output, char *outend, const AVal * bv)
 char *
 AMF_EncodeNumber(char *output, char *outend, double dVal)
 {
-  if (output+1+8 >= outend)
+  if (output+1+8 > outend)
     return NULL;
 
   *output++ = AMF_NUMBER;	// type: Number
@@ -232,7 +232,7 @@ AMF_EncodeNumber(char *output, char *outend, double dVal)
 char *
 AMF_EncodeBoolean(char *output, char *outend, bool bVal)
 {
-  if (output+2 >= outend)
+  if (output+2 > outend)
     return NULL;
 
   *output++ = AMF_BOOLEAN;
@@ -245,7 +245,7 @@ AMF_EncodeBoolean(char *output, char *outend, bool bVal)
 char *
 AMF_EncodeNamedString(char *output, char *outend, const AVal * strName, const AVal * strValue)
 {
-  if (output+2+strName->av_len >= outend)
+  if (output+2+strName->av_len > outend)
     return NULL;
   output = AMF_EncodeInt16(output, outend, strName->av_len);
 
@@ -258,7 +258,7 @@ AMF_EncodeNamedString(char *output, char *outend, const AVal * strName, const AV
 char *
 AMF_EncodeNamedNumber(char *output, char *outend, const AVal * strName, double dVal)
 {
-  if (output+2+strName->av_len >= outend)
+  if (output+2+strName->av_len > outend)
     return NULL;
   output = AMF_EncodeInt16(output, outend, strName->av_len);
 
@@ -271,7 +271,7 @@ AMF_EncodeNamedNumber(char *output, char *outend, const AVal * strName, double d
 char *
 AMF_EncodeNamedBoolean(char *output, char *outend, const AVal * strName, bool bVal)
 {
-  if (output+2+strName->av_len >= outend)
+  if (output+2+strName->av_len > outend)
     return NULL;
   output = AMF_EncodeInt16(output, outend, strName->av_len);
 

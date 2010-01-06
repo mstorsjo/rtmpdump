@@ -76,7 +76,7 @@ uint32_t RTMP_GetTime();
 #define RTMP_PACKET_TYPE_VIDEO 0x09
 #define RTMP_PACKET_TYPE_INFO  0x12
 
-#define RTMP_MAX_HEADER_SIZE 14
+#define RTMP_MAX_HEADER_SIZE 18
 
 typedef unsigned char BYTE;
 

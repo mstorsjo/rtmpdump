@@ -1870,7 +1870,7 @@ EncodeInt32LE(char *output, int nVal)
 bool
 RTMP_ReadPacket(RTMP * r, RTMPPacket * packet)
 {
-  char hbuf[RTMP_MAX_HEADER_SIZE+1] = { 0 }, *header = hbuf;
+  char hbuf[RTMP_MAX_HEADER_SIZE] = { 0 }, *header = hbuf;
 
   Log(LOGDEBUG2, "%s: fd=%d", __FUNCTION__, r->m_socket);
 
@@ -1910,7 +1910,7 @@ RTMP_ReadPacket(RTMP * r, RTMPPacket * packet)
       header += 2;
     }
 
-  int nSize = packetSize[packet->m_headerType];
+  int nSize = packetSize[packet->m_headerType], hSize;
 
   if (nSize == RTMP_LARGE_HEADER_SIZE)	// if we get a full header the timestamp is absolute
     packet->m_hasAbsTimestamp = true;
@@ -1931,7 +1931,7 @@ RTMP_ReadPacket(RTMP * r, RTMPPacket * packet)
       return false;
     }
 
-  LogHexString(LOGDEBUG2, hbuf, nSize+(header-hbuf));
+  hSize = nSize+(header-hbuf);
 
   if (nSize >= 3)
     {
@@ -1953,7 +1953,20 @@ RTMP_ReadPacket(RTMP * r, RTMPPacket * packet)
 		packet->m_nInfoField2 = DecodeInt32LE(header + 7);
 	    }
 	}
+      if (packet->m_nInfoField1 == 0xffffff)
+        {
+          if (ReadN(r, header+nSize, 4) != 4)
+            {
+              Log(LOGERROR, "%s, failed to read extended timestamp",
+	          __FUNCTION__);
+              return false;
+            }
+          packet->m_nInfoField1 = AMF_DecodeInt32(header+nSize);
+          hSize += 4;
+        }
     }
+
+  LogHexString(LOGDEBUG2, hbuf, hSize);
 
   bool didAlloc = false;
   if (packet->m_nBodySize > 0 && packet->m_body == NULL)
@@ -2176,7 +2189,7 @@ RTMP_SendPacket(RTMP * r, RTMPPacket * packet, bool queue)
     }
   else
     {
-      header = hbuf+2;
+      header = hbuf+6;
       hend = hbuf+sizeof(hbuf);
     }
 
@@ -2188,6 +2201,12 @@ RTMP_SendPacket(RTMP * r, RTMPPacket * packet, bool queue)
     {
       header -= cSize;
       hSize += cSize;
+    }
+
+  if (nSize > 1 && packet->m_nInfoField1 >= 0xffffff)
+    {
+      header -= 4;
+      hSize += 4;
     }
 
   hptr = header;
@@ -2213,7 +2232,12 @@ RTMP_SendPacket(RTMP * r, RTMPPacket * packet, bool queue)
     }
 
   if (nSize > 1)
-    hptr = AMF_EncodeInt24(hptr, hend, packet->m_nInfoField1);
+    {
+      int t = packet->m_nInfoField1;
+      if (t > 0xffffff)
+        t = 0xffffff;
+      hptr = AMF_EncodeInt24(hptr, hend, t);
+    }
 
   if (nSize > 4)
     {
@@ -2222,7 +2246,10 @@ RTMP_SendPacket(RTMP * r, RTMPPacket * packet, bool queue)
     }
 
   if (nSize > 8)
-    EncodeInt32LE(hptr, packet->m_nInfoField2);
+    hptr += EncodeInt32LE(hptr, packet->m_nInfoField2);
+
+  if (nSize > 1 && packet->m_nInfoField1 >= 0xffffff)
+    hptr = AMF_EncodeInt32(hptr, hend, packet->m_nInfoField1);
 
   nSize = packet->m_nBodySize;
   char *buffer = packet->m_body;

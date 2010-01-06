@@ -303,6 +303,7 @@ ServeInvoke(STREAMING_SERVER *server, int which, RTMPPacket *pack, const char *b
     }
   else if (AVMATCH(&method, &av_play))
     {
+      Flist *fl;
       AVal av;
       FILE *out;
       char *file, *p, *q;
@@ -311,11 +312,18 @@ ServeInvoke(STREAMING_SERVER *server, int which, RTMPPacket *pack, const char *b
          0x00, 0x00, 0x00, 0x09,
          0x00, 0x00, 0x00, 0x00      // first prevTagSize=0
        };
+      int count = 0, flen;
 
       server->rc.m_stream_id = pack->m_nInfoField2;
       AMFProp_GetString(AMF_GetProp(&obj, NULL, 3), &av);
       server->rc.Link.playpath = av;
 
+      /* check for duplicates */
+      for (fl = server->f_head; fl; fl=fl->f_next)
+        {
+          if (AVMATCH(&av, &fl->f_path))
+            count++;
+        }
       q = memchr(av.av_val, '?', av.av_len);
       if (q)
         av.av_len = q - av.av_val;
@@ -327,9 +335,17 @@ ServeInvoke(STREAMING_SERVER *server, int which, RTMPPacket *pack, const char *b
             av.av_val = p;
             break;
           }
-      file = malloc(av.av_len+1);
+      flen = av.av_len;
+      /* hope there aren't more than 255 dups */
+      if (count)
+        flen += 2;
+      file = malloc(flen+1);
+
       memcpy(file, av.av_val, av.av_len);
-      file[av.av_len] = '\0';
+      if (count)
+        sprintf(file+av.av_len, "%02x", count);
+      else
+        file[av.av_len] = '\0';
       for (p=file; *p; p++)
         if (*p == ':')
           *p = '_';
@@ -342,7 +358,6 @@ ServeInvoke(STREAMING_SERVER *server, int which, RTMPPacket *pack, const char *b
         ret = 1;
       else
         {
-          Flist *fl;
           fwrite(flvHeader, 1, sizeof(flvHeader), out);
           av = server->rc.Link.playpath;
           fl = malloc(sizeof(Flist)+av.av_len+1);
@@ -357,7 +372,6 @@ ServeInvoke(STREAMING_SERVER *server, int which, RTMPPacket *pack, const char *b
           else
             server->f_head = fl;
           server->f_tail = fl;
-          server->f_cur = fl;
         }
     }
   else if (AVMATCH(&method, &av_onStatus))
@@ -380,15 +394,11 @@ ServeInvoke(STREAMING_SERVER *server, int which, RTMPPacket *pack, const char *b
 
       if (AVMATCH(&code, &av_NetStream_Play_Start))
 	{
-          Flist *fl;
-          /* If multiple streams were queued up, find the one
-             to make current. */
-          for (fl = server->f_head; fl; fl=fl->f_next)
-            if (AVMATCH(&fl->f_path, &details) && fl->f_file)
-              {
-                server->f_cur = fl;
-                break;
-              }
+          /* set up the next stream */
+          if (server->f_cur)
+            server->f_cur = server->f_cur->f_next;
+          else
+            server->f_cur = server->f_head;
 	  server->rc.m_bPlaying = true;
 	}
 

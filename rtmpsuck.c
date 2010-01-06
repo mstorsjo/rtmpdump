@@ -1000,6 +1000,8 @@ stopStreaming(STREAMING_SERVER * server)
 
   if (server->state != STREAMING_STOPPED)
     {
+      int fd = server->socket;
+      server->socket = 0;
       if (server->state == STREAMING_IN_PROGRESS)
 	{
 	  server->state = STREAMING_STOPPING;
@@ -1009,7 +1011,7 @@ stopStreaming(STREAMING_SERVER * server)
 	    msleep(1);
 	}
 
-      if (closesocket(server->socket))
+      if (fd && closesocket(fd))
 	Log(LOGERROR, "%s: Failed to close listening socket, error %d",
 	    GetSockError());
 

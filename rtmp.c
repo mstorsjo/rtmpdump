@@ -1968,6 +1968,13 @@ RTMP_ReadPacket(RTMP * r, RTMPPacket * packet)
 
   LogHexString(LOGDEBUG2, hbuf, hSize);
 
+  /* Does the caller want a raw copy of the header ? */
+  if (packet->m_header)
+    {
+      packet->m_headerSize = hSize;
+      memcpy(packet->m_header, hbuf, hSize);
+    }
+
   bool didAlloc = false;
   if (packet->m_nBodySize > 0 && packet->m_body == NULL)
     {
@@ -2017,10 +2024,12 @@ RTMP_ReadPacket(RTMP * r, RTMPPacket * packet)
       r->m_vecChannelsIn[packet->m_nChannel]->m_nBytesRead = 0;
       r->m_vecChannelsIn[packet->m_nChannel]->m_hasAbsTimestamp = false;	// can only be false if we reuse header
     }
+#if 0
   else
     {
       packet->m_body = NULL;	/* so it won't be erased on free */
     }
+#endif
 
   return true;
 }
@@ -2153,6 +2162,20 @@ SHandShake(RTMP * r)
   return true;
 }
 #endif
+
+bool
+RTMP_SendChunk(RTMP *r, RTMPPacket *packet, int offset)
+{
+  int nsize = packet->m_nBytesRead - offset;
+  int wrote;
+
+  Log(LOGDEBUG2, "%s: fd=%d, size=%d", __FUNCTION__, r->m_socket, nsize);
+  LogHexString(LOGDEBUG2, packet->m_header, packet->m_headerSize);
+  LogHexString(LOGDEBUG2, packet->m_body+offset, nsize);
+  wrote = WriteN(r, packet->m_header, packet->m_headerSize);
+  if (!wrote) return wrote;
+  return WriteN(r, packet->m_body+offset, nsize);
+}
 
 bool
 RTMP_SendPacket(RTMP * r, RTMPPacket * packet, bool queue)

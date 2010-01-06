@@ -84,13 +84,15 @@ typedef struct RTMPPacket
 {
   BYTE m_headerType;
   BYTE m_packetType;
+  BYTE m_headerSize;
+  BYTE m_hasAbsTimestamp;	// timestamp absolute or relative?
   int m_nChannel;
   uint32_t m_nInfoField1;	// 3 first bytes
   int32_t m_nInfoField2;	// last 4 bytes in a long header, absolute timestamp for long headers, relative timestamp for short headers
-  bool m_hasAbsTimestamp;	// timestamp absolute or relative?
   uint32_t m_nTimeStamp;	// absolute timestamp
   uint32_t m_nBodySize;
   uint32_t m_nBytesRead;
+  char *m_header;
   char *m_body;
 } RTMPPacket;
 
@@ -214,6 +216,7 @@ bool RTMP_Serve(RTMP *r);
 
 bool RTMP_ReadPacket(RTMP * r, RTMPPacket * packet);
 bool RTMP_SendPacket(RTMP * r, RTMPPacket * packet, bool queue);
+bool RTMP_SendChunk(RTMP * r, RTMPPacket * packet, int offset);
 bool RTMP_IsConnected(RTMP *r);
 bool RTMP_IsTimedout(RTMP *r);
 double RTMP_GetDuration(RTMP *r);

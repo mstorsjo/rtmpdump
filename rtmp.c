@@ -2233,7 +2233,7 @@ RTMP_SendPacket(RTMP * r, RTMPPacket * packet, bool queue)
 
   if (nSize > 1)
     {
-      int t = packet->m_nInfoField1;
+      uint32_t t = packet->m_nInfoField1;
       if (t > 0xffffff)
         t = 0xffffff;
       hptr = AMF_EncodeInt24(hptr, hend, t);

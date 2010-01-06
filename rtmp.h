@@ -85,7 +85,7 @@ typedef struct RTMPPacket
   BYTE m_headerType;
   BYTE m_packetType;
   int m_nChannel;
-  int32_t m_nInfoField1;	// 3 first bytes
+  uint32_t m_nInfoField1;	// 3 first bytes
   int32_t m_nInfoField2;	// last 4 bytes in a long header, absolute timestamp for long headers, relative timestamp for short headers
   bool m_hasAbsTimestamp;	// timestamp absolute or relative?
   uint32_t m_nTimeStamp;	// absolute timestamp

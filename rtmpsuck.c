@@ -139,7 +139,6 @@ SAVC(level);
 SAVC(code);
 SAVC(secureToken);
 SAVC(onStatus);
-SAVC(details);
 SAVC(close);
 static const AVal av_NetStream_Failed = AVC("NetStream.Failed");
 static const AVal av_NetStream_Play_Failed = AVC("NetStream.Play.Failed");
@@ -317,6 +316,8 @@ ServeInvoke(STREAMING_SERVER *server, int which, RTMPPacket *pack, const char *b
       server->rc.m_stream_id = pack->m_nInfoField2;
       AMFProp_GetString(AMF_GetProp(&obj, NULL, 3), &av);
       server->rc.Link.playpath = av;
+      if (!av.av_val)
+        goto out;
 
       /* check for duplicates */
       for (fl = server->f_head; fl; fl=fl->f_next)
@@ -377,11 +378,10 @@ ServeInvoke(STREAMING_SERVER *server, int which, RTMPPacket *pack, const char *b
   else if (AVMATCH(&method, &av_onStatus))
     {
       AMFObject obj2;
-      AVal code, level, details;
+      AVal code, level;
       AMFProp_GetObject(AMF_GetProp(&obj, NULL, 3), &obj2);
       AMFProp_GetString(AMF_GetProp(&obj2, &av_code, -1), &code);
       AMFProp_GetString(AMF_GetProp(&obj2, &av_level, -1), &level);
-      AMFProp_GetString(AMF_GetProp(&obj2, &av_details, -1), &details);
 
       Log(LOGDEBUG, "%s, onStatus: %s", __FUNCTION__, code.av_val);
       if (AVMATCH(&code, &av_NetStream_Failed)
@@ -398,7 +398,10 @@ ServeInvoke(STREAMING_SERVER *server, int which, RTMPPacket *pack, const char *b
           if (server->f_cur)
             server->f_cur = server->f_cur->f_next;
           else
-            server->f_cur = server->f_head;
+            {
+              for (server->f_cur = server->f_head; server->f_cur &&
+                    !server->f_cur->f_file; server->f_cur = server->f_cur->f_next) ;
+            }
 	  server->rc.m_bPlaying = true;
 	}
 
@@ -406,18 +409,6 @@ ServeInvoke(STREAMING_SERVER *server, int which, RTMPPacket *pack, const char *b
       if (AVMATCH(&code, &av_NetStream_Play_Complete)
 	  || AVMATCH(&code, &av_NetStream_Play_Stop))
 	{
-          Flist **fl;
-          /* Remove this file from the play queue */
-          for (fl = &server->f_head; *fl; fl = &(*fl)->f_next)
-            if (*fl == server->f_cur)
-              {
-                Flist *f = *fl;
-                *fl = f->f_next;
-                f->f_file = NULL;
-                free(f);
-                server->f_cur = NULL;
-                break;
-              }
 	  ret = 1;
 	}
     }
@@ -430,6 +421,7 @@ ServeInvoke(STREAMING_SERVER *server, int which, RTMPPacket *pack, const char *b
       RTMP_Close(&server->rc);
       ret = 1;
     }
+out:
   AMF_Reset(&obj);
   return ret;
 }
@@ -946,6 +938,8 @@ cleanup:
         fclose(fl->f_file);
       free(fl);
     }
+  server->f_tail = NULL;
+  server->f_cur = NULL;
   free(buf);
   /* Should probably be done by RTMP_Close() ... */
   free((void *)server->rc.Link.hostname);

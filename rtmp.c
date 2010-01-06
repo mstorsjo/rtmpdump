@@ -1694,7 +1694,7 @@ HandleMetadata(RTMP * r, char *body, unsigned int len)
     {
       AMFObjectProperty prop;
       // Show metadata
-      LogPrintf("\r%s\n", "Metadata:                  ");
+      LogPrintf("Metadata:\n");
       DumpMetaData(&obj);
       if (RTMP_FindFirstMatchingProperty(&obj, &av_duration, &prop))
 	{

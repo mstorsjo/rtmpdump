@@ -323,7 +323,7 @@ RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash, int ask)
     }
 
   if (got && !ask)
-    return 0;
+    goto out;
 
   in.first = 1;
   in.date = date;
@@ -359,7 +359,8 @@ RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash, int ask)
               int err = errno;
               Log(LOGERROR, "%s: couldn't open %s for writing, errno %d (%s)",
                 __FUNCTION__, path, err, strerror(err));
-              return -1;
+              ret = -1;
+              goto out;
             }
           fseek(f, 0, SEEK_END);
           q = strchr(url, '?');
@@ -378,6 +379,8 @@ RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash, int ask)
       fprintf(f, "\n");
     }
   HMAC_CTX_cleanup(&ctx);
+out:
+  free(path);
   if (f)
     fclose(f);
   return ret;

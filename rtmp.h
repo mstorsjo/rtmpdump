@@ -80,11 +80,18 @@ uint32_t RTMP_GetTime();
 
 typedef unsigned char BYTE;
 
+typedef struct RTMPChunk
+{
+  int c_headerSize;
+  int c_chunkSize;
+  char *c_chunk;
+  char c_header[RTMP_MAX_HEADER_SIZE];
+} RTMPChunk;
+
 typedef struct RTMPPacket
 {
   BYTE m_headerType;
   BYTE m_packetType;
-  BYTE m_headerSize;
   BYTE m_hasAbsTimestamp;	// timestamp absolute or relative?
   int m_nChannel;
   uint32_t m_nInfoField1;	// 3 first bytes
@@ -92,7 +99,7 @@ typedef struct RTMPPacket
   uint32_t m_nTimeStamp;	// absolute timestamp
   uint32_t m_nBodySize;
   uint32_t m_nBytesRead;
-  char *m_header;
+  RTMPChunk *m_chunk;
   char *m_body;
 } RTMPPacket;
 
@@ -216,7 +223,7 @@ bool RTMP_Serve(RTMP *r);
 
 bool RTMP_ReadPacket(RTMP * r, RTMPPacket * packet);
 bool RTMP_SendPacket(RTMP * r, RTMPPacket * packet, bool queue);
-bool RTMP_SendChunk(RTMP * r, RTMPPacket * packet, int offset);
+bool RTMP_SendChunk(RTMP * r, RTMPChunk *chunk);
 bool RTMP_IsConnected(RTMP *r);
 bool RTMP_IsTimedout(RTMP *r);
 double RTMP_GetDuration(RTMP *r);

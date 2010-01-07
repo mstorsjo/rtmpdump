@@ -1968,13 +1968,6 @@ RTMP_ReadPacket(RTMP * r, RTMPPacket * packet)
 
   LogHexString(LOGDEBUG2, hbuf, hSize);
 
-  /* Does the caller want a raw copy of the header ? */
-  packet->m_headerSize = hSize;
-  if (packet->m_header)
-    {
-      memcpy(packet->m_header, hbuf, hSize);
-    }
-
   bool didAlloc = false;
   if (packet->m_nBodySize > 0 && packet->m_body == NULL)
     {
@@ -1991,6 +1984,15 @@ RTMP_ReadPacket(RTMP * r, RTMPPacket * packet)
   int nChunk = r->m_inChunkSize;
   if (nToRead < nChunk)
     nChunk = nToRead;
+
+  /* Does the caller want the raw chunk? */
+  if (packet->m_chunk)
+    {
+      packet->m_chunk->c_headerSize = hSize;
+      memcpy(packet->m_chunk->c_header, hbuf, hSize);
+      packet->m_chunk->c_chunk = packet->m_body+packet->m_nBytesRead;
+      packet->m_chunk->c_chunkSize = nChunk;
+    }
 
   if (ReadN(r, packet->m_body + packet->m_nBytesRead, nChunk) != nChunk)
     {
@@ -2024,7 +2026,7 @@ RTMP_ReadPacket(RTMP * r, RTMPPacket * packet)
       r->m_vecChannelsIn[packet->m_nChannel]->m_nBytesRead = 0;
       r->m_vecChannelsIn[packet->m_nChannel]->m_hasAbsTimestamp = false;	// can only be false if we reuse header
     }
-  else if (!packet->m_header)
+  else
     {
       packet->m_body = NULL;	/* so it won't be erased on free */
     }
@@ -2162,17 +2164,18 @@ SHandShake(RTMP * r)
 #endif
 
 bool
-RTMP_SendChunk(RTMP *r, RTMPPacket *packet, int offset)
+RTMP_SendChunk(RTMP *r, RTMPChunk *chunk)
 {
-  int nsize = packet->m_nBytesRead - offset;
-  int wrote;
+  bool wrote;
 
-  Log(LOGDEBUG2, "%s: fd=%d, size=%d", __FUNCTION__, r->m_socket, nsize);
-  LogHexString(LOGDEBUG2, packet->m_header, packet->m_headerSize);
-  LogHexString(LOGDEBUG2, packet->m_body+offset, nsize);
-  wrote = WriteN(r, packet->m_header, packet->m_headerSize);
-  if (!wrote) return wrote;
-  return WriteN(r, packet->m_body+offset, nsize);
+  Log(LOGDEBUG2, "%s: fd=%d, size=%d", __FUNCTION__, r->m_socket, chunk->c_chunkSize);
+  LogHexString(LOGDEBUG2, chunk->c_header, chunk->c_headerSize);
+  if (chunk->c_chunkSize)
+    LogHexString(LOGDEBUG2, chunk->c_chunk, chunk->c_chunkSize);
+  wrote = WriteN(r, chunk->c_header, chunk->c_headerSize);
+  if (wrote && chunk->c_chunkSize)
+    wrote = WriteN(r, chunk->c_chunk, chunk->c_chunkSize);
+  return wrote;
 }
 
 bool

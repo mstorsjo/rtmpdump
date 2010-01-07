@@ -698,7 +698,8 @@ void doServe(STREAMING_SERVER * server,	// server socket and state (our listenin
   )
 {
   RTMPPacket pc = { 0 }, ps = { 0 };
-  char *buf, hbuf[RTMP_MAX_HEADER_SIZE];
+  RTMPChunk rk = { 0 };
+  char *buf;
   unsigned int buflen = 131072;
   bool paused = false;
 
@@ -744,7 +745,7 @@ void doServe(STREAMING_SERVER * server,	// server socket and state (our listenin
         break;
     }
 
-/*   pc.m_header = hbuf; */
+  pc.m_chunk = &rk;
 
   /* We have our own timeout in select() */
   server->rc.Link.timeout = 10;
@@ -852,9 +853,10 @@ void doServe(STREAMING_SERVER * server,	// server socket and state (our listenin
       if (cr)
         {
           while (RTMP_ReadPacket(&server->rc, &pc))
+            {
+              int sendit = 1;
               if (RTMPPacket_IsReady(&pc))
                 {
-                  int sendit = 1;
                   if (paused)
                     {
                       if (pc.m_nTimeStamp <= server->rc.m_mediaStamp)
@@ -909,11 +911,13 @@ void doServe(STREAMING_SERVER * server,	// server socket and state (our listenin
                           server->f_cur = NULL;
                         }
                     }
-                  if (sendit && RTMP_IsConnected(&server->rs))
-                    RTMP_SendPacket(&server->rs, &pc, false);
-                  RTMPPacket_Free(&pc);
-                  break;
                 }
+              if (sendit && RTMP_IsConnected(&server->rs))
+                RTMP_SendChunk(&server->rs, &rk);
+              if (RTMPPacket_IsReady(&pc))
+                  RTMPPacket_Free(&pc);
+              break;
+            }
         }
       if (!RTMP_IsConnected(&server->rs) && RTMP_IsConnected(&server->rc)
         && !server->f_cur)

@@ -3,6 +3,15 @@ Copyright 2008-2009 Andrej Stepanchuk; Distributed under the GPL v2
 Copyright 2009-2010 Howard Chu
 Copyright 2009 The Flvstreamer Team
 
+7 January 2010, v2.1c
+- cleanup rtmpsrv output
+- fix crash in 2.1b hashswf
+- use chunk-based I/O in rtmpsuck for better latency
+- support lists of streams in rtmpsuck
+- use raw client connect packet in rtmpsuck to workaround unsupported features
+- fix parseurl to url-decode PlayPath
+- fix Makefile, inadvertently dropped 'v' from version string
+
 4 January 2010, v2.1b
 - fix url matching in .swfinfo lookup
 - fix resume parsing in rtmpdump

@@ -281,7 +281,12 @@ ServeInvoke(STREAMING_SERVER *server, RTMP * r, const char *body, unsigned int n
             {
               pval = cobj.o_props[i].p_vu.p_aval;
               if (pval.av_val)
-                pval.av_val = strdup(pval.av_val);
+                {
+                  char *p = malloc(pval.av_len+1);
+                  memcpy(p, pval.av_val, pval.av_len);
+                  pval.av_val = p;
+                  p[pval.av_len] = '\0';
+                }
             }
           if (AVMATCH(&pname, &av_app))
             {
@@ -324,6 +329,22 @@ ServeInvoke(STREAMING_SERVER *server, RTMP * r, const char *body, unsigned int n
           if (pval.av_val)
             free(pval.av_val);
         }
+      if (obj.o_num > 3)
+        {
+          r->Link.authflag = AMFProp_GetBoolean(&obj.o_props[3]);
+          if (obj.o_num > 4)
+          {
+            AMFProp_GetString(&obj.o_props[4], &pval);
+            if (pval.av_val)
+              {
+                char *p = malloc(pval.av_len+1);
+                memcpy(p, pval.av_val, pval.av_len);
+                pval.av_val = p;
+                p[pval.av_len] = '\0';
+                r->Link.auth = pval;
+              }
+          }
+        }
       SendConnectResult(r, txn);
     }
   else if (AVMATCH(&method, &av_createStream))
@@ -337,11 +358,26 @@ ServeInvoke(STREAMING_SERVER *server, RTMP * r, const char *body, unsigned int n
   else if (AVMATCH(&method, &av_play))
     {
       AMFProp_GetString(AMF_GetProp(&obj, NULL, 3), &r->Link.playpath);
-      if (r->Link.playpath.av_val)
-        r->Link.playpath.av_val = strdup(r->Link.playpath.av_val);
       r->Link.seekTime = AMFProp_GetNumber(AMF_GetProp(&obj, NULL, 4));
       if (obj.o_num > 5)
         r->Link.length = AMFProp_GetNumber(AMF_GetProp(&obj, NULL, 5));
+      if (r->Link.tcUrl.av_len)
+        {
+          LogPrintf("\nrtmpdump -r '%s'", r->Link.tcUrl.av_val);
+          if (r->Link.app.av_val)
+            LogPrintf(" -a '%s'", r->Link.app.av_val);
+          if (r->Link.flashVer.av_val)
+            LogPrintf(" -f '%s'", r->Link.flashVer.av_val);
+          if (r->Link.swfUrl.av_val)
+            LogPrintf(" -W '%s'", r->Link.swfUrl.av_val);
+          LogPrintf(" -t '%s'", r->Link.tcUrl.av_val);
+          if (r->Link.pageUrl.av_val)
+            LogPrintf(" -p '%s'", r->Link.pageUrl.av_val);
+          if (r->Link.auth.av_val)
+            LogPrintf(" -u '%s'", r->Link.auth.av_val);
+          LogPrintf(" -y '%.*s' -o output.flv\n\n",
+            r->Link.playpath.av_len, r->Link.playpath.av_val);
+        }
       ret = 1;
     }
   AMF_Reset(&obj);
@@ -516,13 +552,19 @@ cleanup:
   LogPrintf("Closing connection... ");
   RTMP_Close(&rtmp);
   /* Should probably be done by RTMP_Close() ... */
-  free(rtmp.Link.playpath.av_val);
+  rtmp.Link.playpath.av_val = NULL;
   free(rtmp.Link.tcUrl.av_val);
+  rtmp.Link.tcUrl.av_val = NULL;
   free(rtmp.Link.swfUrl.av_val);
+  rtmp.Link.swfUrl.av_val = NULL;
   free(rtmp.Link.pageUrl.av_val);
+  rtmp.Link.pageUrl.av_val = NULL;
   free(rtmp.Link.app.av_val);
+  rtmp.Link.app.av_val = NULL;
   free(rtmp.Link.auth.av_val);
+  rtmp.Link.auth.av_val = NULL;
   free(rtmp.Link.flashVer.av_val);
+  rtmp.Link.flashVer.av_val = NULL;
   LogPrintf("done!\n\n");
 
 quit:
@@ -662,7 +704,10 @@ main(int argc, char **argv)
   LogPrintf("RTMP Server %s\n", RTMPDUMP_VERSION);
   LogPrintf("(c) 2010 Andrej Stepanchuk, Howard Chu; license: GPL\n\n");
 
-  debuglevel = LOGALL;
+  debuglevel = LOGINFO;
+
+  if (argc > 1 && !strcmp(argv[1], "-z"))
+    debuglevel = LOGALL;
 
   // init request
   memset(&defaultRTMPRequest, 0, sizeof(RTMP_REQUEST));

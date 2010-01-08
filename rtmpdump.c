@@ -1082,6 +1082,7 @@ main(int argc, char **argv)
   AVal subscribepath = { 0, 0 };
   int port = -1;
   int protocol = RTMP_PROTOCOL_UNDEFINED;
+  int retries = 0;
   bool bLiveStream = false;	// is it a live stream? then we can't seek/resume
   bool bHashes = false;		// display byte counters not hashes by default
 
@@ -1663,8 +1664,43 @@ main(int argc, char **argv)
 	{
 	  nInitialFrameSize = 0;
 
+          if (retries)
+            {
+	      Log(LOGERROR, "Failed to resume the stream\n\n");
+	      if (!RTMP_IsTimedout(&rtmp))
+	        nStatus = RD_FAILED;
+	      else
+	        nStatus = RD_INCOMPLETE;
+	      break;
+            }
 	  Log(LOGINFO, "Connection timed out, trying to resume.\n\n");
-	  if (!RTMP_ToggleStream(&rtmp))
+          /* Did we already try pausing, and it still didn't work? */
+          if (rtmp.m_pausing == 3)
+            {
+              /* Only one try at reconnecting... */
+              retries = 1;
+              dSeek = rtmp.m_pauseStamp;
+              if (dStopOffset > 0)
+                {
+                  dLength = dStopOffset - dSeek;
+                  if (dLength <= 0)
+                    {
+                      LogPrintf("Already Completed\n");
+		      nStatus = RD_SUCCESS;
+		      break;
+                    }
+                }
+              if (!RTMP_ReconnectStream(&rtmp, bufferTime, dSeek, dLength))
+                {
+	          Log(LOGERROR, "Failed to resume the stream\n\n");
+	          if (!RTMP_IsTimedout(&rtmp))
+		    nStatus = RD_FAILED;
+	          else
+		    nStatus = RD_INCOMPLETE;
+	          break;
+                }
+            }
+	  else if (!RTMP_ToggleStream(&rtmp))
 	    {
 	      Log(LOGERROR, "Failed to resume the stream\n\n");
 	      if (!RTMP_IsTimedout(&rtmp))

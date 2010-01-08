@@ -1,7 +1,8 @@
-RTMP Dump v2.1b
+RTMP Dump v2.1c
 (C) 2009 Andrej Stepanchuk
 (C) 2009-2010 Howard Chu
 License: GPLv2
+http://rtmpdump.mplayerhq.hu/
 
 To compile type "make" with your platform name, e.g.
 

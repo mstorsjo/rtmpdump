@@ -48,9 +48,10 @@ void LogSetOutput(FILE *file)
 void LogPrintf(const char *format, ...)
 {
 	char str[MAX_PRINT_LEN]="";
+        int len;
 	va_list args;
 	va_start(args, format);
-	vsnprintf(str, MAX_PRINT_LEN-1, format, args);
+	len = vsnprintf(str, MAX_PRINT_LEN-1, format, args);
 	va_end(args);
 
 	if ( debuglevel==LOGCRIT )
@@ -63,8 +64,11 @@ void LogPrintf(const char *format, ...)
 		neednl = 0;
 	}
 
+        if (len > MAX_PRINT_LEN-1)
+          len = MAX_PRINT_LEN-1;
 	fprintf(fmsg, "%s", str);
-	fflush(fmsg);
+        if (str[len-1] == '\n')
+	  fflush(fmsg);
 }
 
 void LogStatus(const char *format, ...)

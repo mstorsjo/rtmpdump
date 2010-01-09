@@ -4,10 +4,11 @@ Copyright 2009-2010 Howard Chu
 Copyright 2009 The Flvstreamer Team
 http://rtmpdump.mplayerhq.hu/
 
-8 January 2010, v2.1c
+9 January 2010, v2.1c
 - cleanup rtmpsrv output
 - fix crash in 2.1b hashswf
 - fix parseurl to url-decode PlayPath
+- fix parseurl to recognize extensions followed by URL params
 - fix Makefile, inadvertently dropped 'v' from version string
 - in rtmpdump try Reconnect if ToggleStream doesn't work on timeouts
 - in rtmpsuck use chunk-based I/O for better latency

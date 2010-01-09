@@ -1038,12 +1038,12 @@ AMF_Decode(AMFObject * obj, const char *pBuffer, int nSize, bool bDecodeName)
 
   obj->o_num = 0;
   obj->o_props = NULL;
-  while (nSize >= 3)
+  while (nSize > 0)
     {
       AMFObjectProperty prop;
       int nRes;
 
-      if (AMF_DecodeInt24(pBuffer) == AMF_OBJECT_END)
+      if (nSize >=3 && AMF_DecodeInt24(pBuffer) == AMF_OBJECT_END)
 	{
 	  nSize -= 3;
 	  bError = false;

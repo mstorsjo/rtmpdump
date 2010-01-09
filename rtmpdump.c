@@ -1368,7 +1368,7 @@ main(int argc, char **argv)
 	      {
 		swfHash.av_val = NULL;
 		Log(LOGWARNING,
-		    "Couldn't parse swf hash hex string, not heyxstring or not %d bytes, ignoring!", HASHLEN);
+		    "Couldn't parse swf hash hex string, not hexstring or not %d bytes, ignoring!", HASHLEN);
 	      }
 	    swfHash.av_len = HASHLEN;
 	    break;

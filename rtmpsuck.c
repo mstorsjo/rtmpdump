@@ -325,9 +325,11 @@ ServeInvoke(STREAMING_SERVER *server, int which, RTMPPacket *pack, const char *b
           if (AVMATCH(&av, &fl->f_path))
             count++;
         }
+      /* strip trailing URL parameters */
       q = memchr(av.av_val, '?', av.av_len);
       if (q)
         av.av_len = q - av.av_val;
+      /* strip leading slash components */
       for (p=av.av_val+av.av_len-1; p>=av.av_val; p--)
         if (*p == '/')
           {
@@ -336,6 +338,12 @@ ServeInvoke(STREAMING_SERVER *server, int which, RTMPPacket *pack, const char *b
             av.av_val = p;
             break;
           }
+      /* skip leading dot */
+      if (av.av_val[0] == '.')
+        {
+          av.av_val++;
+          av.av_len--;
+        }
       flen = av.av_len;
       /* hope there aren't more than 255 dups */
       if (count)
@@ -1096,7 +1104,7 @@ main(int argc, char **argv)
   LogPrintf("RTMP Proxy Server %s\n", RTMPDUMP_VERSION);
   LogPrintf("(c) 2010 Andrej Stepanchuk, Howard Chu; license: GPL\n\n");
 
-  debuglevel = LOGDEBUG;
+  debuglevel = LOGINFO;
 
   if (argc > 1 && !strcmp(argv[1], "-z"))
     debuglevel = LOGALL;

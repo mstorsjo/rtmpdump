@@ -1113,6 +1113,9 @@ parseAMF(AMFObject *obj, const char *arg, int *depth)
           prop.p_type = AMF_NUMBER;
           prop.p_vu.p_number = strtod(p, NULL);
           break;
+        case 'O':
+          prop.p_type = AMF_OBJECT;
+          break;
         default:
           return -1;
         }

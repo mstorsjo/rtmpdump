@@ -44,6 +44,34 @@ Note: all of this is now done automatically if you provide the SWF URL using
 the -W (--swfVfy) option instead of the -s (--swfUrl) option. Also, the hash info
 is cached in ~/.swfinfo so it doesn't need to be recalculated all the time.
 
+Connect Parameters
+------------------
+
+Some servers expect additional custom parameters to be attached to the
+RTMP connect request. The "--auth" option handles a specific case, where
+a boolean TRUE followed by the given string are added to the request.
+Other servers may require completely different parameters, so the new
+"--conn" option has been added. This option can be set multiple times
+on the command line, adding one parameter each time.
+
+The argument to the option must take the form <type> : <value> where
+type can be B for boolean, S for string, N for number, and O for object.
+For booleans the value must be 0 or 1. Also, for objects the value must
+be 1 to start a new object, or 0 to end the current object.
+
+Examples:
+  --conn B:0 --conn S:hello --conn N:3.14159
+
+Named parameters can be specified by prefixing 'N' to the type. Then the
+name should come next, and finally the value:
+  --conn NB:myflag:1 --conn NS:category:something --conn NN:pi:3.14159
+
+Objects may be added sequentially:
+  -C O:1 -C NB:flag:1 -C NS:status:success -C O:0 -C O:1 -C NN:time:12.30 -C O:0
+or nested:
+  -C O:1 -C NS:code:hello -C NO:extra:1 -C NS:data:stuff -C O:0 -C O:0
+
+
 Building OpenSSL 0.9.8k
 -----------------------
 arm:

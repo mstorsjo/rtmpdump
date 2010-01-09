@@ -935,6 +935,7 @@ void doServe(STREAMING_SERVER * server,	// server socket and state (our listenin
 cleanup:
   LogPrintf("Closing connection... ");
   RTMP_Close(&server->rs);
+  RTMP_Close(&server->rc);
   while (server->f_head)
     {
       Flist *fl = server->f_head;

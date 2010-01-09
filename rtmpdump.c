@@ -1051,6 +1051,91 @@ Download(RTMP * rtmp,		// connected RTMP object
 #define STR2AVAL(av,str)	av.av_val = str; av.av_len = strlen(av.av_val)
 
 int
+parseAMF(AMFObject *obj, const char *arg, int *depth)
+{
+  AMFObjectProperty prop = {{0,0}};
+  int i;
+  char *p;
+
+  if (arg[1] == ':')
+    {
+      p = (char *)arg+2;
+      switch(arg[0])
+        {
+        case 'B':
+          prop.p_type = AMF_BOOLEAN;
+          prop.p_vu.p_number = atoi(p);
+          break;
+        case 'S':
+          prop.p_type = AMF_STRING;
+          STR2AVAL(prop.p_vu.p_aval,p);
+          break;
+        case 'N':
+          prop.p_type = AMF_NUMBER;
+          prop.p_vu.p_number = strtod(p, NULL);
+          break;
+        case 'O':
+          i = atoi(p);
+          if (i)
+            {
+              prop.p_type = AMF_OBJECT;
+            }
+          else
+            {
+              (*depth)--;
+              return 0;
+            }
+          break;
+        default:
+          return -1;
+        }
+    }
+  else if (arg[2] == ':' && arg[0] == 'N')
+    {
+      p = strchr(arg+3, ':');
+      if (!p || !*depth)
+        return -1;
+      prop.p_name.av_val = (char *)arg+3;
+      prop.p_name.av_len = p - (arg+3);
+
+      p++;
+      switch(arg[1])
+        {
+        case 'B':
+          prop.p_type = AMF_BOOLEAN;
+          prop.p_vu.p_number = atoi(p);
+          break;
+        case 'S':
+          prop.p_type = AMF_STRING;
+          STR2AVAL(prop.p_vu.p_aval,p);
+          break;
+        case 'N':
+          prop.p_type = AMF_NUMBER;
+          prop.p_vu.p_number = strtod(p, NULL);
+          break;
+        default:
+          return -1;
+        }
+    }
+  else
+    return -1;
+
+  if (*depth)
+    {
+      AMFObject *o2;
+      for (i=0; i<*depth; i++)
+        {
+          o2 = &obj->o_props[obj->o_num-1].p_vu.p_object;
+          obj = o2;
+        }
+    }
+  AMF_AddProp(obj, &prop);
+  if (prop.p_type == AMF_OBJECT)
+    (*depth)++;
+  return 0;
+}
+
+int
 main(int argc, char **argv)
 {
   extern char *optarg;
@@ -1102,6 +1187,8 @@ main(int argc, char **argv)
   AVal flashVer = { 0, 0 };
   AVal token = { 0, 0 };
   char *sockshost = 0;
+  AMFObject extras = {0};
+  int edepth = 0;
 
 #ifdef CRYPTO
   unsigned char hash[HASHLEN];
@@ -1163,6 +1250,7 @@ main(int argc, char **argv)
     {"pageUrl", 1, NULL, 'p'},
     {"app", 1, NULL, 'a'},
     {"auth", 1, NULL, 'u'},
+    {"conn", 1, NULL, 'C'},
 #ifdef CRYPTO
     {"swfhash", 1, NULL, 'w'},
     {"swfsize", 1, NULL, 'x'},
@@ -1188,7 +1276,7 @@ main(int argc, char **argv)
 
   while ((opt =
 	  getopt_long(argc, argv,
-		      "hVveqzr:s:t:p:a:b:f:o:u:n:c:l:y:m:k:d:A:B:T:w:x:W:S:#",
+		      "hVveqzr:s:t:p:a:b:f:o:u:C:n:c:l:y:m:k:d:A:B:T:w:x:W:S:#",
 		      longopts, NULL)) != -1)
     {
       switch (opt)
@@ -1224,6 +1312,12 @@ main(int argc, char **argv)
 #endif
 	  LogPrintf
 	    ("--auth|-u string        Authentication string to be appended to the connect string\n");
+	  LogPrintf
+	    ("--conn|-C type:data     Arbitrary AMF data to be appended to the connect string\n");
+	  LogPrintf
+	    ("                        B:boolean(0|1), S:string, N:number, O:object-flag(0|1),\n");
+	  LogPrintf
+	    ("                        NB:name:boolean, NS:name:string, NN:name:number\n");
 	  LogPrintf
 	    ("--flashVer|-f string    Flash version string (default: \"%s\")\n",
 	     DEFAULT_FLASH_VER);
@@ -1412,6 +1506,13 @@ main(int argc, char **argv)
 	case 'u':
 	  STR2AVAL(auth, optarg);
 	  break;
+        case 'C':
+          if (parseAMF(&extras, optarg, &edepth))
+            {
+              Log(LOGERROR, "Invalid AMF parameter: %s", optarg);
+              return RD_FAILED;
+            }
+          break;
 	case 'm':
 	  timeout = atoi(optarg);
 	  break;
@@ -1546,6 +1647,11 @@ main(int argc, char **argv)
 		   &tcUrl, &swfUrl, &pageUrl, &app, &auth, &swfHash, swfSize,
 		   &flashVer, &subscribepath, dSeek, 0, bLiveStream, timeout);
 
+  /* backward compatibility, we always sent this as true before */
+  if (auth.av_len)
+    rtmp.Link.authflag = true;
+
+  rtmp.Link.extras = extras;
   rtmp.Link.token = token;
   off_t size = 0;
 

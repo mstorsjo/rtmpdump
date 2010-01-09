@@ -135,6 +135,7 @@ typedef struct RTMP_LNK
   AVal subscribepath;
   AVal token;
   bool authflag;
+  AMFObject extras;
 
   double seekTime;
   uint32_t length;

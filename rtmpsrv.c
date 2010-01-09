@@ -75,6 +75,7 @@ typedef struct
   int socket;
   int state;
   int streamID;
+  char *connect;
 
 } STREAMING_SERVER;
 
@@ -240,11 +241,53 @@ SendResultNumber(RTMP *r, double txn, double ID)
   return RTMP_SendPacket(r, &packet, false);
 }
 
+static void
+dumpAMF(AMFObject *obj)
+{
+   int i;
+   const char opt[] = "NBSO";
+
+   for (i=0; i < obj->o_num; i++)
+     {
+       AMFObjectProperty *p = &obj->o_props[i];
+       LogPrintf(" -C ");
+       if (p->p_name.av_val)
+         LogPrintf("N");
+       LogPrintf("%c:", opt[p->p_type]);
+       if (p->p_name.av_val)
+         LogPrintf("%.*s:", p->p_name.av_len, p->p_name.av_val);
+       switch(p->p_type)
+         {
+         case AMF_BOOLEAN:
+           LogPrintf("%d", p->p_vu.p_number != 0);
+           break;
+         case AMF_STRING:
+           LogPrintf("%.*s", p->p_vu.p_aval.av_len, p->p_vu.p_aval.av_val);
+           break;
+         case AMF_NUMBER:
+           LogPrintf("%f", p->p_vu.p_number);
+           break;
+         case AMF_OBJECT:
+           LogPrintf("1");
+           dumpAMF(&p->p_vu.p_object);
+           LogPrintf(" -C O:0");
+           break;
+         default:
+           LogPrintf("<type %d>", p->p_type);
+         }
+    }
+}
 // Returns 0 for OK/Failed/error, 1 for 'Stop or Complete'
 int
-ServeInvoke(STREAMING_SERVER *server, RTMP * r, const char *body, unsigned int nBodySize)
+ServeInvoke(STREAMING_SERVER *server, RTMP * r, RTMPPacket *packet, unsigned int offset)
 {
+  const char *body;
+  unsigned int nBodySize;
   int ret = 0, nRes;
+
+  body = packet->m_body + offset;
+  nBodySize = packet->m_nBodySize - offset;
+
   if (body[0] != 0x02)		// make sure it is a string method name we start with
     {
       Log(LOGWARNING, "%s, Sanity failed. no string method in invoke packet",
@@ -271,6 +314,10 @@ ServeInvoke(STREAMING_SERVER *server, RTMP * r, const char *body, unsigned int n
       AMFObject cobj;
       AVal pname, pval;
       int i;
+
+      server->connect = packet->m_body;
+      packet->m_body = NULL;
+
       AMFProp_GetObject(AMF_GetProp(&obj, NULL, 2), &cobj);
       for (i=0; i<cobj.o_num; i++)
         {
@@ -278,16 +325,7 @@ ServeInvoke(STREAMING_SERVER *server, RTMP * r, const char *body, unsigned int n
           pval.av_val = NULL;
           pval.av_len = 0;
           if (cobj.o_props[i].p_type == AMF_STRING)
-            {
-              pval = cobj.o_props[i].p_vu.p_aval;
-              if (pval.av_val)
-                {
-                  char *p = malloc(pval.av_len+1);
-                  memcpy(p, pval.av_val, pval.av_len);
-                  pval.av_val = p;
-                  p[pval.av_len] = '\0';
-                }
-            }
+            pval = cobj.o_props[i].p_vu.p_aval;
           if (AVMATCH(&pname, &av_app))
             {
               r->Link.app = pval;
@@ -325,25 +363,15 @@ ServeInvoke(STREAMING_SERVER *server, RTMP * r, const char *body, unsigned int n
             {
               r->m_fEncoding = cobj.o_props[i].p_vu.p_number;
             }
-          /* Dup'd a sting we didn't recognize? */
-          if (pval.av_val)
-            free(pval.av_val);
         }
+      /* Still have more parameters? Copy them */
       if (obj.o_num > 3)
         {
-          r->Link.authflag = AMFProp_GetBoolean(&obj.o_props[3]);
-          if (obj.o_num > 4)
-          {
-            AMFProp_GetString(&obj.o_props[4], &pval);
-            if (pval.av_val)
-              {
-                char *p = malloc(pval.av_len+1);
-                memcpy(p, pval.av_val, pval.av_len);
-                pval.av_val = p;
-                p[pval.av_len] = '\0';
-                r->Link.auth = pval;
-              }
-          }
+          int i = obj.o_num - 3;
+          r->Link.extras.o_num = i;
+          r->Link.extras.o_props = malloc(i*sizeof(AMFObjectProperty));
+          memcpy(r->Link.extras.o_props, obj.o_props+3, i*sizeof(AMFObjectProperty));
+          obj.o_num = 3;
         }
       SendConnectResult(r, txn);
     }
@@ -357,6 +385,7 @@ ServeInvoke(STREAMING_SERVER *server, RTMP * r, const char *body, unsigned int n
     }
   else if (AVMATCH(&method, &av_play))
     {
+      RTMPPacket pc = {0};
       AMFProp_GetString(AMF_GetProp(&obj, NULL, 3), &r->Link.playpath);
       r->Link.seekTime = AMFProp_GetNumber(AMF_GetProp(&obj, NULL, 4));
       if (obj.o_num > 5)
@@ -375,9 +404,17 @@ ServeInvoke(STREAMING_SERVER *server, RTMP * r, const char *body, unsigned int n
             LogPrintf(" -p '%s'", r->Link.pageUrl.av_val);
           if (r->Link.auth.av_val)
             LogPrintf(" -u '%s'", r->Link.auth.av_val);
+          if (r->Link.extras.o_num)
+            {
+              dumpAMF(&r->Link.extras);
+              AMF_Reset(&r->Link.extras);
+            }
           LogPrintf(" -y '%.*s' -o output.flv\n\n",
             r->Link.playpath.av_len, r->Link.playpath.av_val);
         }
+      pc.m_body = server->connect;
+      server->connect = NULL;
+      RTMPPacket_Free(&pc);
       ret = 1;
     }
   AMF_Reset(&obj);
@@ -450,7 +487,7 @@ ServePacket(STREAMING_SERVER *server, RTMP *r, RTMPPacket *packet)
 
 	   obj.Dump(); */
 
-	ServeInvoke(server, r, packet->m_body + 1, packet->m_nBodySize - 1);
+	ServeInvoke(server, r, packet, 1);
 	break;
       }
     case 0x12:
@@ -467,7 +504,7 @@ ServePacket(STREAMING_SERVER *server, RTMP *r, RTMPPacket *packet)
 	  packet->m_nBodySize);
       //LogHex(packet.m_body, packet.m_nBodySize);
 
-      if (ServeInvoke(server, r, packet->m_body, packet->m_nBodySize))
+      if (ServeInvoke(server, r, packet, 0))
         RTMP_Close(r);
       break;
 
@@ -553,17 +590,11 @@ cleanup:
   RTMP_Close(&rtmp);
   /* Should probably be done by RTMP_Close() ... */
   rtmp.Link.playpath.av_val = NULL;
-  free(rtmp.Link.tcUrl.av_val);
   rtmp.Link.tcUrl.av_val = NULL;
-  free(rtmp.Link.swfUrl.av_val);
   rtmp.Link.swfUrl.av_val = NULL;
-  free(rtmp.Link.pageUrl.av_val);
   rtmp.Link.pageUrl.av_val = NULL;
-  free(rtmp.Link.app.av_val);
   rtmp.Link.app.av_val = NULL;
-  free(rtmp.Link.auth.av_val);
   rtmp.Link.auth.av_val = NULL;
-  free(rtmp.Link.flashVer.av_val);
   rtmp.Link.flashVer.av_val = NULL;
   LogPrintf("done!\n\n");
 
@@ -618,7 +649,7 @@ STREAMING_SERVER *
 startStreaming(const char *address, int port)
 {
   struct sockaddr_in addr;
-  int sockfd;
+  int sockfd, tmp;
   STREAMING_SERVER *server;
 
   sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -627,6 +658,10 @@ startStreaming(const char *address, int port)
       Log(LOGERROR, "%s, couldn't create socket", __FUNCTION__);
       return 0;
     }
+
+  tmp = 1;
+  setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR,
+				(char *) &tmp, sizeof(tmp) );
 
   addr.sin_family = AF_INET;
   addr.sin_addr.s_addr = inet_addr(address);	//htonl(INADDR_ANY);

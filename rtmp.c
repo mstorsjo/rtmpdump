@@ -956,6 +956,16 @@ SendConnectPacket(RTMP *r, RTMPPacket *cp)
       if (!enc)
         return false;
     }
+  if (r->Link.extras.o_num)
+    {
+      int i;
+      for (i=0; i < r->Link.extras.o_num; i++)
+        {
+          enc = AMFProp_Encode(&r->Link.extras.o_props[i], enc, pend);
+          if (!enc)
+            return false;
+        }
+    }
   packet.m_nBodySize = enc - packet.m_body;
 
   return RTMP_SendPacket(r, &packet, true);

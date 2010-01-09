@@ -4,7 +4,7 @@ Copyright 2009-2010 Howard Chu
 Copyright 2009 The Flvstreamer Team
 http://rtmpdump.mplayerhq.hu/
 
-7 January 2010, v2.1c
+8 January 2010, v2.1c
 - cleanup rtmpsrv output
 - fix crash in 2.1b hashswf
 - fix parseurl to url-decode PlayPath
@@ -13,6 +13,7 @@ http://rtmpdump.mplayerhq.hu/
 - in rtmpsuck use chunk-based I/O for better latency
 - in rtmpsuck support lists of streams
 - in rtmpsuck use raw client connect packet to workaround unsupported features
+- support arbitrary AMF data appended to connect requests
 
 4 January 2010, v2.1b
 - fix url matching in .swfinfo lookup

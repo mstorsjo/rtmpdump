@@ -831,7 +831,7 @@ GetLastKeyframe(FILE * file,	// output file [in]
      uint32_t timestamp = RTMP_LIB::AMF_DecodeInt24(buffer);
      timestamp |= (buffer[3]<<24);
 
-     Log(LOGDEBUG, "Previuos timestamp: %d ms", timestamp);
+     Log(LOGDEBUG, "Previous timestamp: %d ms", timestamp);
    */
 
   if (*dSeek != 0)

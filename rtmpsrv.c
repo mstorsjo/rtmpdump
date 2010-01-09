@@ -279,6 +279,7 @@ dumpAMF(AMFObject *obj)
          }
     }
 }
+
 // Returns 0 for OK/Failed/error, 1 for 'Stop or Complete'
 int
 ServeInvoke(STREAMING_SERVER *server, RTMP * r, RTMPPacket *packet, unsigned int offset)
@@ -394,24 +395,24 @@ ServeInvoke(STREAMING_SERVER *server, RTMP * r, RTMPPacket *packet, unsigned int
         r->Link.length = AMFProp_GetNumber(AMF_GetProp(&obj, NULL, 5));
       if (r->Link.tcUrl.av_len)
         {
-          LogPrintf("\nrtmpdump -r '%s'", r->Link.tcUrl.av_val);
+          LogPrintf("\nrtmpdump -r \"%s\"", r->Link.tcUrl.av_val);
           if (r->Link.app.av_val)
-            LogPrintf(" -a '%s'", r->Link.app.av_val);
+            LogPrintf(" -a \"%s\"", r->Link.app.av_val);
           if (r->Link.flashVer.av_val)
-            LogPrintf(" -f '%s'", r->Link.flashVer.av_val);
+            LogPrintf(" -f \"%s\"", r->Link.flashVer.av_val);
           if (r->Link.swfUrl.av_val)
-            LogPrintf(" -W '%s'", r->Link.swfUrl.av_val);
-          LogPrintf(" -t '%s'", r->Link.tcUrl.av_val);
+            LogPrintf(" -W \"%s\"", r->Link.swfUrl.av_val);
+          LogPrintf(" -t \"%s\"", r->Link.tcUrl.av_val);
           if (r->Link.pageUrl.av_val)
-            LogPrintf(" -p '%s'", r->Link.pageUrl.av_val);
+            LogPrintf(" -p \"%s\"", r->Link.pageUrl.av_val);
           if (r->Link.auth.av_val)
-            LogPrintf(" -u '%s'", r->Link.auth.av_val);
+            LogPrintf(" -u \"%s\"", r->Link.auth.av_val);
           if (r->Link.extras.o_num)
             {
               dumpAMF(&r->Link.extras);
               AMF_Reset(&r->Link.extras);
             }
-          LogPrintf(" -y '%.*s' -o output.flv\n\n",
+          LogPrintf(" -y \"%.*s\" -o output.flv\n\n",
             r->Link.playpath.av_len, r->Link.playpath.av_val);
         }
       pc.m_body = server->connect;

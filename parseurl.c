@@ -274,7 +274,7 @@ parsehost:
  * the playpath part of the URL with formating depending on the stream
  * type:
  *
- * mp4 streams: prepend "mp4:"
+ * mp4 streams: prepend "mp4:", remove extension
  * mp3 streams: prepend "mp3:", remove extension
  * flv streams: remove extension
  */
@@ -284,8 +284,10 @@ char *ParsePlaypath(const char *playpath) {
 
 	int addMP4 = 0;
 	int addMP3 = 0;
-	const char *temp;
+	int subExt = 0;
+	const char *temp, *q, *ext = NULL;
 	const char *ppstart = playpath;
+
 	int pplen = strlen(playpath);
 
 	if ((*ppstart == '?') &&
@@ -299,18 +301,23 @@ char *ParsePlaypath(const char *playpath) {
 		}
 	}
 
+	q = strchr(ppstart, '?');
 	if (pplen >= 4) {
-		const char *ext = &ppstart[pplen-4];
-		if ((strcmp(ext, ".f4v") == 0) ||
-		    (strcmp(ext, ".mp4") == 0)) {
+		if (q)
+			ext = q-4;
+		else
+			ext = &ppstart[pplen-4];
+		if ((strncmp(ext, ".f4v", 4) == 0) ||
+		    (strncmp(ext, ".mp4", 4) == 0)) {
 			addMP4 = 1;
+			subExt = 1;
 		// Only remove .flv from rtmp URL, not slist params
 		} else if ((ppstart == playpath) &&
-		    (strcmp(ext, ".flv") == 0)) {
-			pplen -= 4;
-		} else if (strcmp(ext, ".mp3") == 0) {
+		    (strncmp(ext, ".flv", 4) == 0)) {
+			subExt = 1;
+		} else if (strncmp(ext, ".mp3", 4) == 0) {
 			addMP3 = 1;
-			pplen -= 4;
+			subExt = 1;
 		}
 	}
 
@@ -328,6 +335,11 @@ char *ParsePlaypath(const char *playpath) {
 	}
 
  	for (p=(char *)ppstart; pplen >0;) {
+		/* skip extension */
+		if (subExt && p == ext) {
+			p += 4;
+			pplen -= 4;
+		}
 		if (*p == '%') {
 			int c;
 			sscanf(p+1, "%02x", &c);

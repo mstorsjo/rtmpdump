@@ -250,32 +250,32 @@ dumpAMF(AMFObject *obj)
    for (i=0; i < obj->o_num; i++)
      {
        AMFObjectProperty *p = &obj->o_props[i];
-       LogPrintf(" -C ");
+       printf(" -C ");
        if (p->p_name.av_val)
-         LogPrintf("N");
-       LogPrintf("%c:", opt[p->p_type]);
+         printf("N");
+       printf("%c:", opt[p->p_type]);
        if (p->p_name.av_val)
-         LogPrintf("%.*s:", p->p_name.av_len, p->p_name.av_val);
+         printf("%.*s:", p->p_name.av_len, p->p_name.av_val);
        switch(p->p_type)
          {
          case AMF_BOOLEAN:
-           LogPrintf("%d", p->p_vu.p_number != 0);
+           printf("%d", p->p_vu.p_number != 0);
            break;
          case AMF_STRING:
-           LogPrintf("%.*s", p->p_vu.p_aval.av_len, p->p_vu.p_aval.av_val);
+           printf("%.*s", p->p_vu.p_aval.av_len, p->p_vu.p_aval.av_val);
            break;
          case AMF_NUMBER:
-           LogPrintf("%f", p->p_vu.p_number);
+           printf("%f", p->p_vu.p_number);
            break;
          case AMF_OBJECT:
-           LogPrintf("1");
+           printf("1");
            dumpAMF(&p->p_vu.p_object);
-           LogPrintf(" -C O:0");
+           printf(" -C O:0");
            break;
          case AMF_NULL:
            break;
          default:
-           LogPrintf("<type %d>", p->p_type);
+           printf("<type %d>", p->p_type);
          }
     }
 }
@@ -395,25 +395,26 @@ ServeInvoke(STREAMING_SERVER *server, RTMP * r, RTMPPacket *packet, unsigned int
         r->Link.length = AMFProp_GetNumber(AMF_GetProp(&obj, NULL, 5));
       if (r->Link.tcUrl.av_len)
         {
-          LogPrintf("\nrtmpdump -r \"%s\"", r->Link.tcUrl.av_val);
+          printf("\nrtmpdump -r \"%s\"", r->Link.tcUrl.av_val);
           if (r->Link.app.av_val)
-            LogPrintf(" -a \"%s\"", r->Link.app.av_val);
+            printf(" -a \"%s\"", r->Link.app.av_val);
           if (r->Link.flashVer.av_val)
-            LogPrintf(" -f \"%s\"", r->Link.flashVer.av_val);
+            printf(" -f \"%s\"", r->Link.flashVer.av_val);
           if (r->Link.swfUrl.av_val)
-            LogPrintf(" -W \"%s\"", r->Link.swfUrl.av_val);
-          LogPrintf(" -t \"%s\"", r->Link.tcUrl.av_val);
+            printf(" -W \"%s\"", r->Link.swfUrl.av_val);
+          printf(" -t \"%s\"", r->Link.tcUrl.av_val);
           if (r->Link.pageUrl.av_val)
-            LogPrintf(" -p \"%s\"", r->Link.pageUrl.av_val);
+            printf(" -p \"%s\"", r->Link.pageUrl.av_val);
           if (r->Link.auth.av_val)
-            LogPrintf(" -u \"%s\"", r->Link.auth.av_val);
+            printf(" -u \"%s\"", r->Link.auth.av_val);
           if (r->Link.extras.o_num)
             {
               dumpAMF(&r->Link.extras);
               AMF_Reset(&r->Link.extras);
             }
-          LogPrintf(" -y \"%.*s\" -o output.flv\n\n",
+          printf(" -y \"%.*s\" -o output.flv\n\n",
             r->Link.playpath.av_len, r->Link.playpath.av_val);
+          fflush(stdout);
         }
       pc.m_body = server->connect;
       server->connect = NULL;

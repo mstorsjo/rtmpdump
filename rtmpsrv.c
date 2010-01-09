@@ -245,7 +245,7 @@ static void
 dumpAMF(AMFObject *obj)
 {
    int i;
-   const char opt[] = "NBSO";
+   const char opt[] = "NBSO Z";
 
    for (i=0; i < obj->o_num; i++)
      {
@@ -271,6 +271,8 @@ dumpAMF(AMFObject *obj)
            LogPrintf("1");
            dumpAMF(&p->p_vu.p_object);
            LogPrintf(" -C O:0");
+           break;
+         case AMF_NULL:
            break;
          default:
            LogPrintf("<type %d>", p->p_type);

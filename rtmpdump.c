@@ -1074,6 +1074,9 @@ parseAMF(AMFObject *obj, const char *arg, int *depth)
           prop.p_type = AMF_NUMBER;
           prop.p_vu.p_number = strtod(p, NULL);
           break;
+        case 'Z':
+          prop.p_type = AMF_NULL;
+          break;
         case 'O':
           i = atoi(p);
           if (i)
@@ -1320,7 +1323,7 @@ main(int argc, char **argv)
 	  LogPrintf
 	    ("                        B:boolean(0|1), S:string, N:number, O:object-flag(0|1),\n");
 	  LogPrintf
-	    ("                        NB:name:boolean, NS:name:string, NN:name:number\n");
+	    ("                        Z:(null), NB:name:boolean, NS:name:string, NN:name:number\n");
 	  LogPrintf
 	    ("--flashVer|-f string    Flash version string (default: \"%s\")\n",
 	     DEFAULT_FLASH_VER);

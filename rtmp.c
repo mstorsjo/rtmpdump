@@ -330,12 +330,8 @@ add_addr_info(struct sockaddr_in *service, const char *hostname, int port)
 }
 
 bool
-RTMP_Connect(RTMP *r, RTMPPacket *cp)
+RTMP_Connect0(RTMP *r, struct sockaddr *service)
 {
-  struct sockaddr_in service;
-  if (!r->Link.hostname)
-    return false;
-
   // close any previous connection
   RTMP_Close(r);
 
@@ -343,28 +339,11 @@ RTMP_Connect(RTMP *r, RTMPPacket *cp)
   r->m_pausing = 0;
   r->m_fDuration = 0.0;
 
-  memset(&service, 0, sizeof(struct sockaddr_in));
-  service.sin_family = AF_INET;
-
-  if (r->Link.socksport)
-    {
-      // Connect via SOCKS
-      if (!add_addr_info(&service, r->Link.sockshost, r->Link.socksport))
-	return false;
-    }
-  else
-    {
-      // Connect directly
-      if (!add_addr_info(&service, r->Link.hostname, r->Link.port))
-	return false;
-    }
-
   r->m_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
   if (r->m_socket != -1)
     {
       if (connect
-	  (r->m_socket, (struct sockaddr *) &service,
-	   sizeof(struct sockaddr)) < 0)
+	  (r->m_socket, service, sizeof(struct sockaddr)) < 0)
 	{
 	  int err = GetSockError();
 	  Log(LOGERROR, "%s, failed to connect socket. %d (%s)", __FUNCTION__,
@@ -383,30 +362,6 @@ RTMP_Connect(RTMP *r, RTMPPacket *cp)
 	      return false;
 	    }
 	}
-
-      Log(LOGDEBUG, "%s, ... connected, handshaking", __FUNCTION__);
-      if (!HandShake(r, true))
-	{
-	  Log(LOGERROR, "%s, handshake failed.", __FUNCTION__);
-	  RTMP_Close(r);
-	  return false;
-	}
-
-      Log(LOGDEBUG, "%s, handshaked", __FUNCTION__);
-      if (!SendConnectPacket(r, cp))
-	{
-	  Log(LOGERROR, "%s, RTMP connect failed.", __FUNCTION__);
-	  RTMP_Close(r);
-	  return false;
-	}
-      // set timeout
-      SET_RCVTIMEO(tv, r->Link.timeout);
-      if (setsockopt
-	  (r->m_socket, SOL_SOCKET, SO_RCVTIMEO, (char *) &tv, sizeof(tv)))
-	{
-	  Log(LOGERROR, "%s, Setting socket timeout to %ds failed!",
-	      __FUNCTION__, r->Link.timeout);
-	}
     }
   else
     {
@@ -415,9 +370,71 @@ RTMP_Connect(RTMP *r, RTMPPacket *cp)
       return false;
     }
 
+  // set timeout
+  SET_RCVTIMEO(tv, r->Link.timeout);
+  if (setsockopt
+      (r->m_socket, SOL_SOCKET, SO_RCVTIMEO, (char *) &tv, sizeof(tv)))
+    {
+      Log(LOGERROR, "%s, Setting socket timeout to %ds failed!",
+          __FUNCTION__, r->Link.timeout);
+    }
+
   int on = 1;
   setsockopt(r->m_socket, IPPROTO_TCP, TCP_NODELAY, &on, sizeof(on));
+
   return true;
+}
+
+bool
+RTMP_Connect1(RTMP *r, RTMPPacket *cp)
+{
+  Log(LOGDEBUG, "%s, ... connected, handshaking", __FUNCTION__);
+  if (!HandShake(r, true))
+    {
+      Log(LOGERROR, "%s, handshake failed.", __FUNCTION__);
+      RTMP_Close(r);
+      return false;
+    }
+  Log(LOGDEBUG, "%s, handshaked", __FUNCTION__);
+
+  if (!SendConnectPacket(r, cp))
+    {
+      Log(LOGERROR, "%s, RTMP connect failed.", __FUNCTION__);
+      RTMP_Close(r);
+      return false;
+    }
+  return true;
+}
+
+bool
+RTMP_Connect(RTMP *r, RTMPPacket *cp)
+{
+  struct sockaddr_in service;
+  if (!r->Link.hostname)
+    return false;
+
+  memset(&service, 0, sizeof(struct sockaddr_in));
+  service.sin_family = AF_INET;
+
+  if (r->Link.socksport)
+    {
+      // Connect via SOCKS
+      if (!add_addr_info(&service, r->Link.sockshost, r->Link.socksport))
+	return false;
+    }
+  else
+    {
+      // Connect directly
+      if (!add_addr_info(&service, r->Link.hostname, r->Link.port))
+	return false;
+    }
+
+  if (!RTMP_Connect0(r, (struct sockaddr *)&service))
+    return false;
+
+  r->m_bSendCounter = true;
+
+  return RTMP_Connect1(r, cp);
 }
 
 static bool
@@ -762,7 +779,7 @@ ReadN(RTMP * r, char *buffer, int n)
 	  r->m_nBufferSize -= nRead;
 	  nBytes = nRead;
 	  r->m_nBytesIn += nRead;
-	  if (r->m_nBytesIn > r->m_nBytesInSent + r->m_nClientBW / 2)
+	  if (r->m_bSendCounter && r->m_nBytesIn > r->m_nBytesInSent + r->m_nClientBW / 2)
 	    SendBytesReceived(r);
 	}
 

@@ -299,6 +299,7 @@ ServeInvoke(STREAMING_SERVER *server, int which, RTMPPacket *pack, const char *b
           /* failed */
           return 1;
         }
+      server->rc.m_bSendCounter = false;
     }
   else if (AVMATCH(&method, &av_play))
     {

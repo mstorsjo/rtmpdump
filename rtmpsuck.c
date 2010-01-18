@@ -820,6 +820,16 @@ void doServe(STREAMING_SERVER * server,	// server socket and state (our listenin
                         server->rc.m_outChunkSize = server->rs.m_inChunkSize;
                       }
                   }
+                /* bytes received */
+                else if (ps.m_packetType == 0x03)
+                  {
+                    if (ps.m_nBodySize >= 4)
+                      {
+                        int count = AMF_DecodeInt32(ps.m_body);
+                        Log(LOGDEBUG, "%s, client: bytes received = %d", __FUNCTION__,
+                            count);
+                      }
+                  }
                 /* ctrl */
                 else if (ps.m_packetType == 0x04)
                   {

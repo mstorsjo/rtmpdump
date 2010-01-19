@@ -1020,9 +1020,9 @@ ParseOption(char opt, char *arg, RTMP_REQUEST * req)
     case 'X':
       {
 	int num = atoi(arg);
-	if (num <= 0)
+	if (num < 0)
 	  {
-	    Log(LOGERROR, "SWF Age must be at least 1, ignoring\n");
+	    Log(LOGERROR, "SWF Age must be non-negative, ignoring\n");
 	  }
 	else
 	  {

@@ -327,7 +327,7 @@ RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash, int age)
   FILE *f = NULL;
   char *path, *home, date[64], cctim[64];
   long pos = 0;
-  time_t ctim = 0, cnow;
+  time_t ctim = -1, cnow;
   int i, got = 0, ret = 0;
   unsigned int hlen;
   struct info in = {0};
@@ -426,7 +426,7 @@ RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash, int age)
 
   cnow = time(NULL);
   /* If we got a cache time, see if it's young enough to use directly */
-  if (got && ctim)
+  if (age && ctim > 0)
     {
       ctim = cnow - ctim;
       ctim /= 3600 * 24; /* seconds to days */

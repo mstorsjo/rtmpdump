@@ -1398,9 +1398,9 @@ main(int argc, char **argv)
         case 'X':
 	  {
 	    int num = atoi(optarg);
-	    if (num < 1)
+	    if (num < 0)
 	      {
-		Log(LOGERROR, "SWF Age must be at least 1, ignoring\n");
+		Log(LOGERROR, "SWF Age must be non-negative, ignoring\n");
 	      }
 	    else
 	      {

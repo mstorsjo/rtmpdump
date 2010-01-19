@@ -252,7 +252,7 @@ bool RTMPSockBuf_Fill(RTMPSockBuf *sb);
 /* hashswf.c */
 #define HASHLEN	32
 
-int RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash, int ask);
+int RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash, int age);
 #endif
 
 #endif

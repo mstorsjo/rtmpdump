@@ -99,10 +99,14 @@ typedef struct
   AMFObject extras;
   int edepth;
   uint32_t swfSize;
+  int swfAge;
+  int swfVfy;
 
   uint32_t dStartOffset;
   uint32_t dStopOffset;
   uint32_t nTimeStamp;
+
+  unsigned char hash[HASHLEN];
 } RTMP_REQUEST;
 
 #define STR2AVAL(av,str)	av.av_val = str; av.av_len = strlen(av.av_val)
@@ -701,6 +705,15 @@ void processTCPrequest(STREAMING_SERVER * server,	// server socket and state (ou
   if (req.rtmpport == 0)
     req.rtmpport = 1935;
 
+  if (req.swfVfy)
+    {
+        if (RTMP_HashSWF(req.swfUrl.av_val, &req.swfSize, req.hash, req.swfAge) == 0)
+          {
+            req.swfHash.av_val = (char *)req.hash;
+            req.swfHash.av_len = HASHLEN;
+          }
+    }
+
   // after validation of the http request send response header
   sprintf(buf, "HTTP/1.0 200 OK%s", srvhead);
   send(sockfd, buf, (int) strlen(buf), 0);
@@ -1000,17 +1013,23 @@ ParseOption(char opt, char *arg, RTMP_REQUEST * req)
       }
     case 'W':
       {
-        unsigned char hash[HASHLEN];
-
         STR2AVAL(req->swfUrl, arg);
-        if (RTMP_HashSWF(arg, &req->swfSize, hash, 1) == 0)
-          {
-            req->swfHash.av_val = malloc(HASHLEN);
-            req->swfHash.av_len = HASHLEN;
-            memcpy(req->swfHash.av_val, hash, HASHLEN);
-          }
+        req->swfVfy = 1;
       }
       break;
+    case 'X':
+      {
+	int num = atoi(arg);
+	if (num <= 0)
+	  {
+	    Log(LOGERROR, "SWF Age must be at least 1, ignoring\n");
+	  }
+	else
+	  {
+	    req->swfAge = num;
+	  }
+	break;
+      }
 #endif
     case 'b':
       {
@@ -1167,6 +1186,7 @@ main(int argc, char **argv)
   defaultRTMPRequest.timeout = 300;	// timeout connection afte 300 seconds
   defaultRTMPRequest.bufferTime = 20 * 1000;
 
+  defaultRTMPRequest.swfAge = 30;
 
   int opt;
   struct option longopts[] = {
@@ -1184,6 +1204,7 @@ main(int argc, char **argv)
     {"swfhash", 1, NULL, 'w'},
     {"swfsize", 1, NULL, 'x'},
     {"swfVfy", 1, NULL, 'W'},
+    {"swfAge", 1, NULL, 'X'},
 #endif
     {"auth", 1, NULL, 'u'},
     {"conn", 1, NULL, 'C'},
@@ -1215,7 +1236,7 @@ main(int argc, char **argv)
 
   while ((opt =
 	  getopt_long(argc, argv,
-		      "hvqVzr:s:t:p:a:f:u:n:c:l:y:m:d:D:A:B:T:g:w:x:W:", longopts,
+		      "hvqVzr:s:t:p:a:f:u:n:c:l:y:m:d:D:A:B:T:g:w:x:W:X:", longopts,
 		      NULL)) != -1)
     {
       switch (opt)
@@ -1246,6 +1267,8 @@ main(int argc, char **argv)
 	    ("--swfsize|-x num        Size of the decompressed SWF file, required for SWFVerification\n");
 	  LogPrintf
 	    ("--swfVfy|-W url         URL to player swf file, compute hash/size automatically\n");
+	  LogPrintf
+	    ("--swfAge|-X days        Number of days to use cached SWF hash before refreshing\n");
 #endif
 	  LogPrintf
 	    ("--auth|-u string        Authentication string to be appended to the connect string\n");

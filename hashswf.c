@@ -20,6 +20,8 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
+#include <time.h>
 
 #include "rtmp.h"
 
@@ -234,14 +236,98 @@ leave:
   return ret;
 }
 
+static const char *monthtab[12] = {"Jan", "Feb", "Mar",
+				"Apr", "May", "Jun",
+				"Jul", "Aug", "Sep",
+				"Oct", "Nov", "Dec"};
+static const char *days[] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
+
+/* Parse an HTTP datestamp into Unix time */
+static time_t
+make_unix_time(char *s)
+{
+    struct tm       time;
+    int             i, ysub = 1900, fmt = 0;
+    char           *month;
+    char           *n;
+    time_t res;
+
+    if (s[3] != ' ')
+    {
+	fmt = 1;
+	if (s[3] != ',')
+	    ysub = 0;
+    }
+    for (n = s; *n; ++n)
+	if (*n == '-' || *n == ':')
+	    *n = ' ';
+
+    time.tm_mon = 0;
+    n = strchr(s, ' ');
+    if (fmt)
+    {
+	/* Day, DD-MMM-YYYY HH:MM:SS GMT */
+	time.tm_mday = strtol(n+1, &n, 0);
+	month = n+1;
+	n = strchr(month, ' ');
+	time.tm_year = strtol(n+1, &n, 0);
+	time.tm_hour = strtol(n+1, &n, 0);
+	time.tm_min = strtol(n+1, &n, 0);
+	time.tm_sec = strtol(n+1, NULL, 0);
+    } else
+    {
+	/* Unix ctime() format. Does not conform to HTTP spec. */
+	/* Day MMM DD HH:MM:SS YYYY */
+	month = n+1;
+	n = strchr(month, ' ');
+	while (isspace(*n)) n++;
+	time.tm_mday = strtol(n, &n, 0);
+	time.tm_hour = strtol(n+1, &n, 0);
+	time.tm_min = strtol(n+1, &n, 0);
+	time.tm_sec = strtol(n+1, &n, 0);
+	time.tm_year = strtol(n+1, NULL, 0);
+    }
+    if (time.tm_year > 100)
+	time.tm_year -= ysub;
+
+    for (i = 0; i < 12; i++)
+	if (!strncasecmp(month, monthtab[i], 3))
+	{
+	    time.tm_mon = i;
+	    break;
+	}
+    time.tm_isdst = 0;		/* daylight saving is never in effect in GMT */
+    res = mktime(&time);
+    /* Unfortunately, mktime() assumes the input is in local time,
+     * not GMT, so we have to correct it here.
+     */
+    if (res != -1)
+	res += timezone;
+    return res;
+}
+
+/* Convert a Unix time to a network time string
+ * Weekday, DD-MMM-YYYY HH:MM:SS GMT
+ */
+void strtime(time_t *t, char *s)
+{
+    struct tm *tm;
+
+    tm = gmtime((time_t *)t);
+    sprintf(s, "%s, %02d %s %d %02d:%02d:%02d GMT",
+	days[tm->tm_wday], tm->tm_mday, monthtab[tm->tm_mon],
+	tm->tm_year + 1900, tm->tm_hour, tm->tm_min, tm->tm_sec);
+}
+
 #define HEX2BIN(a)      (((a)&0x40)?((a)&0xf)+9:((a)&0xf))
 
 int
-RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash, int ask)
+RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash, int age)
 {
   FILE *f = NULL;
-  char *path, *home, date[64];
+  char *path, *home, date[64], cctim[64];
   long pos = 0;
+  time_t ctim = 0, cnow;
   int i, got = 0, ret = 0;
   unsigned int hlen;
   struct info in = {0};
@@ -253,6 +339,16 @@ RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash, int ask)
   if (!home)
     home = ".";
 
+  /* SWF hash info is cached in a fixed-format file.
+   * url: <url of SWF file>
+   * ctim: HTTP datestamp of when we last checked it.
+   * date: HTTP datestamp of the SWF's last modification.
+   * size: SWF size in hex
+   * hash: SWF hash in hex
+   *
+   * These fields must be present in this order. All fields
+   * besides URL are fixed size.
+   */
   path=malloc(strlen(home)+sizeof("/.swfinfo"));
   strcpy(path, home);
   strcat(path, "/.swfinfo");
@@ -314,6 +410,12 @@ RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash, int ask)
                   strncpy(date, buf+6, sizeof(date));
                   got++;
                 }
+              else if (!strncmp(buf, "ctim: ", 6))
+                {
+                  buf[strlen(buf)-1] = '\0';
+		  ctim = make_unix_time(buf+6);
+                  got++;
+                }
               else if (!strncmp(buf, "url: ", 5))
                 break;
             }
@@ -322,8 +424,15 @@ RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash, int ask)
       break;
     }
 
-  if (got && !ask)
-    goto out;
+  cnow = time(NULL);
+  /* If we got a cache time, see if it's young enough to use directly */
+  if (got && ctim)
+    {
+      ctim = cnow - ctim;
+      ctim /= 3600 * 24; /* seconds to days */
+      if (ctim < age)	/* ok, it's new enough */
+        goto out;
+    }
 
   in.first = 1;
   in.date = date;
@@ -342,11 +451,8 @@ RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash, int ask)
       Log(LOGERROR, "%s: couldn't contact swfurl %s",
         __FUNCTION__, url);
     }
-  else if (!in.first)
+  else
     {
-      HMAC_Final(&ctx, (unsigned char *)hash, &hlen);
-      *size = in.size;
-
       if (got && pos)
         fseek(f, pos, SEEK_SET);
       else
@@ -371,12 +477,21 @@ RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash, int ask)
 
           fprintf(f, "url: %.*s\n", i, url);
         }
-      fprintf(f, "date: %s\n", date);
-      fprintf(f, "size: %08x\n", in.size);
-      fprintf(f, "hash: ");
-      for (i=0; i<SHA256_DIGEST_LENGTH; i++)
-        fprintf(f, "%02x", hash[i]);
-      fprintf(f, "\n");
+      strtime(&cnow, cctim);
+      fprintf(f, "ctim: %s\n", cctim);
+
+      if (!in.first)
+        {
+          HMAC_Final(&ctx, (unsigned char *)hash, &hlen);
+          *size = in.size;
+
+          fprintf(f, "date: %s\n", date);
+          fprintf(f, "size: %08x\n", in.size);
+          fprintf(f, "hash: ");
+          for (i=0; i<SHA256_DIGEST_LENGTH; i++)
+            fprintf(f, "%02x", hash[i]);
+          fprintf(f, "\n");
+        }
     }
   HMAC_CTX_cleanup(&ctx);
 out:

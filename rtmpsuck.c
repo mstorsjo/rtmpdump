@@ -95,6 +95,9 @@ typedef struct
   Flist *f_head, *f_tail;
   Flist *f_cur;
 
+#ifdef CRYPTO
+  unsigned char hash[HASHLEN];
+#endif
 } STREAMING_SERVER;
 
 STREAMING_SERVER *rtmpServer = 0;	// server structure pointer
@@ -212,11 +215,9 @@ ServeInvoke(STREAMING_SERVER *server, int which, RTMPPacket *pack, const char *b
           else if (AVMATCH(&pname, &av_swfUrl))
             {
 #ifdef CRYPTO
-              unsigned char hash[HASHLEN];
-              if (RTMP_HashSWF(pval.av_val, &server->rc.Link.SWFSize, hash, 0) == 0)
+              if (RTMP_HashSWF(pval.av_val, &server->rc.Link.SWFSize, server->hash, 30) == 0)
                 {
-                  server->rc.Link.SWFHash.av_val = malloc(HASHLEN);
-                  memcpy(server->rc.Link.SWFHash.av_val, hash, HASHLEN);
+                  server->rc.Link.SWFHash.av_val = (char *)server->hash;
                   server->rc.Link.SWFHash.av_len = HASHLEN;
                 }
 #endif
@@ -968,7 +969,6 @@ cleanup:
   server->rc.Link.auth.av_val = NULL;
   server->rc.Link.flashVer.av_val = NULL;
 #ifdef CRYPTO
-  free(server->rc.Link.SWFHash.av_val);
   server->rc.Link.SWFHash.av_val = NULL;
 #endif
   LogPrintf("done!\n\n");

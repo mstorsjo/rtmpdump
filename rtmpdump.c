@@ -1197,6 +1197,8 @@ main(int argc, char **argv)
   int edepth = 0;
 
 #ifdef CRYPTO
+  int swfAge = 30;	/* 30 days for SWF cache by default */
+  int swfVfy = 0;
   unsigned char hash[HASHLEN];
 #endif
 
@@ -1261,6 +1263,7 @@ main(int argc, char **argv)
     {"swfhash", 1, NULL, 'w'},
     {"swfsize", 1, NULL, 'x'},
     {"swfVfy", 1, NULL, 'W'},
+    {"swfAge", 1, NULL, 'X'},
 #endif
     {"flashVer", 1, NULL, 'f'},
     {"live", 0, NULL, 'v'},
@@ -1282,7 +1285,7 @@ main(int argc, char **argv)
 
   while ((opt =
 	  getopt_long(argc, argv,
-		      "hVveqzr:s:t:p:a:b:f:o:u:C:n:c:l:y:m:k:d:A:B:T:w:x:W:S:#",
+		      "hVveqzr:s:t:p:a:b:f:o:u:C:n:c:l:y:m:k:d:A:B:T:w:x:W:X:S:#",
 		      longopts, NULL)) != -1)
     {
       switch (opt)
@@ -1315,6 +1318,8 @@ main(int argc, char **argv)
 	    ("--swfsize|-x num        Size of the decompressed SWF file, required for SWFVerification\n");
 	  LogPrintf
 	    ("--swfVfy|-W url         URL to player swf file, compute hash/size automatically\n");
+	  LogPrintf
+	    ("--swfAge|-X days        Number of days to use cached SWF hash before refreshing\n");
 #endif
 	  LogPrintf
 	    ("--auth|-u string        Authentication string to be appended to the connect string\n");
@@ -1388,11 +1393,20 @@ main(int argc, char **argv)
 	  }
         case 'W':
 	  STR2AVAL(swfUrl, optarg);
-          if (RTMP_HashSWF(optarg, &swfSize, hash, 1) == 0)
-            {
-              swfHash.av_val = (char *)hash;
-              swfHash.av_len = HASHLEN;
-            }
+	  swfVfy = 1;
+          break;
+        case 'X':
+	  {
+	    int num = atoi(optarg);
+	    if (num < 1)
+	      {
+		Log(LOGERROR, "SWF Age must be at least 1, ignoring\n");
+	      }
+	    else
+	      {
+		swfAge = num;
+	      }
+	  }
           break;
 #endif
 	case 'k':
@@ -1601,6 +1615,16 @@ main(int argc, char **argv)
       bResume = false;
     }
 
+#ifdef CRYPTO
+  if (swfVfy)
+    {
+      if (RTMP_HashSWF(swfUrl.av_val, &swfSize, hash, swfAge) == 0)
+        {
+          swfHash.av_val = (char *)hash;
+          swfHash.av_len = HASHLEN;
+        }
+    }
+
   if (swfHash.av_len == 0 && swfSize > 0)
     {
       Log(LOGWARNING,
@@ -1615,6 +1639,7 @@ main(int argc, char **argv)
       swfHash.av_len = 0;
       swfHash.av_val = NULL;
     }
+#endif
 
   if (flashVer.av_len == 0)
     {

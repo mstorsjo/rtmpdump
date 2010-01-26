@@ -12,19 +12,14 @@ SLIBS=$(THREADLIB) $(LIBS)
 EXT=
 
 all:
-	@echo 'use "make linux" for a native Linux build, or'
-	@echo '    "make osx"   for a native OSX build, or'
-	@echo '    "make mingw" for a MinGW32 build, or'
-	@echo '    "make cygwin" for a CygWin build, or'
-	@echo '    "make arm"   for a cross-compiled Linux ARM build'
+	@echo 'use "make posix" for a native Linux/Unix build, or'
+	@echo '    "make mingw" for a MinGW32 build'
+	@echo 'use commandline overrides if you want anything else'
 
 progs:	rtmpdump streams rtmpsrv rtmpsuck
 
-linux:
+posix linux unix osx:
 	@$(MAKE) $(MAKEFLAGS) progs
-
-osx:
-	@$(MAKE) XCFLAGS="-arch ppc -arch i386" $(MAKEFLAGS) progs
 
 mingw:
 	@$(MAKE) CROSS_COMPILE=mingw32- LIBS="$(LIBS) -lws2_32 -lwinmm -lgdi32" THREADLIB= EXT=.exe $(MAKEFLAGS) progs
@@ -32,7 +27,7 @@ mingw:
 cygwin:
 	@$(MAKE) XCFLAGS=-static XLDFLAGS="-static-libgcc -static" EXT=.exe $(MAKEFLAGS) progs
 
-arm:
+cross:
 	@$(MAKE) CROSS_COMPILE=armv7a-angstrom-linux-gnueabi- INC=-I/OE/tmp/staging/armv7a-angstrom-linux-gnueabi/usr/include $(MAKEFLAGS) progs
 
 clean:

@@ -288,9 +288,14 @@ HandShake(RTMP * r, bool FP9HandShake)
   if (FP9HandShake)
     {
       /* set version to at least 9.0.115.0 */
+#ifdef FP10
+      clientsig[4] = 128;
+      clientsig[6] = 3;
+#else
       clientsig[4] = 9;
-      clientsig[5] = 0;
       clientsig[6] = 124;
+#endif
+      clientsig[5] = 0;
       clientsig[7] = 2;
 
       Log(LOGDEBUG, "%s: Client type: %02X\n", __FUNCTION__, clientsig[-1]);
@@ -315,7 +320,7 @@ HandShake(RTMP * r, bool FP9HandShake)
       if (encrypted)
 	{
 	  /* generate Diffie-Hellmann parameters */
-	  r->Link.dh = DHInit(1024);
+	  r->Link.dh = DHInit(128);	/* 1024 */
 	  if (!r->Link.dh)
 	    {
 	      Log(LOGERROR, "%s: Couldn't initialize Diffie-Hellmann!",
@@ -323,7 +328,11 @@ HandShake(RTMP * r, bool FP9HandShake)
 	      return false;
 	    }
 
+#ifdef FP10
+	  dhposClient = GetDHOffset2(clientsig, RTMP_SIG_SIZE);
+#else
 	  dhposClient = GetDHOffset1(clientsig, RTMP_SIG_SIZE);
+#endif
 	  Log(LOGDEBUG, "%s: DH pubkey position: %d", __FUNCTION__, dhposClient);
 
 	  if (!DHGenerateKey(r->Link.dh))
@@ -341,7 +350,11 @@ HandShake(RTMP * r, bool FP9HandShake)
 	    }
 	}
 
+#ifdef FP10
+      digestPosClient = GetDigestOffset2(clientsig, RTMP_SIG_SIZE);
+#else
       digestPosClient = GetDigestOffset1(clientsig, RTMP_SIG_SIZE);	/* reuse this value in verification */
+#endif
       Log(LOGDEBUG, "%s: Client digest offset: %d", __FUNCTION__,
 	  digestPosClient);
 
@@ -468,6 +481,12 @@ HandShake(RTMP * r, bool FP9HandShake)
 	  __FUNCTION__);
       LogHex(LOGDEBUG, digestResp, SHA256_DIGEST_LENGTH);
 
+#ifdef FP10
+      if (type == 8 || type == 9)
+        {
+	  /* encrypt signatureResp */
+        }
+#endif
       Log(LOGDEBUG, "%s: Client signature calculated:", __FUNCTION__);
       LogHex(LOGDEBUG, signatureResp, SHA256_DIGEST_LENGTH);
     }
@@ -645,7 +664,7 @@ SHandShake(RTMP * r)
       if (encrypted)
 	{
 	  /* generate Diffie-Hellmann parameters */
-	  r->Link.dh = DHInit(1024);
+	  r->Link.dh = DHInit(128);
 	  if (!r->Link.dh)
 	    {
 	      Log(LOGERROR, "%s: Couldn't initialize Diffie-Hellmann!",

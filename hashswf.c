@@ -143,7 +143,7 @@ http_get(const char *url, struct info *in)
   if (sb.sb_socket < 0)
     return -1;
   i = sprintf(sb.sb_buf, "GET %s HTTP/1.0\r\nUser-Agent: %s\r\nHost: %s\r\nReferrer: %.*s\r\n",
-    path, AGENT, host, path-url+1, url);
+    path, AGENT, host, (int)(path-url+1), url);
   if (in->date[0])
     i += sprintf(sb.sb_buf+i, "If-Modified-Since: %s\r\n", in->date);
   i += sprintf(sb.sb_buf+i, "\r\n");

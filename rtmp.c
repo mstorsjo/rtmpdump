@@ -1215,7 +1215,7 @@ SendCheckBW(RTMP * r)
   packet.m_nChannel = 0x03;	// control channel (invoke)
   packet.m_headerType = RTMP_PACKET_SIZE_LARGE;
   packet.m_packetType = 0x14;	// INVOKE
-  packet.m_nInfoField1 = RTMP_GetTime();
+  packet.m_nInfoField1 = 0; /* RTMP_GetTime(); */
   packet.m_nInfoField2 = 0;
   packet.m_hasAbsTimestamp = 0;
   packet.m_body = pbuf + RTMP_MAX_HEADER_SIZE;

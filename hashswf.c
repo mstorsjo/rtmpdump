@@ -389,7 +389,7 @@ RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash, int age)
           if (strncmp(r1, file, i))
             continue;
           pos = ftell(f);
-          while (got < 3 && fgets(buf, sizeof(buf), f))
+          while (got < 4 && fgets(buf, sizeof(buf), f))
             {
               if (!strncmp(buf, "size: ", 6))
                 {

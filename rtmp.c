@@ -493,9 +493,9 @@ RTMP_ConnectStream(RTMP * r, double seekTime, uint32_t dLength)
 	      (packet.m_packetType == RTMP_PACKET_TYPE_VIDEO) ||
 	      (packet.m_packetType == RTMP_PACKET_TYPE_INFO))
 	    {
-	      Log(LOGDEBUG, "%s, received FLV packet before play()!",
-		  __FUNCTION__);
-	      break;
+	      Log(LOGWARNING, "Received FLV packet before play()! Ignoring.");
+	        RTMPPacket_Free(&packet);
+	      continue;
 	    }
 
 	  RTMP_ClientPacket(r, &packet);
@@ -1061,7 +1061,7 @@ SendFCSubscribe(RTMP * r, AVal * subscribepath)
   packet.m_hasAbsTimestamp = 0;
   packet.m_body = pbuf + RTMP_MAX_HEADER_SIZE;
 
-  Log(LOGDEBUG, "FCSubscribe: %s", subscribepath);
+  Log(LOGDEBUG, "FCSubscribe: %s", subscribepath->av_val);
   char *enc = packet.m_body;
   enc = AMF_EncodeString(enc, pend, &av_FCSubscribe);
   enc = AMF_EncodeNumber(enc, pend, 4.0);
@@ -1587,6 +1587,7 @@ HandleInvoke(RTMP * r, const char *body, unsigned int nBodySize)
 	{
 	  r->m_stream_id = -1;
 	  RTMP_Close(r);
+	  Log(LOGERROR, "Closing connection: %s", code.av_val);
 	}
 
       if (AVMATCH(&code, &av_NetStream_Play_Start))

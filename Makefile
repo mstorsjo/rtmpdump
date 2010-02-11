@@ -52,5 +52,5 @@ rtmp.o: rtmp.c rtmp.h handshake.h dh.h log.h amf.h Makefile
 amf.o: amf.c amf.h bytes.h log.h Makefile
 rtmpdump.o: rtmpdump.c rtmp.h log.h amf.h Makefile
 rtmpsrv.o: rtmpsrv.c rtmp.h log.h amf.h Makefile
-hashswf.o: hashswf.c
+hashswf.o: hashswf.c http.h
 thread.o: thread.c thread.h

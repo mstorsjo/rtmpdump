@@ -24,6 +24,7 @@
 #include <time.h>
 
 #include "rtmp.h"
+#include "http.h"
 
 #include <openssl/sha.h>
 #include <openssl/hmac.h>
@@ -32,7 +33,6 @@
 struct info {
   HMAC_CTX *ctx;
   z_stream *zs;
-  char *date;
   int first;
   int zlib;
   int size;
@@ -87,8 +87,8 @@ swfcrunch(void *ptr, size_t size, size_t nmemb, void *stream)
 
 #define	AGENT	"Mozilla/5.0"
 
-static int
-http_get(const char *url, struct info *in)
+HTTPResult
+http_get(struct http_ctx *http, const char *url, http_read_callback cb)
 {
   char *host, *path;
   char *p1, *p2;
@@ -96,16 +96,20 @@ http_get(const char *url, struct info *in)
   int port = 80;
   int ssl = 0;
   int hlen, flen = 0;
-  int rc, i, ret = 0;
+  int rc, i;
+  int len_known;
+  HTTPResult ret = HTTPRES_OK;
   struct sockaddr_in sa;
   RTMPSockBuf sb;
+
+  http->status = -1;
 
   memset(&sa, 0, sizeof(struct sockaddr_in));
   sa.sin_family = AF_INET;
 
   /* we only handle http here */
   if (strncasecmp(url, "http", 4))
-    return -1;
+    return HTTPRES_BAD_REQUEST;
 
   if (url[4] == 's')
     {
@@ -115,7 +119,7 @@ http_get(const char *url, struct info *in)
 
   p1 = strchr(url+4, ':');
   if (!p1 || strncmp(p1, "://", 3))
-    return -1;
+    return HTTPRES_BAD_REQUEST;
 
   host = p1+3;
   path = strchr(host, '/');
@@ -135,22 +139,22 @@ http_get(const char *url, struct info *in)
     {
       struct hostent *hp = gethostbyname(host);
       if (!hp || !hp->h_addr)
-        return -1;
+        return HTTPRES_LOST_CONNECTION;
       sa.sin_addr = *(struct in_addr *)hp->h_addr;
     }
   sa.sin_port = htons(port);
   sb.sb_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
   if (sb.sb_socket < 0)
-    return -1;
+    return HTTPRES_LOST_CONNECTION;
   i = sprintf(sb.sb_buf, "GET %s HTTP/1.0\r\nUser-Agent: %s\r\nHost: %s\r\nReferrer: %.*s\r\n",
     path, AGENT, host, (int)(path-url+1), url);
-  if (in->date[0])
-    i += sprintf(sb.sb_buf+i, "If-Modified-Since: %s\r\n", in->date);
+  if (http->date[0])
+    i += sprintf(sb.sb_buf+i, "If-Modified-Since: %s\r\n", http->date);
   i += sprintf(sb.sb_buf+i, "\r\n");
 
   if (connect(sb.sb_socket, (struct sockaddr *)&sa, sizeof(struct sockaddr)) < 0)
     {
-      ret = -1;
+      ret = HTTPRES_LOST_CONNECTION;
       goto leave;
     }
   send(sb.sb_socket, sb.sb_buf, i, 0);
@@ -169,26 +173,39 @@ http_get(const char *url, struct info *in)
   sb.sb_timedout = false;
   if (RTMPSockBuf_Fill(&sb) < 1)
     {
-      ret = -1;
+      ret = HTTPRES_LOST_CONNECTION;
       goto leave;
     }
   if (strncmp(sb.sb_buf, "HTTP/1", 6))
     {
-      ret = -1;
+      ret = HTTPRES_BAD_REQUEST;
       goto leave;
     }
 
   p1 = strchr(sb.sb_buf, ' ');
   rc = atoi(p1+1);
+  http->status = rc;
 
-  /* not modified */
-  if (rc == 304)
-    goto leave;
+  if (rc >= 300) {
+    if (rc == 304)
+      {
+        ret = HTTPRES_OK_NOT_MODIFIED;
+        goto leave;
+      }
+    else if (rc == 404)
+      ret = HTTPRES_NOT_FOUND;
+    else if (rc >= 500)
+      ret = HTTPRES_SERVER_ERROR;
+    else if (rc >= 400)
+      ret = HTTPRES_BAD_REQUEST;
+    else
+      ret = HTTPRES_REDIRECTED;
+  }
 
   p1 = memchr(sb.sb_buf, '\n', sb.sb_size);
   if (!p1)
     {
-      ret = -1;
+      ret = HTTPRES_BAD_REQUEST;
       goto leave;
     }
   sb.sb_start = p1+1;
@@ -209,7 +226,7 @@ http_get(const char *url, struct info *in)
       else if (!strncasecmp(sb.sb_start, "Last-Modified: ", sizeof("Last-Modified: ")-1))
         {
           *p2 = '\0';
-          strcpy(in->date, sb.sb_start+sizeof("Last-Modified: ")-1);
+          strcpy(http->date, sb.sb_start+sizeof("Last-Modified: ")-1);
         }
       p2 += 2;
       sb.sb_size -= p2-sb.sb_start;
@@ -218,18 +235,25 @@ http_get(const char *url, struct info *in)
         {
           if (RTMPSockBuf_Fill(&sb) < 1)
             {
-              ret = -1;
+              ret = HTTPRES_LOST_CONNECTION;
               goto leave;
             }
         }
     }
 
-  while (flen > 0 && (sb.sb_size > 0 || RTMPSockBuf_Fill(&sb) > 0))
+  len_known = flen > 0;
+  while ((!len_known || flen > 0) &&
+         (sb.sb_size > 0 || RTMPSockBuf_Fill(&sb) > 0))
     {
-      swfcrunch(sb.sb_start, 1, sb.sb_size, in);
-      flen -= sb.sb_size;
+      cb(sb.sb_start, 1, sb.sb_size, http->data);
+      if (len_known)
+        flen -= sb.sb_size;
+      http->size += sb.sb_size;
       sb.sb_size = 0;
     }
+
+  if (flen > 0)
+    ret = HTTPRES_LOST_CONNECTION;
 
 leave:
   closesocket(sb.sb_socket);
@@ -331,6 +355,8 @@ RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash, int age)
   int i, got = 0, ret = 0;
   unsigned int hlen;
   struct info in = {0};
+  struct http_ctx http = {0};
+  HTTPResult httpres;
   z_stream zs = {0};
   HMAC_CTX ctx;
 
@@ -435,21 +461,31 @@ RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash, int age)
     }
 
   in.first = 1;
-  in.date = date;
   HMAC_CTX_init(&ctx);
   HMAC_Init_ex(&ctx, "Genuine Adobe Flash Player 001", 30, EVP_sha256(), NULL);
   inflateInit(&zs);
   in.ctx = &ctx;
   in.zs = &zs;
 
-  ret = http_get(url, &in);
+  http.date = date;
+  http.data = &in;
+
+  httpres = http_get(&http, url, swfcrunch);
 
   inflateEnd(&zs);
 
-  if (ret)
+  if (httpres != HTTPRES_OK || httpres != HTTPRES_OK_NOT_MODIFIED)
     {
-      Log(LOGERROR, "%s: couldn't contact swfurl %s",
-        __FUNCTION__, url);
+      ret = -1;
+      if (httpres == HTTPRES_LOST_CONNECTION)
+        Log(LOGERROR, "%s: connection lost while downloading swfurl %s",
+            __FUNCTION__, url);
+      else if (httpres == HTTPRES_NOT_FOUND)
+        Log(LOGERROR, "%s: swfurl %s not found",
+            __FUNCTION__, url);
+      else
+        Log(LOGERROR, "%s: couldn't contact swfurl %s (HTTP error %d)",
+            __FUNCTION__, url, http.status);
     }
   else
     {

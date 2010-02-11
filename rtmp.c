@@ -494,7 +494,7 @@ RTMP_ConnectStream(RTMP * r, double seekTime, uint32_t dLength)
 	      (packet.m_packetType == RTMP_PACKET_TYPE_INFO))
 	    {
 	      Log(LOGWARNING, "Received FLV packet before play()! Ignoring.");
-	        RTMPPacket_Free(&packet);
+	      RTMPPacket_Free(&packet);
 	      continue;
 	    }
 

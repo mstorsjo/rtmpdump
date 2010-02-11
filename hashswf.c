@@ -88,7 +88,7 @@ swfcrunch(void *ptr, size_t size, size_t nmemb, void *stream)
 #define	AGENT	"Mozilla/5.0"
 
 HTTPResult
-http_get(struct http_ctx *http, const char *url, http_read_callback cb)
+HTTP_get(struct HTTP_ctx *http, const char *url, HTTP_read_callback *cb)
 {
   char *host, *path;
   char *p1, *p2;
@@ -355,7 +355,7 @@ RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash, int age)
   int i, got = 0, ret = 0;
   unsigned int hlen;
   struct info in = {0};
-  struct http_ctx http = {0};
+  struct HTTP_ctx http = {0};
   HTTPResult httpres;
   z_stream zs = {0};
   HMAC_CTX ctx;
@@ -470,7 +470,7 @@ RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash, int age)
   http.date = date;
   http.data = &in;
 
-  httpres = http_get(&http, url, swfcrunch);
+  httpres = HTTP_get(&http, url, swfcrunch);
 
   inflateEnd(&zs);
 

@@ -1,10 +1,7 @@
 #ifndef __HTTP_H__
 #define __HTTP_H__
 /*
- *      Copyright (C) 2005-2008 Team XBMC
- *      http://www.xbmc.org
- *      Copyright (C) 2008-2009 Andrej Stepanchuk
- *      Copyright (C) 2009-2010 Howard Chu
+ *      Copyright (C) 2010 Howard Chu
  *      Copyright (C) 2010 Antti Ajanki
  *
  *  This Program is free software; you can redistribute it and/or modify
@@ -34,15 +31,15 @@ typedef enum {
   HTTPRES_LOST_CONNECTION,  /* connection lost while waiting for data */
 } HTTPResult;
 
-struct http_ctx {
+struct HTTP_ctx {
   char *date;
   int size;
   int status;
   void *data;
 };
 
-typedef size_t (*http_read_callback)(void *ptr, size_t size, size_t nmemb, void *stream);
+typedef size_t (HTTP_read_callback)(void *ptr, size_t size, size_t nmemb, void *stream);
 
-HTTPResult http_get(struct http_ctx *http, const char *url, http_read_callback cb);
+HTTPResult HTTP_get(struct HTTP_ctx *http, const char *url, HTTP_read_callback *cb);
 
 #endif

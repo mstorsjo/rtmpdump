@@ -1034,6 +1034,8 @@ Download(RTMP * rtmp,		// connected RTMP object
       //Log(LOGDEBUG, "Writing data type: %02X", dataType);
       fseek(file, 4, SEEK_SET);
       fwrite(&dataType, sizeof(unsigned char), 1, file);
+      /* resume uses ftell to see where we left off */
+      fseek(file, 0, SEEK_END);
     }
 
   if (nRead == -3)

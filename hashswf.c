@@ -474,7 +474,7 @@ RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash, int age)
 
   inflateEnd(&zs);
 
-  if (httpres != HTTPRES_OK || httpres != HTTPRES_OK_NOT_MODIFIED)
+  if (httpres != HTTPRES_OK && httpres != HTTPRES_OK_NOT_MODIFIED)
     {
       ret = -1;
       if (httpres == HTTPRES_LOST_CONNECTION)

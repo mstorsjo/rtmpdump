@@ -524,12 +524,14 @@ RTMP_ToggleStream(RTMP * r)
 {
   bool res;
 
-  res = RTMP_SendPause(r, true, r->m_pauseStamp);
-  if (!res)
-    return res;
+  if (!r->m_pausing) {
+    res = RTMP_SendPause(r, true, r->m_pauseStamp);
+    if (!res)
+      return res;
 
-  r->m_pausing = 1;
-  sleep(1);
+    r->m_pausing = 1;
+    sleep(1);
+  }
   res = RTMP_SendPause(r, false, r->m_pauseStamp);
   r->m_pausing = 3;
   return res;
@@ -584,7 +586,7 @@ RTMP_GetNextMediaPacket(RTMP * r, RTMPPacket * packet)
 
   if (bHasMediaPacket)
     r->m_bPlaying = true;
-  else if (r->m_bTimedout)
+  else if (r->m_bTimedout && !r->m_pausing)
     r->m_pauseStamp = r->m_channelTimestamp[r->m_mediaChannel];
 
   return bHasMediaPacket;
@@ -1129,6 +1131,8 @@ RTMP_SendPause(RTMP * r, bool DoPause, double dTime)
 
   packet.m_nBodySize = enc - packet.m_body;
 
+  Log(LOGDEBUG, "%s, %d, pauseTime=%.2f",
+      __FUNCTION__, DoPause, dTime);
   return RTMP_SendPacket(r, &packet, true);
 }
 

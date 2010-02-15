@@ -1806,6 +1806,7 @@ HandleCtrl(RTMP * r, const RTMPPacket * packet)
 	case 31:
 	  tmp = AMF_DecodeInt32(packet->m_body + 2);
 	  Log(LOGDEBUG, "%s, Stream BufferEmpty %d", __FUNCTION__, tmp);
+	  if (r->Link.bLiveStream) break;
 	  if (!r->m_pausing)
 	    {
 	      r->m_pauseStamp = r->m_channelTimestamp[r->m_mediaChannel];

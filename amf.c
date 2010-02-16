@@ -435,7 +435,7 @@ AMF3ReadString(const char *data, AVal * str)
       uint32_t refIndex = (ref >> 1);
       Log(LOGDEBUG,
 	  "%s, string reference, index: %d, not supported, ignoring!",
-	  refIndex);
+	  __FUNCTION__, refIndex);
       return len;
     }
   else

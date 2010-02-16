@@ -406,7 +406,10 @@ ServeInvoke(STREAMING_SERVER *server, int which, RTMPPacket *pack, const char *b
 	{
           /* set up the next stream */
           if (server->f_cur)
-            server->f_cur = server->f_cur->f_next;
+		    {
+		      if (server->f_cur->f_next)
+                server->f_cur = server->f_cur->f_next;
+			}
           else
             {
               for (server->f_cur = server->f_head; server->f_cur &&

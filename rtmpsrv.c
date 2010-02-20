@@ -388,6 +388,7 @@ ServeInvoke(STREAMING_SERVER *server, RTMP * r, RTMPPacket *packet, unsigned int
     }
   else if (AVMATCH(&method, &av_play))
     {
+      char *file, *p, *q;
       RTMPPacket pc = {0};
       AMFProp_GetString(AMF_GetProp(&obj, NULL, 3), &r->Link.playpath);
       r->Link.seekTime = AMFProp_GetNumber(AMF_GetProp(&obj, NULL, 4));
@@ -412,9 +413,45 @@ ServeInvoke(STREAMING_SERVER *server, RTMP * r, RTMPPacket *packet, unsigned int
               dumpAMF(&r->Link.extras);
               AMF_Reset(&r->Link.extras);
             }
-          printf(" -y \"%.*s\" -o output.flv\n\n",
-            r->Link.playpath.av_len, r->Link.playpath.av_val);
+          if (r->Link.playpath.av_val)
+            {
+              AVal av = r->Link.playpath;
+              /* strip trailing URL parameters */
+              q = memchr(av.av_val, '?', av.av_len);
+              if (q)
+                av.av_len = q - av.av_val;
+              /* strip leading slash components */
+              for (p=av.av_val+av.av_len-1; p>=av.av_val; p--)
+                if (*p == '/')
+                  {
+                    p++;
+                    av.av_len -= p - av.av_val;
+                    av.av_val = p;
+                    break;
+                  }
+              /* skip leading dot */
+              if (av.av_val[0] == '.')
+                {
+                  av.av_val++;
+                  av.av_len--;
+                }
+              file = malloc(av.av_len+1);
+
+              memcpy(file, av.av_val, av.av_len);
+              file[av.av_len] = '\0';
+              for (p=file; *p; p++)
+                if (*p == ':')
+                  *p = '_';
+	    }
+	  else
+	    {
+	      file="output.flv";
+	    }
+          printf(" -y \"%.*s\" -o %s\n\n",
+            r->Link.playpath.av_len, r->Link.playpath.av_val, file);
           fflush(stdout);
+	  if (r->Link.playpath.av_val)
+	    free(file);
         }
       pc.m_body = server->connect;
       server->connect = NULL;

@@ -260,6 +260,11 @@ leave:
   return ret;
 }
 
+static int tzoff;
+static int tzchecked;
+
+#define	JAN02_1980	318340800
+
 static const char *monthtab[12] = {"Jan", "Feb", "Mar",
 				"Apr", "May", "Jun",
 				"Jul", "Aug", "Sep",
@@ -321,12 +326,24 @@ make_unix_time(char *s)
 	    break;
 	}
     time.tm_isdst = 0;		/* daylight saving is never in effect in GMT */
+
+    /* this is normally the value of extern int timezone, but some
+     * braindead C libraries don't provide it.
+     */
+    if (!tzchecked)
+    {
+    	struct tm *tc;
+	time_t then = JAN02_1980;
+	tc = localtime(&then);
+	tzoff = (12 - tc->tm_hour) * 3600 + tc->tm_min * 60 + tc->tm_sec;
+	tzchecked = 1;
+    }
     res = mktime(&time);
     /* Unfortunately, mktime() assumes the input is in local time,
      * not GMT, so we have to correct it here.
      */
     if (res != -1)
-	res += timezone;
+	res += tzoff;
     return res;
 }
 

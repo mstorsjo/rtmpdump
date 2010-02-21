@@ -39,9 +39,12 @@
 #include "thread.h"
 
 #ifdef linux
+#include <linux/netfilter_ipv4.h>
+#endif
+
+#ifndef WIN32
 #include <sys/types.h>
 #include <sys/wait.h>
-#include <linux/netfilter_ipv4.h>
 #endif
 
 #define RD_SUCCESS		0

@@ -326,7 +326,7 @@ spawn_dumper(int argc, AVal *av, char *cmd)
     &si, &pi))
     {
       CloseHandle(pi.hThread);
-      closeHandle(pi.hProcess);
+      CloseHandle(pi.hProcess);
     }
 #else
   /* reap any dead children */

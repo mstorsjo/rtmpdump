@@ -1,18 +1,22 @@
-RTMP Dump v2.1c
+RTMP Dump v2.1d
 (C) 2009 Andrej Stepanchuk
 (C) 2009-2010 Howard Chu
 License: GPLv2
 http://rtmpdump.mplayerhq.hu/
 
-To compile type "make" with your platform name, e.g.
+To compile type "make" with platform name, e.g.
 
-  $ make linux
+  $ make posix
 
-or osx, mingw, or cygwin.
+for Linux, MacOSX, Unix, etc. or
 
-You can cross-compile for ARM using
+  $ make mingw
 
-  $ make arm
+for Windows.
+
+You can cross-compile for other platforms using
+
+  $ make cross
 
 but you may need to override the CROSS_COMPILE and INC variables, e.g.
 
@@ -40,9 +44,10 @@ and use the --swfhash "01234..." option to pass it.
 
 e.g. $ ./rtmpdump --swfhash "123456..." --swfsize 987...
 
-Note: all of this is now done automatically if you provide the SWF URL using
-the -W (--swfVfy) option instead of the -s (--swfUrl) option. Also, the hash info
-is cached in ~/.swfinfo so it doesn't need to be recalculated all the time.
+Note: all of this is done automatically if you provide the SWF URL using
+the -W (--swfVfy) option instead of the -s (--swfUrl) option. Also, the
+hash info is cached in ~/.swfinfo so it doesn't need to be ecalculated
+all the time.
 
 Connect Parameters
 ------------------
@@ -98,9 +103,10 @@ Three different types of servers are also present in this distribution:
  streams - an RTMP to HTTP gateway
 
 rtmpsrv - Note that this is very incomplete code, and I haven't yet decided
-whether or not to finish it. In its current form it is useful for obtaining
-all the parameters that a real Flash client would send to an RTMP server, so
-that they can be used with rtmpdump.
+whether or not to finish it. It is useful for obtaining all the parameters
+that a real Flash client would send to an RTMP server, so that they can be
+used with rtmpdump. The current version now invokes rtmpdump automatically
+after parsing a client request.
 
 rtmpsuck - proxy server. See below...
 

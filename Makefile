@@ -1,13 +1,14 @@
 CC=$(CROSS_COMPILE)gcc
 LD=$(CROSS_COMPILE)ld
 
-DEF=-DRTMPDUMP_VERSION=\"v2.1c\"
+DEF=-DRTMPDUMP_VERSION=\"v2.1d\"
 OPT=-O2
 CFLAGS=-Wall $(XCFLAGS) $(INC) $(DEF) $(OPT)
 LDFLAGS=-Wall $(XLDFLAGS)
 LIBS=-lcrypto -lz
 THREADLIB=-lpthread
 SLIBS=$(THREADLIB) $(LIBS)
+RTMP_OBJS=rtmp.o log.o amf.o sig8.o
 
 EXT=
 
@@ -33,16 +34,16 @@ cross:
 clean:
 	rm -f *.o rtmpdump$(EXT) streams$(EXT) rtmpsrv$(EXT) rtmpsuck$(EXT)
 
-rtmpdump: log.o rtmp.o amf.o rtmpdump.o parseurl.o hashswf.o
+rtmpdump: rtmpdump.o $(RTMP_OBJS) parseurl.o hashswf.o
 	$(CC) $(LDFLAGS) $^ -o $@$(EXT) $(LIBS)
 
-rtmpsrv: log.o rtmp.o amf.o rtmpsrv.o thread.o
+rtmpsrv: rtmpsrv.o $(RTMP_OBJS) thread.o
 	$(CC) $(LDFLAGS) $^ -o $@$(EXT) $(SLIBS)
 
-rtmpsuck: log.o rtmp.o amf.o rtmpsuck.o hashswf.o thread.o
+rtmpsuck: rtmpsuck.o $(RTMP_OBJS) hashswf.o thread.o
 	$(CC) $(LDFLAGS) $^ -o $@$(EXT) $(SLIBS)
 
-streams: log.o rtmp.o amf.o streams.o parseurl.o hashswf.o thread.o
+streams: streams.o $(RTMP_OBJS) parseurl.o hashswf.o thread.o
 	$(CC) $(LDFLAGS) $^ -o $@$(EXT) $(SLIBS)
 
 log.o: log.c log.h Makefile
@@ -54,3 +55,4 @@ rtmpdump.o: rtmpdump.c rtmp.h log.h amf.h Makefile
 rtmpsrv.o: rtmpsrv.c rtmp.h log.h amf.h Makefile
 hashswf.o: hashswf.c http.h
 thread.o: thread.c thread.h
+sig8.o: sig8.c

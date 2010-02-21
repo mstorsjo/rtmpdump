@@ -117,10 +117,8 @@ when you know the hostname of the RTMP server, and point it to localhost while
 running rtmpsrv on your machine. (This approach should work on any OS; on
 Windows you would edit %SystemRoot%\system32\drivers\etc\hosts.)
 
-On Linux you can also use iptables to redirect all outbound RTMP traffic.
-You can do this as root:
-
-iptables -t nat -A OUTPUT -p tcp --dport 1935 -j REDIRECT
+On Linux you can also use iptables to redirect all outbound RTMP traffic. You
+need to be running as root in order to use the iptables command.
 
 In my original plan I would have the transparent proxy running as a special
 user (e.g. user "proxy"), and regular Flash clients running as any other user.
@@ -130,7 +128,9 @@ iptables rule would look like this:
 iptables -t nat -A OUTPUT -p tcp --dport 1935 -m owner \! --uid-owner proxy \
  -j REDIRECT
 
-A rule like the above will be needed to use rtmpsuck.
+A rule like the above will be needed to use rtmpsuck. Note that you should
+replace "proxy" in the above command with an account that actually exists
+on your machine.
 
 Using it in this mode takes advantage of the Linux support for IP redirects;
 in particular it uses a special getsockopt() call to retrieve the original
@@ -138,10 +138,9 @@ destination address of the connection. That way the proxy can create the
 real outbound connection without any other help from the user. The equivalent
 functionality may exist on other OSs but needs more investigation.
 
-(Based on reading the BSD ipfw manpage, these rules ought to work on BSD:
+(Based on reading the BSD ipfw manpage, this rule ought to work on BSD:
 
-ipfw add 40 fwd 127.0.0.1 1935 tcp from any to any 1935
-ipfw add 40 fwd 127.0.0.1 1935 tcp from any to any 1935 not uid proxy
+ipfw add 40 fwd 127.0.0.1,1935 tcp from any to any 1935 not uid proxy
 
 Some confirmation from any BSD users would be nice.)
 

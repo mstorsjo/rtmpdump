@@ -1019,6 +1019,24 @@ Download(RTMP * rtmp,		// connected RTMP object
   while (!RTMP_ctrlC && nRead > -1 && RTMP_IsConnected(rtmp));
   free(buffer);
 
+  /* Final status update */
+  if (!bHashes)
+    {
+      if (duration > 0)
+	{
+	  *percent = ((double) timestamp) / (duration * 1000.0) * 100.0;
+	  *percent = ((double) (int) (*percent * 10.0)) / 10.0;
+	  LogStatus("\r%.3f kB / %.2f sec (%.1f%%)",
+	    (double) size / 1024.0,
+	    (double) (timestamp) / 1000.0, *percent);
+	}
+      else
+	{
+	  LogStatus("\r%.3f kB / %.2f sec", (double) size / 1024.0,
+	    (double) (timestamp) / 1000.0);
+	}
+    }
+
   Log(LOGDEBUG, "WriteStream returned: %d", nRead);
 
   if (bResume && nRead == -2)

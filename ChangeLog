@@ -4,6 +4,17 @@ Copyright 2009-2010 Howard Chu
 Copyright 2009 The Flvstreamer Team
 http://rtmpdump.mplayerhq.hu/
 
+20 February 2010, v2.1d
+- extend .swfinfo file format, add --swfAge rtmpdump parameter
+  old file should be replaced or manually updated: copy the
+  "date:" line and rename it to "ctim:"
+
+- fix MacOSX builds - just use "make posix" now for all Unix-derived systems
+- more explicit error checks in HTTP_get()
+- in rtmpsrv spawn rtmpdump automatically
+- fix bug in retry/resume of audio-only streams
+- other minor misc. fixes
+
 9 January 2010, v2.1c
 - cleanup rtmpsrv output
 - fix crash in 2.1b hashswf

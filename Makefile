@@ -8,7 +8,7 @@ LDFLAGS=-Wall $(XLDFLAGS)
 LIBS=-lcrypto -lz
 THREADLIB=-lpthread
 SLIBS=$(THREADLIB) $(LIBS)
-RTMP_OBJS=rtmp.o log.o amf.o sig8.o
+RTMP_OBJS=rtmp.o log.o amf.o
 
 EXT=
 
@@ -55,4 +55,3 @@ rtmpdump.o: rtmpdump.c rtmp.h log.h amf.h Makefile
 rtmpsrv.o: rtmpsrv.c rtmp.h log.h amf.h Makefile
 hashswf.o: hashswf.c http.h
 thread.o: thread.c thread.h
-sig8.o: sig8.c

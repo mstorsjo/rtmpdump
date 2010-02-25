@@ -215,7 +215,7 @@ ServeInvoke(STREAMING_SERVER *server, int which, RTMPPacket *pack, const char *b
           else if (AVMATCH(&pname, &av_swfUrl))
             {
 #ifdef CRYPTO
-              if (RTMP_HashSWF(pval.av_val, &server->rc.Link.SWFSize, server->hash, 30) == 0)
+              if (pval.av_val && RTMP_HashSWF(pval.av_val, &server->rc.Link.SWFSize, server->hash, 30) == 0)
                 {
                   server->rc.Link.SWFHash.av_val = (char *)server->hash;
                   server->rc.Link.SWFHash.av_len = HASHLEN;

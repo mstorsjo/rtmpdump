@@ -38,11 +38,6 @@
 
 static const int packetSize[] = { 12, 8, 4, 1 };
 
-#define RTMP_PACKET_SIZE_LARGE    0
-#define RTMP_PACKET_SIZE_MEDIUM   1
-#define RTMP_PACKET_SIZE_SMALL    2
-#define RTMP_PACKET_SIZE_MINIMUM  3
-
 bool RTMP_ctrlC;
 
 const char RTMPProtocolStrings[][7] = {
@@ -68,10 +63,8 @@ static bool HandShake(RTMP * r, bool FP9HandShake);
 static bool SocksNegotiate(RTMP * r);
 
 static bool SendConnectPacket(RTMP * r, RTMPPacket *cp);
-static bool SendServerBW(RTMP * r);
 static bool SendCheckBW(RTMP * r);
 static bool SendCheckBWResult(RTMP * r, double txn);
-static bool SendCreateStream(RTMP * r, double dStreamId);
 static bool SendDeleteStream(RTMP * r, double dStreamId);
 static bool SendFCSubscribe(RTMP * r, AVal * subscribepath);
 static bool SendPlay(RTMP * r);
@@ -512,7 +505,7 @@ RTMP_ReconnectStream(RTMP * r, int bufferTime, double seekTime,
 {
   RTMP_DeleteStream(r);
 
-  SendCreateStream(r, 2.0);
+  RTMP_SendCreateStream(r, 2.0);
 
   RTMP_SetBufferMS(r, bufferTime);
 
@@ -1024,8 +1017,8 @@ SendBGHasStream(RTMP * r, double dId, AVal * playpath)
 
 SAVC(createStream);
 
-static bool
-SendCreateStream(RTMP * r, double dStreamId)
+bool
+RTMP_SendCreateStream(RTMP * r, double dCmdID)
 {
   RTMPPacket packet;
   char pbuf[256], *pend = pbuf+sizeof(pbuf);
@@ -1040,7 +1033,7 @@ SendCreateStream(RTMP * r, double dStreamId)
 
   char *enc = packet.m_body;
   enc = AMF_EncodeString(enc, pend, &av_createStream);
-  enc = AMF_EncodeNumber(enc, pend, dStreamId);
+  enc = AMF_EncodeNumber(enc, pend, dCmdID);
   *enc++ = AMF_NULL;		// NULL
 
   packet.m_nBodySize = enc - packet.m_body;
@@ -1165,8 +1158,8 @@ SendSeek(RTMP * r, double dTime)
 }
 #endif
 
-static bool
-SendServerBW(RTMP * r)
+bool
+RTMP_SendServerBW(RTMP * r)
 {
   RTMPPacket packet;
   char pbuf[256], *pend = pbuf+sizeof(pbuf);
@@ -1427,6 +1420,12 @@ AV_erase(AVal * vals, int *num, int i, bool freeit)
   vals[i].av_len = 0;
 }
 
+void
+RTMP_DropRequest(RTMP *r, int i, bool freeit)
+{
+  AV_erase(r->m_methodCalls, &r->m_numCalls, i, freeit);
+}
+
 static void
 AV_queue(AVal ** vals, int *num, AVal * av)
 {
@@ -1514,10 +1513,10 @@ HandleInvoke(RTMP * r, const char *body, unsigned int nBodySize)
                   SendSecureTokenResponse(r, &p.p_vu.p_aval);
                 }
             }
-	  SendServerBW(r);
+	  RTMP_SendServerBW(r);
 	  RTMP_SendCtrl(r, 3, 0, 300);
 
-	  SendCreateStream(r, 2.0);
+	  RTMP_SendCreateStream(r, 2.0);
 
 	  /* Send the FCSubscribe if live stream or if subscribepath is set */
 	  if (r->Link.subscribepath.av_len)

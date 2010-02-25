@@ -78,6 +78,11 @@ uint32_t RTMP_GetTime();
 
 #define RTMP_MAX_HEADER_SIZE 18
 
+#define RTMP_PACKET_SIZE_LARGE    0
+#define RTMP_PACKET_SIZE_MEDIUM   1
+#define RTMP_PACKET_SIZE_SMALL    2
+#define RTMP_PACKET_SIZE_MINIMUM  3
+
 typedef unsigned char BYTE;
 
 typedef struct RTMPChunk
@@ -247,6 +252,10 @@ bool RTMP_FindFirstMatchingProperty(AMFObject *obj, const AVal *name,
 				      AMFObjectProperty *p);
 
 bool RTMPSockBuf_Fill(RTMPSockBuf *sb);
+
+bool RTMP_SendCreateStream(RTMP * r, double dCmdID);
+bool RTMP_SendServerBW(RTMP * r);
+void RTMP_DropRequest(RTMP *r, int i, bool freeit);
 
 #ifdef CRYPTO
 /* hashswf.c */

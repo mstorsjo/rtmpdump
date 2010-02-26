@@ -578,7 +578,7 @@ ServeInvoke(STREAMING_SERVER *server, RTMP * r, RTMPPacket *packet, unsigned int
       if (r->Link.tcUrl.av_len)
         {
           len = server->arglen + r->Link.playpath.av_len + 4 +
-            sizeof("rtmpdump") + r->Link.playpath.av_len + 8;
+            sizeof("rtmpdump") + r->Link.playpath.av_len + 12;
           server->argc += 5;
 
           cmd = malloc(len + server->argc * sizeof(AVal));

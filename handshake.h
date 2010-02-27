@@ -1,6 +1,7 @@
 /*
  *  Copyright (C) 2008-2009 Andrej Stepanchuk
- *  Copyright (C) 2009 Howard Chu
+ *  Copyright (C) 2009-2010 Howard Chu
+ *  Copyright (C) 2010 2a665470ced7adb7156fcef47f8199a6371c117b8a79e399a2771e0b36384090
  *
  *  This Program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -24,6 +25,8 @@
 #include <openssl/sha.h>
 #include <openssl/hmac.h>
 #include <openssl/rc4.h>
+
+#define FP10
 
 #include "dh.h"
 
@@ -86,6 +89,8 @@ static void InitRC4Encryption
 
   RC4_set_key(*rc4keyIn, 16, digest);
 }
+
+typedef unsigned int (getoff)(char *buf, unsigned int len);
 
 static unsigned int
 GetDHOffset2(char *handshake, unsigned int len)
@@ -243,13 +248,62 @@ VerifyDigest(unsigned int digestPos, char *handshakeMessage, const char *key,
 
 /* handshake
  *
- * Type		= [1 bytes] 0x06, 0x08 encrypted, 0x03 plain
+ * Type		= [1 bytes] plain: 0x03, encrypted: 0x06, 0x08, 0x09
  * -------------------------------------------------------------------- [1536 bytes]
  * Uptime	= [4 bytes] big endian unsigned number, uptime
  * Version 	= [4 bytes] each byte represents a version number, e.g. 9.0.124.0
  * ...
  *
  */
+
+static const uint32_t rtmpe8_keys[16][4] = {
+	{0xbff034b2, 0x11d9081f, 0xccdfb795, 0x748de732},
+	{0x086a5eb6, 0x1743090e, 0x6ef05ab8, 0xfe5a39e2},
+	{0x7b10956f, 0x76ce0521, 0x2388a73a, 0x440149a1},
+	{0xa943f317, 0xebf11bb2, 0xa691a5ee, 0x17f36339},
+	{0x7a30e00a, 0xb529e22c, 0xa087aea5, 0xc0cb79ac},
+	{0xbdce0c23, 0x2febdeff, 0x1cfaae16, 0x1123239d},
+	{0x55dd3f7b, 0x77e7e62e, 0x9bb8c499, 0xc9481ee4},
+	{0x407bb6b4, 0x71e89136, 0xa7aebf55, 0xca33b839},
+	{0xfcf6bdc3, 0xb63c3697, 0x7ce4f825, 0x04d959b2},
+	{0x28e091fd, 0x41954c4c, 0x7fb7db00, 0xe3a066f8},
+	{0x57845b76, 0x4f251b03, 0x46d45bcd, 0xa2c30d29},
+	{0x0acceef8, 0xda55b546, 0x03473452, 0x5863713b},
+	{0xb82075dc, 0xa75f1fee, 0xd84268e8, 0xa72a44cc},
+	{0x07cf6e9e, 0xa16d7b25, 0x9fa7ae6c, 0xd92f5629},
+	{0xfeb1eae4, 0x8c8c3ce1, 0x4e0064a7, 0x6a387c2a},
+	{0x893a9427, 0xcc3013a2, 0xf106385b, 0xa829f927}
+};
+
+/* RTMPE type 8 uses XTEA on the regular signature
+ * http://en.wikipedia.org/wiki/XTEA
+ */
+static void rtmpe8_sig(unsigned char *in, unsigned char *out, int keyid)
+{
+  unsigned int i, num_rounds = 32;
+  uint32_t v0, v1, sum=0, delta=0x9E3779B9;
+  uint32_t const *k;
+
+  v0 = in[0] | (in[1] << 8) | (in[2] << 16) | (in[3] << 24);
+  v1 = in[4] | (in[5] << 8) | (in[6] << 16) | (in[7] << 24);
+  k = rtmpe8_keys[keyid];
+
+  for (i=0; i < num_rounds; i++) {
+    v0 += (((v1 << 4) ^ (v1 >> 5)) + v1) ^ (sum + k[sum & 3]);
+    sum += delta;
+    v1 += (((v0 << 4) ^ (v0 >> 5)) + v0) ^ (sum + k[(sum>>11) & 3]);
+  }
+
+  out[0] = v0; v0 >>= 8;
+  out[1] = v0; v0 >>= 8;
+  out[2] = v0; v0 >>= 8;
+  out[3] = v0;
+
+  out[4] = v1; v1 >>= 8;
+  out[5] = v1; v1 >>= 8;
+  out[6] = v1; v1 >>= 8;
+  out[7] = v1;
+}
 
 static bool
 HandShake(RTMP * r, bool FP9HandShake)
@@ -267,8 +321,9 @@ HandShake(RTMP * r, bool FP9HandShake)
   uint32_t uptime;
 
   char clientbuf[RTMP_SIG_SIZE + 4], *clientsig=clientbuf+4;
-  char serversig[RTMP_SIG_SIZE];
+  char serversig[RTMP_SIG_SIZE], client2[RTMP_SIG_SIZE], *reply;
   char type;
+  getoff *getdh, *getdig;
 
   if (encrypted || r->Link.SWFHash.av_len)
     FP9HandShake = true;
@@ -289,9 +344,15 @@ HandShake(RTMP * r, bool FP9HandShake)
     {
       /* set version to at least 9.0.115.0 */
 #ifdef FP10
+      getdig = GetDigestOffset2;
+      getdh = GetDHOffset2;
+
       clientsig[4] = 128;
       clientsig[6] = 3;
 #else
+      getdig = GetDigestOffset1;
+      getdh = GetDHOffset1;
+
       clientsig[4] = 9;
       clientsig[6] = 124;
 #endif
@@ -328,11 +389,7 @@ HandShake(RTMP * r, bool FP9HandShake)
 	      return false;
 	    }
 
-#ifdef FP10
-	  dhposClient = GetDHOffset2(clientsig, RTMP_SIG_SIZE);
-#else
-	  dhposClient = GetDHOffset1(clientsig, RTMP_SIG_SIZE);
-#endif
+	  dhposClient = getdh(clientsig, RTMP_SIG_SIZE);
 	  Log(LOGDEBUG, "%s: DH pubkey position: %d", __FUNCTION__, dhposClient);
 
 	  if (!DHGenerateKey(r->Link.dh))
@@ -350,11 +407,7 @@ HandShake(RTMP * r, bool FP9HandShake)
 	    }
 	}
 
-#ifdef FP10
-      digestPosClient = GetDigestOffset2(clientsig, RTMP_SIG_SIZE);
-#else
-      digestPosClient = GetDigestOffset1(clientsig, RTMP_SIG_SIZE);	/* reuse this value in verification */
-#endif
+      digestPosClient = getdig(clientsig, RTMP_SIG_SIZE);	/* reuse this value in verification */
       Log(LOGDEBUG, "%s: Client digest offset: %d", __FUNCTION__,
 	  digestPosClient);
 
@@ -466,13 +519,21 @@ HandShake(RTMP * r, bool FP9HandShake)
 	}
 
 
+      reply = client2;
+#ifdef _DEBUG
+      memset(reply, 0xff, RTMP_SIG_SIZE);
+#else
+      ip = (int32_t *)reply;
+      for (i = 0; i < RTMP_SIG_SIZE/4; i++)
+        *ip++ = rand();
+#endif
       /* calculate response now */
       char digestResp[SHA256_DIGEST_LENGTH];
-      char *signatureResp = serversig+RTMP_SIG_SIZE-SHA256_DIGEST_LENGTH;
+      char *signatureResp = reply+RTMP_SIG_SIZE-SHA256_DIGEST_LENGTH;
 
       HMACsha256(&serversig[digestPosServer], SHA256_DIGEST_LENGTH,
 		 GenuineFPKey, sizeof(GenuineFPKey), digestResp);
-      HMACsha256(serversig, RTMP_SIG_SIZE - SHA256_DIGEST_LENGTH, digestResp,
+      HMACsha256(reply, RTMP_SIG_SIZE - SHA256_DIGEST_LENGTH, digestResp,
 		 SHA256_DIGEST_LENGTH, signatureResp);
 
       /* some info output */
@@ -482,26 +543,41 @@ HandShake(RTMP * r, bool FP9HandShake)
       LogHex(LOGDEBUG, digestResp, SHA256_DIGEST_LENGTH);
 
 #ifdef FP10
-      if (type == 8 || type == 9)
+      if (type == 8 )
         {
+	  unsigned char *dptr = (unsigned char *)digestResp;
+	  unsigned char *sig = (unsigned char *)signatureResp;
 	  /* encrypt signatureResp */
+          for (i=0; i<SHA256_DIGEST_LENGTH; i+=8)
+	    rtmpe8_sig(sig+i, sig+i, dptr[i] % 15);
         }
+#if 0
+      else if (type == 9))
+        {
+	  unsigned char *dptr = (unsigned char *)digestResp;
+	  unsigned char *sig = (unsigned char *)signatureResp;
+	  /* encrypt signatureResp */
+          for (i=0; i<SHA256_DIGEST_LENGTH; i+=8)
+            rtmpe9_sig(sig+i, sig+i, dptr[i] % 15);
+        }
+#endif
 #endif
       Log(LOGDEBUG, "%s: Client signature calculated:", __FUNCTION__);
       LogHex(LOGDEBUG, signatureResp, SHA256_DIGEST_LENGTH);
     }
   else
     {
+      reply = serversig;
       uptime = htonl(RTMP_GetTime());
-      memcpy(serversig+4, &uptime, 4);
+      memcpy(reply+4, &uptime, 4);
     }
 
 #ifdef _DEBUG
   Log(LOGDEBUG, "%s: Sending handshake response: ",
     __FUNCTION__);
-  LogHex(LOGDEBUG, serversig, RTMP_SIG_SIZE);
+  LogHex(LOGDEBUG, reply, RTMP_SIG_SIZE);
 #endif
-  if (!WriteN(r, serversig, RTMP_SIG_SIZE))
+  if (!WriteN(r, reply, RTMP_SIG_SIZE))
     return false;
 
   /* 2nd part of handshake */
@@ -539,6 +615,26 @@ HandShake(RTMP * r, bool FP9HandShake)
       Log(LOGDEBUG, "%s: Digest key: ", __FUNCTION__);
       LogHex(LOGDEBUG, digest, SHA256_DIGEST_LENGTH);
 
+#ifdef FP10
+      if (type == 8 )
+        {
+	  unsigned char *dptr = (unsigned char *)digest;
+	  unsigned char *sig = (unsigned char *)signature;
+	  /* encrypt signature */
+          for (i=0; i<SHA256_DIGEST_LENGTH; i+=8)
+	    rtmpe8_sig(sig+i, sig+i, dptr[i] % 15);
+        }
+#if 0
+      else if (type == 9)
+        {
+	  unsigned char *dptr = (unsigned char *)digest;
+	  unsigned char *sig = (unsigned char *)signature;
+	  /* encrypt signatureResp */
+          for (i=0; i<SHA256_DIGEST_LENGTH; i+=8)
+            rtmpe9_sig(sig+i, sig+i, dptr[i] % 15);
+        }
+#endif
+#endif
       Log(LOGDEBUG, "%s: Signature calculated:", __FUNCTION__);
       LogHex(LOGDEBUG, signature, SHA256_DIGEST_LENGTH);
       if (memcmp

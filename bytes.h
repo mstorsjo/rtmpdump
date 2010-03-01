@@ -35,32 +35,23 @@
 
 typedef unsigned char uint8_t;
 
-#elif (defined(__FreeBSD__) && __FreeBSD_version >= 470000) || defined(__OpenBSD__) || defined(__NetBSD__) // *BSD
-#include <sys/endian.h>
-#define __BIG_ENDIAN    BIG_ENDIAN
-#define __LITTLE_ENDIAN LITTLE_ENDIAN
+#else /* !WIN32 */
+
+#include <sys/param.h>
+
+#if defined(BYTE_ORDER) && !defined(__BYTE_ORDER)
 #define __BYTE_ORDER    BYTE_ORDER
+#endif
 
-#elif (defined(BSD) && (BSD >= 199103)) || defined(__APPLE__) // more BSD
-#include <machine/endian.h>
+#if defined(BIG_ENDIAN) && !defined(__BIG_ENDIAN)
 #define __BIG_ENDIAN	BIG_ENDIAN
+#endif
+
+#if defined(LITTLE_ENDIAN) && !defined(__LITTLE_ENDIAN)
 #define __LITTLE_ENDIAN	LITTLE_ENDIAN
-#define __BYTE_ORDER	BYTE_ORDER
-
-#elif defined(__linux__) //|| defined (__BEOS__) // Linux, BeOS
-#include <endian.h>
-#include <byteswap.h>
-
-//typedef __uint64_t uint64_t;
-//typedef __uint32_t uint32_t;
 #endif
 
-// define missing byte swap macros
-#ifndef __bswap_32
-#define __bswap_32(x) \
-     ((((x) & 0xff000000) >> 24) | (((x) & 0x00ff0000) >>  8) |               \
-     (((x) & 0x0000ff00) <<  8) | (((x) & 0x000000ff) << 24))
-#endif
+#endif /* !WIN32 */
 
 // define default endianness
 #ifndef __LITTLE_ENDIAN

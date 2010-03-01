@@ -70,13 +70,11 @@ AMF_DecodeString(const char *data, AVal * bv)
 double
 AMF_DecodeNumber(const char *data)
 {
+  double dVal;
 #if __FLOAT_WORD_ORDER == __BYTE_ORDER
 #if __BYTE_ORDER == __BIG_ENDIAN
-  double dVal;
   memcpy(&dVal, data, 8);
-  return dVal;
 #elif __BYTE_ORDER == __LITTLE_ENDIAN
-  double dVal;
   unsigned char *ci, *co;
   ci = (unsigned char *) data;
   co = (unsigned char *) &dVal;
@@ -88,26 +86,35 @@ AMF_DecodeNumber(const char *data)
   co[5] = ci[2];
   co[6] = ci[1];
   co[7] = ci[0];
-  return dVal;
 #endif
 #else
 #if __BYTE_ORDER == __LITTLE_ENDIAN	// __FLOAT_WORD_ORER == __BIG_ENDIAN
-  uint32_t in1 = *((uint32_t *) data);
-  uint32_t in2 = *((uint32_t *) (data + 4));
-
-  in1 = __bswap_32(in1);
-  in2 = __bswap_32(in2);
-
-  uint64_t res = ((uint64_t) in2 << 32) | (uint64_t) in1;
-  return *((double *) &res);
+  unsigned char *ci, *co;
+  ci = (unsigned char *) data;
+  co = (unsigned char *) &dVal;
+  co[0] = ci[3];
+  co[1] = ci[2];
+  co[2] = ci[1];
+  co[3] = ci[0];
+  co[4] = ci[7];
+  co[5] = ci[6];
+  co[6] = ci[5];
+  co[7] = ci[4];
 #else // __BYTE_ORDER == __BIG_ENDIAN && __FLOAT_WORD_ORER == __LITTLE_ENDIAN
-  uint32_t in1 = *((uint32_t *) data);
-  uint32_t in2 = *((uint32_t *) (data + 4));
-
-  uint64_t res = ((uint64_t) in1 << 32) | (uint64_t) in2;
-  return *((double *) &res);
+  unsigned char *ci, *co;
+  ci = (unsigned char *) data;
+  co = (unsigned char *) &dVal;
+  co[0] = ci[4];
+  co[1] = ci[5];
+  co[2] = ci[6];
+  co[3] = ci[7];
+  co[4] = ci[0];
+  co[5] = ci[1];
+  co[6] = ci[2];
+  co[7] = ci[3];
 #endif
 #endif
+  return dVal;
 }
 
 bool

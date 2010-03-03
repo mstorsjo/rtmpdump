@@ -8,7 +8,6 @@ LDFLAGS=-Wall $(XLDFLAGS)
 LIBS=-lcrypto -lz
 THREADLIB=-lpthread
 SLIBS=$(THREADLIB) $(LIBS)
-RTMP_OBJS=rtmp.o log.o amf.o
 
 EXT=
 
@@ -32,18 +31,21 @@ cross:
 	@$(MAKE) CROSS_COMPILE=armv7a-angstrom-linux-gnueabi- INC=-I/OE/tmp/staging/armv7a-angstrom-linux-gnueabi/usr/include $(MAKEFLAGS) progs
 
 clean:
-	rm -f *.o rtmpdump$(EXT) streams$(EXT) rtmpsrv$(EXT) rtmpsuck$(EXT)
+	rm -f *.o *.a rtmpdump$(EXT) streams$(EXT) rtmpsrv$(EXT) rtmpsuck$(EXT)
 
-rtmpdump: rtmpdump.o $(RTMP_OBJS) parseurl.o hashswf.o
+librtmp.a: rtmp.o log.o amf.o hashswf.o
+	$(AR) rs $@ $?
+
+rtmpdump: rtmpdump.o parseurl.o librtmp.a
 	$(CC) $(LDFLAGS) $^ -o $@$(EXT) $(LIBS)
 
-rtmpsrv: rtmpsrv.o $(RTMP_OBJS) thread.o
+rtmpsrv: rtmpsrv.o thread.o librtmp.a
 	$(CC) $(LDFLAGS) $^ -o $@$(EXT) $(SLIBS)
 
-rtmpsuck: rtmpsuck.o $(RTMP_OBJS) hashswf.o thread.o
+rtmpsuck: rtmpsuck.o thread.o librtmp.a
 	$(CC) $(LDFLAGS) $^ -o $@$(EXT) $(SLIBS)
 
-streams: streams.o $(RTMP_OBJS) parseurl.o hashswf.o thread.o
+streams: streams.o parseurl.o thread.o librtmp.a
 	$(CC) $(LDFLAGS) $^ -o $@$(EXT) $(SLIBS)
 
 log.o: log.c log.h Makefile

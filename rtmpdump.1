@@ -85,8 +85,7 @@ and encrypted
 .I rtmpe://
 sessions are supported.
 .SH OPTIONS
-Network Parameters
-
+.SS "Network Parameters"
 These options define how to connect to the media server.
 .TP
 \fB\-\-rtmp		\-r\fP\ \fIurl\fP
@@ -103,9 +102,7 @@ Overrides the protocol in the RTMP URL. 0 = rtmp, 3 = rtmpe
 .TP
 \fB\-\-socks		\-S\fP\ \fIhost:port\fP
 Use the specified SOCKS4 proxy.
-.PP
-Connection Parameters
-
+.SS "Connection Parameters"
 These options define the content of the RTMP Connect request packet.
 If correct values are not provided, the media server will reject the
 connection attempt.
@@ -150,9 +147,7 @@ AMF sequences. E.g.
 .nf
   -C B:1 -C S:authMe -C O:1 -C NN:code:1.23 -C NS:flag:ok -C O:0
 .fi
-.PP
-Session Parameters
-
+.SS "Session Parameters"
 These options take effect after the Connect request has succeeded.
 .TP
 \fB\-\-playpath	\-y\fP\ \fIpath\fP
@@ -196,9 +191,7 @@ milliseconds. The default is 36000000.
 Timeout the session after
 .I num
 seconds without receiving any data from the server. The default is 120.
-.PP
-Security Parameters
-
+.SS "Security Parameters"
 These options handle additional authentication requests from the server.
 .TP
 \fB\-\-token		\-T\fP\ \fIkey\fP
@@ -244,8 +237,7 @@ Specify how many days to use the cached SWF info before re-checking. Use
 0 to always check the SWF URL. Note that if the check shows that the
 SWF file has the same modification timestamp as before, it will not be
 retrieved again.
-.PP
-Miscellaneous
+.SS Miscellaneous
 .TP
 \fB\-\-flv		\-o\fP\ \fIoutput\fP
 Specify the output file name. If the name is \- or is omitted, the
@@ -266,6 +258,16 @@ Debug level output. Extremely verbose, including hex dumps of all packet data.
 .TP
 .B \-\-help		\-h
 Print a summary of command options.
+.SH EXIT STATUS
+.TP
+.B 0
+Successful program execution.
+.TP
+.B 1
+Unrecoverable error.
+.TP
+.B 2
+Incomplete transfer, resuming may get further.
 .SH FILES
 .TP
 .I $HOME/.swfinfo

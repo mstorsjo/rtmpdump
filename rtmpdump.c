@@ -1312,10 +1312,10 @@ main(int argc, char **argv)
 	{
 	case 'h':
 	  LogPrintf
-	    ("\nThis program dumps the media content streamed over rtmp.\n\n");
+	    ("\nThis program dumps the media content streamed over RTMP.\n\n");
 	  LogPrintf("--help|-h               Prints this help screen.\n");
 	  LogPrintf
-	    ("--rtmp|-r url           URL (e.g. rtmp//hotname[:port]/path)\n");
+	    ("--rtmp|-r url           URL (e.g. rtmp//host[:port]/path)\n");
 	  LogPrintf
 	    ("--host|-n hostname      Overrides the hostname in the rtmp url\n");
 	  LogPrintf
@@ -1330,7 +1330,7 @@ main(int argc, char **argv)
 	  LogPrintf
 	    ("--tcUrl|-t url          URL to played stream (default: \"rtmp://host[:port]/app\")\n");
 	  LogPrintf("--pageUrl|-p url        Web URL of played programme\n");
-	  LogPrintf("--app|-a app            Name of player used\n");
+	  LogPrintf("--app|-a app            Name of target app on server\n");
 #ifdef CRYPTO
 	  LogPrintf
 	    ("--swfhash|-w hexstring  SHA256 hash of the decompressed SWF file (32 bytes)\n");
@@ -1378,7 +1378,7 @@ main(int argc, char **argv)
 	    ("--skip|-k num           Skip num keyframes when looking for last keyframe to resume from. Useful if resume fails (default: %d)\n\n",
 	     nSkipKeyFrames);
 	  LogPrintf
-	    ("--quiet|-q              Supresses all command output.\n");
+	    ("--quiet|-q              Suppresses all command output.\n");
 	  LogPrintf("--verbose|-V            Verbose command output.\n");
 	  LogPrintf("--debug|-z              Debug level command output.\n");
 	  LogPrintf

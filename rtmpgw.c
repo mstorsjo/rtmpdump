@@ -1246,7 +1246,7 @@ main(int argc, char **argv)
 	    ("\nThis program serves media content streamed from RTMP onto HTTP.\n\n");
 	  LogPrintf("--help|-h               Prints this help screen.\n");
 	  LogPrintf
-	    ("--rtmp|-r url           URL (e.g. rtmp//hotname[:port]/path)\n");
+	    ("--rtmp|-r url           URL (e.g. rtmp//host[:port]/path)\n");
 	  LogPrintf
 	    ("--host|-n hostname      Overrides the hostname in the rtmp url\n");
 	  LogPrintf
@@ -1259,7 +1259,7 @@ main(int argc, char **argv)
 	  LogPrintf
 	    ("--tcUrl|-t url          URL to played stream (default: \"rtmp://host[:port]/app\")\n");
 	  LogPrintf("--pageUrl|-p url        Web URL of played programme\n");
-	  LogPrintf("--app|-a app            Name of player used\n");
+	  LogPrintf("--app|-a app            Name of target app in server\n");
 #ifdef CRYPTO
 	  LogPrintf
 	    ("--swfhash|-w hexstring  SHA256 hash of the decompressed SWF file (32 bytes)\n");
@@ -1282,7 +1282,7 @@ main(int argc, char **argv)
 	    ("--flashVer|-f string    Flash version string (default: \"%s\")\n",
 	     DEFAULT_FLASH_VER);
 	  LogPrintf
-	    ("--live|-v               Get a live stream, no --resume (seeking) of live strems possible\n");
+	    ("--live|-v               Get a live stream, no --resume (seeking) of live streams possible\n");
 	  LogPrintf
 	    ("--subscribe|-d string   Stream name to subscribe to (otherwise defaults to playpath if live is specifed)\n");
 	  LogPrintf
@@ -1305,11 +1305,11 @@ main(int argc, char **argv)
 	    ("--sport|-g              Streaming port (default: %d)\n\n",
 	     nHttpStreamingPort);
 	  LogPrintf
-	    ("--quiet|-q              Supresses all command output.\n");
+	    ("--quiet|-q              Suppresses all command output.\n");
 	  LogPrintf("--verbose|-x            Verbose command output.\n");
 	  LogPrintf("--debug|-z              Debug level command output.\n");
 	  LogPrintf
-	    ("If you don't pass parameters for swfUrl, pageUrl, app or auth these propertiews will not be included in the connect ");
+	    ("If you don't pass parameters for swfUrl, pageUrl, or auth these properties will not be included in the connect ");
 	  LogPrintf("packet.\n\n");
 	  return RD_SUCCESS;
 	  break;

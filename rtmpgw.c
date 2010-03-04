@@ -82,7 +82,7 @@ typedef struct
   int protocol;
   bool bLiveStream;		// is it a live stream? then we can't seek/resume
 
-  long int timeout;		// timeout connection afte 300 seconds
+  long int timeout;		// timeout connection after 120 seconds
   uint32_t bufferTime;
 
   char *rtmpurl;
@@ -96,6 +96,7 @@ typedef struct
   AVal flashVer;
   AVal token;
   AVal subscribepath;
+  char *sockshost;
   AMFObject extras;
   int edepth;
   uint32_t swfSize;
@@ -739,7 +740,7 @@ void processTCPrequest(STREAMING_SERVER * server,	// server socket and state (ou
   Log(LOGDEBUG, "Setting buffer time to: %dms", req.bufferTime);
   RTMP_Init(&rtmp);
   RTMP_SetBufferMS(&rtmp, req.bufferTime);
-  RTMP_SetupStream(&rtmp, req.protocol, req.hostname, req.rtmpport, NULL,	// sockshost
+  RTMP_SetupStream(&rtmp, req.protocol, req.hostname, req.rtmpport, req.sockshost,
 		   &req.playpath, &req.tcUrl, &req.swfUrl, &req.pageUrl, &req.app, &req.auth, &req.swfHash, req.swfSize, &req.flashVer, &req.subscribepath, dSeek, -1,	// length
 		   req.bLiveStream, req.timeout);
   /* backward compatibility, we always sent this as true before */
@@ -1146,6 +1147,8 @@ ParseOption(char opt, char *arg, RTMP_REQUEST * req)
     case 'T':
       STR2AVAL(req->token, arg);
       break;
+    case 'S':
+	  req->sockshost = arg;
     case 'q':
       debuglevel = LOGCRIT;
       break;
@@ -1183,7 +1186,7 @@ main(int argc, char **argv)
   defaultRTMPRequest.protocol = RTMP_PROTOCOL_UNDEFINED;
   defaultRTMPRequest.bLiveStream = false;	// is it a live stream? then we can't seek/resume
 
-  defaultRTMPRequest.timeout = 300;	// timeout connection afte 300 seconds
+  defaultRTMPRequest.timeout = 120;	// timeout connection after 120 seconds
   defaultRTMPRequest.bufferTime = 20 * 1000;
 
   defaultRTMPRequest.swfAge = 30;
@@ -1193,6 +1196,7 @@ main(int argc, char **argv)
     {"help", 0, NULL, 'h'},
     {"host", 1, NULL, 'n'},
     {"port", 1, NULL, 'c'},
+    {"socks", 1, NULL, 'S'},
     {"protocol", 1, NULL, 'l'},
     {"playpath", 1, NULL, 'y'},
     {"rtmp", 1, NULL, 'r'},
@@ -1236,7 +1240,7 @@ main(int argc, char **argv)
 
   while ((opt =
 	  getopt_long(argc, argv,
-		      "hvqVzr:s:t:p:a:f:u:n:c:l:y:m:d:D:A:B:T:g:w:x:W:X:", longopts,
+		      "hvqVzr:s:t:p:a:f:u:n:c:l:y:m:d:D:A:B:T:g:w:x:W:X:S:", longopts,
 		      NULL)) != -1)
     {
       switch (opt)
@@ -1251,6 +1255,8 @@ main(int argc, char **argv)
 	    ("--host|-n hostname      Overrides the hostname in the rtmp url\n");
 	  LogPrintf
 	    ("--port|-c port          Overrides the port in the rtmp url\n");
+	  LogPrintf
+	    ("--socks|-S host:port    Use the specified SOCKS proxy\n");
 	  LogPrintf
 	    ("--protocol|-l           Overrides the protocol in the rtmp url (0 - RTMP, 3 - RTMPE)\n");
 	  LogPrintf

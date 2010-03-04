@@ -99,6 +99,7 @@ extern "C"
   unsigned int AMF_DecodeInt24(const char *data);
   unsigned int AMF_DecodeInt32(const char *data);
   void AMF_DecodeString(const char *data, AVal * str);
+  void AMF_DecodeLongString(const char *data, AVal * str);
   bool AMF_DecodeBoolean(const char *data);
   double AMF_DecodeNumber(const char *data);
 

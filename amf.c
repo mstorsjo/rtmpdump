@@ -67,6 +67,13 @@ AMF_DecodeString(const char *data, AVal * bv)
   bv->av_val = (bv->av_len > 0) ? (char *) data + 2 : NULL;
 }
 
+void
+AMF_DecodeLongString(const char *data, AVal * bv)
+{
+  bv->av_len = AMF_DecodeInt32(data);
+  bv->av_val = (bv->av_len > 0) ? (char *) data + 4 : NULL;
+}
+
 double
 AMF_DecodeNumber(const char *data)
 {
@@ -718,7 +725,7 @@ AMFProp_Decode(AMFObjectProperty * prop, const char *pBuffer, int nSize,
 	unsigned int nStringSize = AMF_DecodeInt32(pBuffer);
 	if (nSize < (long) nStringSize + 4)
 	  return -1;
-	AMF_DecodeString(pBuffer, &prop->p_vu.p_aval);
+	AMF_DecodeLongString(pBuffer, &prop->p_vu.p_aval);
 	nSize -= (4 + nStringSize);
 	prop->p_type = AMF_STRING;
 	break;

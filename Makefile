@@ -32,10 +32,11 @@ cross:
 	@$(MAKE) CROSS_COMPILE=armv7a-angstrom-linux-gnueabi- INC=-I/OE/tmp/staging/armv7a-angstrom-linux-gnueabi/usr/include $(MAKEFLAGS) progs
 
 clean:
-	rm -f *.o *.a rtmpdump$(EXT) rtmpgw$(EXT) rtmpsrv$(EXT) rtmpsuck$(EXT)
+	rm -f *.o rtmpdump$(EXT) rtmpgw$(EXT) rtmpsrv$(EXT) rtmpsuck$(EXT)
+	@$(MAKE) -C librtmp clean
 
 $(LIBRTMP):
-	@$(MAKE) -C librtmp $(MAKEFLAGS)
+	@$(MAKE) -C librtmp all CC="$(CC)" CFLAGS="$(CFLAGS)"
 
 rtmpdump: rtmpdump.o parseurl.o $(LIBRTMP)
 	$(CC) $(LDFLAGS) $^ -o $@$(EXT) $(LIBS)

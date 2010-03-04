@@ -148,7 +148,7 @@ prefixing the type with 'N' and specifying the name before the value, e.g.
 NB:myFlag:1. This option may be used multiple times to construct arbitrary
 AMF sequences. E.g.
 .nf
-  -C B:1 -C S:authMe -C O:1 -C NN:code:1.23 -C NN:flag:ok -C O:0
+  -C B:1 -C S:authMe -C O:1 -C NN:code:1.23 -C NS:flag:ok -C O:0
 .fi
 .PP
 Session Parameters
@@ -225,7 +225,7 @@ option must always be used with this option.
 \fB\-\-swfVfy		\-W\fP\ \fIurl\fP
 URL of the SWF player for this media. This option replaces all three
 of the
-.BR \-\-swfURL ,
+.BR \-\-swfUrl ,
 .BR \-\-swfhash ,
 and
 .B \-\-swfsize

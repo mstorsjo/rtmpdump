@@ -1306,7 +1306,7 @@ main(int argc, char **argv)
 	     nHttpStreamingPort);
 	  LogPrintf
 	    ("--quiet|-q              Suppresses all command output.\n");
-	  LogPrintf("--verbose|-x            Verbose command output.\n");
+	  LogPrintf("--verbose|-V            Verbose command output.\n");
 	  LogPrintf("--debug|-z              Debug level command output.\n");
 	  LogPrintf
 	    ("If you don't pass parameters for swfUrl, pageUrl, or auth these properties will not be included in the connect ");

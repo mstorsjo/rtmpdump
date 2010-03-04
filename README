@@ -1,4 +1,4 @@
-RTMP Dump v2.1d
+RTMP Dump v2.2
 (C) 2009 Andrej Stepanchuk
 (C) 2009-2010 Howard Chu
 (C) 2010 2a665470ced7adb7156fcef47f8199a6371c117b8a79e399a2771e0b36384090
@@ -101,7 +101,7 @@ Example Servers
 Three different types of servers are also present in this distribution:
  rtmpsrv - a stub server
  rtmpsuck - a transparent proxy
- streams - an RTMP to HTTP gateway
+ rtmpgw - an RTMP to HTTP gateway
 
 rtmpsrv - Note that this is very incomplete code, and I haven't yet decided
 whether or not to finish it. It is useful for obtaining all the parameters
@@ -174,7 +174,7 @@ has performed real handshakes with both the client and the server, it can
 negotiate whatever encryption keys are needed and so record the unencrypted
 data.
 
-streams - HTTP gateway: this is an HTTP server that accepts requests that
+rtmpgw - HTTP gateway: this is an HTTP server that accepts requests that
 consist of rtmpdump parameters. It then connects to the specified RTMP
 server and returns the retrieved data in the HTTP response. The only valid
 HTTP request is "GET /" but additional options can be provided in normal

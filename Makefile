@@ -16,7 +16,7 @@ all:
 	@echo '    "make mingw" for a MinGW32 build'
 	@echo 'use commandline overrides if you want anything else'
 
-progs:	rtmpdump streams rtmpsrv rtmpsuck
+progs:	rtmpdump rtmpgw rtmpsrv rtmpsuck
 
 posix linux unix osx:
 	@$(MAKE) $(MAKEFLAGS) progs
@@ -31,7 +31,7 @@ cross:
 	@$(MAKE) CROSS_COMPILE=armv7a-angstrom-linux-gnueabi- INC=-I/OE/tmp/staging/armv7a-angstrom-linux-gnueabi/usr/include $(MAKEFLAGS) progs
 
 clean:
-	rm -f *.o *.a rtmpdump$(EXT) streams$(EXT) rtmpsrv$(EXT) rtmpsuck$(EXT)
+	rm -f *.o *.a rtmpdump$(EXT) rtmpgw$(EXT) rtmpsrv$(EXT) rtmpsuck$(EXT)
 
 librtmp.a: rtmp.o log.o amf.o hashswf.o
 	$(AR) rs $@ $?
@@ -45,12 +45,12 @@ rtmpsrv: rtmpsrv.o thread.o librtmp.a
 rtmpsuck: rtmpsuck.o thread.o librtmp.a
 	$(CC) $(LDFLAGS) $^ -o $@$(EXT) $(SLIBS)
 
-streams: streams.o parseurl.o thread.o librtmp.a
+rtmpgw: rtmpgw.o parseurl.o thread.o librtmp.a
 	$(CC) $(LDFLAGS) $^ -o $@$(EXT) $(SLIBS)
 
 log.o: log.c log.h Makefile
 parseurl.o: parseurl.c parseurl.h log.h Makefile
-streams.o: streams.c rtmp.h log.h hashswf.o Makefile
+rtmpgw.o: rtmpgw.c rtmp.h log.h hashswf.o Makefile
 rtmp.o: rtmp.c rtmp.h handshake.h dh.h log.h amf.h Makefile
 amf.o: amf.c amf.h bytes.h log.h Makefile
 rtmpdump.o: rtmpdump.c rtmp.h log.h amf.h Makefile

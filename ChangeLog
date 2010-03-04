@@ -4,6 +4,14 @@ Copyright 2009-2010 Howard Chu
 Copyright 2009 The Flvstreamer Team
 http://rtmpdump.mplayerhq.hu/
 
+4 March 2010, v2.2
+- move RTMP code into library librtmp
+- relicense RTMP code under LGPL v2.1
+- add rtmpdump manpage
+- fix AMF_LONG_STRING handling
+- more FlashPlayer 10 handshake support
+- in rtmpsrv fix Play Start/Stop messages
+
 20 February 2010, v2.1d
 - extend .swfinfo file format, add --swfAge rtmpdump parameter
   old file should be replaced or manually updated: copy the

@@ -25,7 +25,7 @@
 #include <assert.h>
 #include <ctype.h>
 
-#include "log.h"
+#include "librtmp/log.h"
 #include "parseurl.h"
 
 #define RTMP_PROTOCOL_UNDEFINED	-1

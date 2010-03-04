@@ -19,7 +19,7 @@
  */
 
 #include "thread.h"
-#include "log.h"
+#include "librtmp/log.h"
 
 #ifdef WIN32
 

@@ -29,8 +29,8 @@
 #include <signal.h>		// to catch Ctrl-C
 #include <getopt.h>
 
-#include "rtmp.h"
-#include "log.h"
+#include "librtmp/rtmp.h"
+#include "librtmp/log.h"
 #include "parseurl.h"
 
 #ifdef WIN32

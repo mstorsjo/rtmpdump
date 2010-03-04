@@ -28,7 +28,7 @@
 
 #include <assert.h>
 
-#include "rtmp.h"
+#include "librtmp/rtmp.h"
 #include "parseurl.h"
 
 #include "thread.h"

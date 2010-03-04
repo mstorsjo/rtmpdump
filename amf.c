@@ -169,13 +169,22 @@ AMF_EncodeInt32(char *output, char *outend, int nVal)
 char *
 AMF_EncodeString(char *output, char *outend, const AVal * bv)
 {
-  if (output + 1 + 2 + bv->av_len > outend)
+  if ((bv->av_len < 65536 && output + 1 + 2 + bv->av_len > outend) ||
+	output + 1 + 4 + bv->av_len > outend)
     return NULL;
 
-  *output++ = AMF_STRING;
+  if (bv->av_len < 65536)
+    {
+      *output++ = AMF_STRING;
 
-  output = AMF_EncodeInt16(output, outend, bv->av_len);
+      output = AMF_EncodeInt16(output, outend, bv->av_len);
+    }
+  else
+    {
+      *output++ = AMF_LONG_STRING;
 
+      output = AMF_EncodeInt32(output, outend, bv->av_len);
+    }
   memcpy(output, bv->av_val, bv->av_len);
   output += bv->av_len;
 

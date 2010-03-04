@@ -31,6 +31,12 @@ This code also requires you to have OpenSSL and zlib installed.
 SWF Verification
 ----------------
 
+Note: these instructions for manually generating the SWFVerification
+info are provided only for historical documentation. The software can now
+generate this info automatically, so it is no longer necessary to
+run the commands described here. Just use the -W (--swfVfy) option
+to perform automatic SWFVerification.
+
 Download the swf player you want to use for SWFVerification, unzip it using
 
  $ flasm -x file.swf
@@ -44,11 +50,6 @@ Now generate the hash
 and use the --swfhash "01234..." option to pass it.
 
 e.g. $ ./rtmpdump --swfhash "123456..." --swfsize 987...
-
-Note: all of this is done automatically if you provide the SWF URL using
-the -W (--swfVfy) option instead of the -s (--swfUrl) option. Also, the
-hash info is cached in ~/.swfinfo so it doesn't need to be ecalculated
-all the time.
 
 Connect Parameters
 ------------------

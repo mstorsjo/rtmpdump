@@ -1,9 +1,10 @@
-.TH RTMPDUMP 1 "2010-03-04" "RTMPDump v2.2"
+.TH RTMPGW 1 "2010-03-04" "RTMPDump v2.2"
 .SH NAME
-rtmpdump \- RTMP streaming media client
+rtmpgw \- RTMP streaming media gateway
 .SH SYNOPSIS
-.B rtmpdump
-.BI \-r \ url
+.B rtmpgw
+[\c
+.BI \-r \ url\fR]
 [\c
 .BI \-n \ hostname\fR]
 [\c
@@ -55,9 +56,9 @@ rtmpdump \- RTMP streaming media client
 [\c
 .BI \-X \ swfAge\fR]
 [\c
-.BI \-o \ output\fR]
+.BI \-D \ address\fR]
 [\c
-.BR \-# ]
+.BI \-g \ port\fR]
 [\c
 .BR \-q ]
 [\c
@@ -65,25 +66,18 @@ rtmpdump \- RTMP streaming media client
 [\c
 .BR \-z ]
 .br
-.B rtmpdump \-h
+.B rtmpgw \-h
 .SH DESCRIPTION
-.B rtmpdump
-is a tool for dumping media content streamed over RTMP.
+.B rtmpgw
+is a server for streaming media content from RTMP out to HTTP.
 .LP
-.B rtmpdump
-makes a connection to the specified RTMP server and plays the media
-specified by the given
-.IR url .
-The url should be of the form
-.nf
-  rtmp[e]://hostname[:port][/app[/playpath]]
-.fi
-
-Both plaintext
-.I rtmp://
-and encrypted
-.I rtmpe://
-sessions are supported.
+.B rtmpgw
+listens for HTTP requests that specify RTMP stream parameters and
+then returns the RTMP data in the HTTP response. The only valid
+HTTP request is "GET /" but additional options can be provided
+in URL-encoded fashion. Options specified on the command line will
+be used as defaults, which can be overridden by options in the HTTP
+request.
 .SH OPTIONS
 .SS "Network Parameters"
 These options define how to connect to the media server.
@@ -163,15 +157,6 @@ live streams is possible.
 Name of live stream to subscribe to. Defaults to
 .IR playpath .
 .TP
-.B \-\-resume		\-e
-Resume an incomplete RTMP download.
-.TP
-\fB\-\-skip		\-k\fP\ \fInum\fP
-Skip
-.I num
-keyframes when looking for the last keyframe from which to resume. This
-may be useful if a regular attempt to resume fails. The default is 0.
-.TP
 \fB\-\-start		\-A\fP\ \fInum\fP
 Start at
 .I num
@@ -185,7 +170,7 @@ seconds into the stream.
 \fB\-\-buffer		\-b\fP\ \fInum\fP
 Set buffer time to
 .I num
-milliseconds. The default is 36000000.
+milliseconds. The default is 20000.
 .TP
 \fB\-\-timeout		\-m\fP\ \fInum\fP
 Timeout the session after
@@ -239,13 +224,11 @@ SWF file has the same modification timestamp as before, it will not be
 retrieved again.
 .SS Miscellaneous
 .TP
-\fB\-\-flv		\-o\fP\ \fIoutput\fP
-Specify the output file name. If the name is \- or is omitted, the
-stream is written to stdout.
+\fB\-\-device		\-D\fP\ \fIaddress\fP
+Listener IP address. The default is 0.0.0.0, i.e., any IP address.
 .TP
-.B \-\-hashes		\-#
-Display streaming progress with a hash mark for each 1% of progress, instead
-of a byte counter.
+\fB\-\-sport		\-g\fP\ \fIport\fP
+Listener port. The default is 80.
 .TP
 .B \-\-quiet		\-q
 Suppress all command output.
@@ -258,16 +241,19 @@ Debug level output. Extremely verbose, including hex dumps of all packet data.
 .TP
 .B \-\-help		\-h
 Print a summary of command options.
-.SH EXIT STATUS
-.TP
-.B 0
-Successful program execution.
-.TP
-.B 1
-Unrecoverable error.
-.TP
-.B 2
-Incomplete transfer, resuming may get further.
+.SH EXAMPLES
+The HTTP request
+.nf
+	GET /?r=rtmp:%2f%2fserver%2fmyapp&y=somefile HTTP/1.0
+.fi
+is equivalent to the
+.BR rtrmpdump (1)
+invocation
+.nf
+	rtmpdump -r rtmp://server/myapp -y somefile
+.fi
+
+Note that only the shortform (single letter) options are supported.
 .SH ENVIRONMENT
 .TP
 .B HOME
@@ -281,6 +267,6 @@ file.
 .I $HOME/.swfinfo
 Cache of SWF Verification information
 .SH "SEE ALSO"
-.BR rtmpgw (8)
+.BR rtmpdump (1)
 .SH AUTHORS
 Andrej Stepanchuk, Howard Chu, The Flvstreamer Team

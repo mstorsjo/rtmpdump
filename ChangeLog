@@ -11,6 +11,7 @@ http://rtmpdump.mplayerhq.hu/
 - fix AMF_LONG_STRING handling
 - more FlashPlayer 10 handshake support
 - in rtmpsrv fix Play Start/Stop messages
+- rename "streams" program to "rtmpgw"
 
 20 February 2010, v2.1d
 - extend .swfinfo file format, add --swfAge rtmpdump parameter

@@ -281,6 +281,8 @@ SendPlayStart(RTMP *r)
   enc = AMF_EncodeNamedString(enc, pend, &av_description, &av_Started_playing);
   enc = AMF_EncodeNamedString(enc, pend, &av_details, &r->Link.playpath);
   enc = AMF_EncodeNamedString(enc, pend, &av_clientid, &av_clientid);
+  *enc++ = 0;
+  *enc++ = 0;
   *enc++ = AMF_OBJECT_END;
 
   packet.m_nBodySize = enc - packet.m_body;
@@ -311,6 +313,8 @@ SendPlayStop(RTMP *r)
   enc = AMF_EncodeNamedString(enc, pend, &av_description, &av_Stopped_playing);
   enc = AMF_EncodeNamedString(enc, pend, &av_details, &r->Link.playpath);
   enc = AMF_EncodeNamedString(enc, pend, &av_clientid, &av_clientid);
+  *enc++ = 0;
+  *enc++ = 0;
   *enc++ = AMF_OBJECT_END;
 
   packet.m_nBodySize = enc - packet.m_body;

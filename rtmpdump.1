@@ -120,10 +120,11 @@ using this option.
 URL of the target stream. Defaults to rtmp[e]://host[:port]/app/playpath.
 .TP
 \fB\-\-pageUrl		\-p\fP\ \fIurl\fP
-URL of the web page in which the media was embedded.
+URL of the web page in which the media was embedded. By default no
+value will be sent.
 .TP
 \fB\-\-swfUrl		\-s\fP\ \fIurl\fP
-URL of the SWF player for the media.
+URL of the SWF player for the media. By default no value will be sent.
 .TP
 \fB\-\-flashVer	\-f\fP\ \fIversion\fP
 Version of the Flash plugin used to run the SWF player. The
@@ -138,7 +139,7 @@ deprecated. The more general
 option should be used instead.
 .TP
 \fB\-\-conn		\-C\fP\ \fItype:data\fP
-Append arbitrary AMF data to be appended to the Connect message. The type
+Append arbitrary AMF data to the Connect message. The type
 must be B for Boolean, N for number, S for string, O for object, or Z
 for null. For Booleans the data must be either 0 or 1 for FALSE or TRUE,
 respectively. Likewise for Objects the data must be 0 or 1 to end or

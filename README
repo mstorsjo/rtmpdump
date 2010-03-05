@@ -27,6 +27,9 @@ Please read the Makefile to see what other make variables are used.
 
 This code also requires you to have OpenSSL and zlib installed.
 
+Credit goes to team boxee for the XBMC RTMP code originally used in RTMPDumper.
+The current code is based on the XBMC code but rewritten in C by Howard Chu.
+
 
 SWF Verification
 ----------------
@@ -50,6 +53,7 @@ Now generate the hash
 and use the --swfhash "01234..." option to pass it.
 
 e.g. $ ./rtmpdump --swfhash "123456..." --swfsize 987...
+
 
 Connect Parameters
 ------------------
@@ -93,9 +97,13 @@ make && make install_sw
 
 OpenSSL cross-compiling can be a difficult beast.
 
+Precompiled OpenSSL binaries for Windows are available on
+http://www.slproweb.com/products/Win32OpenSSL.html
 
-Credit goes to team boxee for the XBMC RTMP code originally used in RTMPDumper.
-The current code is based on the XBMC code but rewritten in C by Howard Chu.
+If you're just running a pre-built Windows rtmpdump binary, then all you
+need is the "Light" installer. If you want to compile rtmpdump yourself,
+you'll need the full installer.
+
 
 Example Servers
 ---------------

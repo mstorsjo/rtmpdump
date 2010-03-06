@@ -29,7 +29,7 @@ cygwin:
 	@$(MAKE) XCFLAGS=-static XLDFLAGS="-static-libgcc -static" EXT=.exe $(MAKEFLAGS) progs
 
 cross:
-	@$(MAKE) CROSS_COMPILE=armv7a-angstrom-linux-gnueabi- INC=-I/OE/tmp/staging/armv7a-angstrom-linux-gnueabi/usr/include $(MAKEFLAGS) progs
+	@$(MAKE) CROSS_COMPILE=armv7a-angstrom-linux-gnueabi- INC=-I$(STAGING)/usr/include $(MAKEFLAGS) progs
 
 clean:
 	rm -f *.o rtmpdump$(EXT) rtmpgw$(EXT) rtmpsrv$(EXT) rtmpsuck$(EXT)

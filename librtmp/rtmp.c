@@ -155,15 +155,15 @@ RTMP_Init(RTMP * r)
       r->m_vecChannelsIn[i] = NULL;
       r->m_vecChannelsOut[i] = NULL;
     }
-  r->m_socket = -1;
+  r->m_sb.sb_socket = -1;
   RTMP_Close(r);
   r->m_nBufferMS = 300;
   r->m_fDuration = 0;
-  r->m_pBufferStart = NULL;
+  r->m_sb.sb_start = NULL;
   r->m_fAudioCodecs = 3191.0;
   r->m_fVideoCodecs = 252.0;
   r->m_fEncoding = 0.0;
-  r->m_bTimedout = false;
+  r->m_sb.sb_timedout = false;
   r->m_pausing = 0;
   r->m_mediaChannel = 0;
 }
@@ -177,13 +177,13 @@ RTMP_GetDuration(RTMP * r)
 bool
 RTMP_IsConnected(RTMP * r)
 {
-  return r->m_socket != -1;
+  return r->m_sb.sb_socket != -1;
 }
 
 bool
 RTMP_IsTimedout(RTMP * r)
 {
-  return r->m_bTimedout;
+  return r->m_sb.sb_timedout;
 }
 
 void
@@ -335,15 +335,15 @@ RTMP_Connect0(RTMP *r, struct sockaddr *service)
   // close any previous connection
   RTMP_Close(r);
 
-  r->m_bTimedout = false;
+  r->m_sb.sb_timedout = false;
   r->m_pausing = 0;
   r->m_fDuration = 0.0;
 
-  r->m_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-  if (r->m_socket != -1)
+  r->m_sb.sb_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+  if (r->m_sb.sb_socket != -1)
     {
       if (connect
-	  (r->m_socket, service, sizeof(struct sockaddr)) < 0)
+	  (r->m_sb.sb_socket, service, sizeof(struct sockaddr)) < 0)
 	{
 	  int err = GetSockError();
 	  Log(LOGERROR, "%s, failed to connect socket. %d (%s)", __FUNCTION__,
@@ -373,14 +373,14 @@ RTMP_Connect0(RTMP *r, struct sockaddr *service)
   // set timeout
   SET_RCVTIMEO(tv, r->Link.timeout);
   if (setsockopt
-      (r->m_socket, SOL_SOCKET, SO_RCVTIMEO, (char *) &tv, sizeof(tv)))
+      (r->m_sb.sb_socket, SOL_SOCKET, SO_RCVTIMEO, (char *) &tv, sizeof(tv)))
     {
       Log(LOGERROR, "%s, Setting socket timeout to %ds failed!",
           __FUNCTION__, r->Link.timeout);
     }
 
   int on = 1;
-  setsockopt(r->m_socket, IPPROTO_TCP, TCP_NODELAY, &on, sizeof(on));
+  setsockopt(r->m_sb.sb_socket, IPPROTO_TCP, TCP_NODELAY, &on, sizeof(on));
 
   return true;
 }
@@ -586,7 +586,7 @@ RTMP_GetNextMediaPacket(RTMP * r, RTMPPacket * packet)
 
   if (bHasMediaPacket)
     r->m_bPlaying = true;
-  else if (r->m_bTimedout && !r->m_pausing)
+  else if (r->m_sb.sb_timedout && !r->m_pausing)
     r->m_pauseStamp = r->m_channelTimestamp[r->m_mediaChannel];
 
   return bHasMediaPacket;
@@ -756,7 +756,7 @@ ReadN(RTMP * r, char *buffer, int n)
   int nOriginalSize = n;
   char *ptr;
 
-  r->m_bTimedout = false;
+  r->m_sb.sb_timedout = false;
 
 #ifdef _DEBUG
   memset(buffer, 0, n);
@@ -766,19 +766,19 @@ ReadN(RTMP * r, char *buffer, int n)
   while (n > 0)
     {
       int nBytes = 0, nRead;
-      if (r->m_nBufferSize == 0)
+      if (r->m_sb.sb_size == 0)
 	if (RTMPSockBuf_Fill(&r->m_sb)<1)
 	  {
-	    if (!r->m_bTimedout)
+	    if (!r->m_sb.sb_timedout)
 	      RTMP_Close(r);
 	    return 0;
 	  }
-      nRead = ((n < r->m_nBufferSize) ? n : r->m_nBufferSize);
+      nRead = ((n < r->m_sb.sb_size) ? n : r->m_sb.sb_size);
       if (nRead > 0)
 	{
-	  memcpy(ptr, r->m_pBufferStart, nRead);
-	  r->m_pBufferStart += nRead;
-	  r->m_nBufferSize -= nRead;
+	  memcpy(ptr, r->m_sb.sb_start, nRead);
+	  r->m_sb.sb_start += nRead;
+	  r->m_sb.sb_size -= nRead;
 	  nBytes = nRead;
 	  r->m_nBytesIn += nRead;
 	  if (r->m_bSendCounter && r->m_nBytesIn > r->m_nBytesInSent + r->m_nClientBW / 2)
@@ -837,7 +837,7 @@ WriteN(RTMP * r, const char *buffer, int n)
       fwrite(ptr, 1, n, netstackdump);
 #endif
 
-      int nBytes = send(r->m_socket, ptr, n, 0);
+      int nBytes = send(r->m_sb.sb_socket, ptr, n, 0);
       //Log(LOGDEBUG, "%s: %d\n", __FUNCTION__, nBytes);
 
       if (nBytes < 0)
@@ -1908,7 +1908,7 @@ RTMP_ReadPacket(RTMP * r, RTMPPacket * packet)
 {
   char hbuf[RTMP_MAX_HEADER_SIZE] = { 0 }, *header = hbuf;
 
-  Log(LOGDEBUG2, "%s: fd=%d", __FUNCTION__, r->m_socket);
+  Log(LOGDEBUG2, "%s: fd=%d", __FUNCTION__, r->m_sb.sb_socket);
 
   if (ReadN(r, hbuf, 1) == 0)
     {
@@ -2205,7 +2205,7 @@ RTMP_SendChunk(RTMP *r, RTMPChunk *chunk)
   bool wrote;
   char hbuf[RTMP_MAX_HEADER_SIZE];
 
-  Log(LOGDEBUG2, "%s: fd=%d, size=%d", __FUNCTION__, r->m_socket, chunk->c_chunkSize);
+  Log(LOGDEBUG2, "%s: fd=%d, size=%d", __FUNCTION__, r->m_sb.sb_socket, chunk->c_chunkSize);
   LogHexString(LOGDEBUG2, chunk->c_header, chunk->c_headerSize);
   if (chunk->c_chunkSize)
     {
@@ -2323,7 +2323,7 @@ RTMP_SendPacket(RTMP * r, RTMPPacket * packet, bool queue)
   char *buffer = packet->m_body;
   int nChunkSize = r->m_outChunkSize;
 
-  Log(LOGDEBUG2, "%s: fd=%d, size=%d", __FUNCTION__, r->m_socket, nSize);
+  Log(LOGDEBUG2, "%s: fd=%d, size=%d", __FUNCTION__, r->m_sb.sb_socket, nSize);
   while (nSize+hSize)
     {
       int wrote;
@@ -2399,10 +2399,10 @@ RTMP_Close(RTMP * r)
   int i;
 
   if (RTMP_IsConnected(r))
-    closesocket(r->m_socket);
+    closesocket(r->m_sb.sb_socket);
 
   r->m_stream_id = -1;
-  r->m_socket = -1;
+  r->m_sb.sb_socket = -1;
   r->m_inChunkSize = RTMP_DEFAULT_CHUNKSIZE;
   r->m_outChunkSize = RTMP_DEFAULT_CHUNKSIZE;
   r->m_nBWCheckCounter = 0;
@@ -2431,7 +2431,7 @@ RTMP_Close(RTMP * r)
   r->m_numCalls = 0;
 
   r->m_bPlaying = false;
-  r->m_nBufferSize = 0;
+  r->m_sb.sb_size = 0;
 
 #ifdef CRYPTO
   if(r->Link.dh)

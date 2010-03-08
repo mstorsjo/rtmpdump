@@ -204,11 +204,6 @@ typedef struct RTMP
   double m_fDuration;		// duration of stream in seconds
 
   RTMPSockBuf m_sb;
-#define m_socket	m_sb.sb_socket
-#define m_nBufferSize	m_sb.sb_size
-#define m_pBufferStart	m_sb.sb_start
-#define m_pBuffer	m_sb.sb_buf
-#define m_bTimedout	m_sb.sb_timedout
 } RTMP;
 
 bool RTMP_ParseURL(const char *url, int *protocol, char **host,

@@ -851,7 +851,7 @@ void doServe(STREAMING_SERVER * server,	// server socket and state (our listenin
   else
     {
       RTMP_Init(&rtmp);
-      rtmp.m_socket = sockfd;
+      rtmp.m_sb.sb_socket = sockfd;
       if (!RTMP_Serve(&rtmp))
         {
           Log(LOGERROR, "Handshake failed");

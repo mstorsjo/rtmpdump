@@ -737,7 +737,7 @@ void doServe(STREAMING_SERVER * server,	// server socket and state (our listenin
     {
       RTMP_Init(&server->rs);
       RTMP_Init(&server->rc);
-      server->rs.m_socket = sockfd;
+      server->rs.m_sb.sb_socket = sockfd;
       if (!RTMP_Serve(&server->rs))
         {
           Log(LOGERROR, "Handshake failed");
@@ -768,22 +768,22 @@ void doServe(STREAMING_SERVER * server,	// server socket and state (our listenin
       int n;
       int sr, cr;
 
-      cr = server->rc.m_nBufferSize;
-      sr = server->rs.m_nBufferSize;
+      cr = server->rc.m_sb.sb_size;
+      sr = server->rs.m_sb.sb_size;
 
       if (cr || sr)
         {
         }
       else
         {
-          n = server->rs.m_socket;
-	  if (server->rc.m_socket > n)
-	    n = server->rc.m_socket;
+          n = server->rs.m_sb.sb_socket;
+	  if (server->rc.m_sb.sb_socket > n)
+	    n = server->rc.m_sb.sb_socket;
 	  FD_ZERO(&rfds);
 	  if (RTMP_IsConnected(&server->rs))
 	    FD_SET(sockfd, &rfds);
 	  if (RTMP_IsConnected(&server->rc))
-	    FD_SET(server->rc.m_socket, &rfds);
+	    FD_SET(server->rc.m_sb.sb_socket, &rfds);
 
           /* give more time to start up if we're not playing yet */
 	  tv.tv_sec = server->f_cur ? 30 : 60;
@@ -803,9 +803,9 @@ void doServe(STREAMING_SERVER * server,	// server socket and state (our listenin
 	      Log(LOGERROR, "Request timeout/select failed, ignoring request");
 	      goto cleanup;
 	    }
-          if (FD_ISSET(server->rs.m_socket, &rfds))
+          if (FD_ISSET(server->rs.m_sb.sb_socket, &rfds))
             sr = 1;
-          if (FD_ISSET(server->rc.m_socket, &rfds))
+          if (FD_ISSET(server->rc.m_sb.sb_socket, &rfds))
             cr = 1;
         }
       if (sr)

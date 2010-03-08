@@ -263,6 +263,7 @@ bool RTMP_FindFirstMatchingProperty(AMFObject *obj, const AVal *name,
 bool RTMPSockBuf_Fill(RTMPSockBuf *sb);
 
 bool RTMP_SendCreateStream(RTMP * r, double dCmdID);
+bool RTMP_SendSeek(RTMP * r, double dTime);
 bool RTMP_SendServerBW(RTMP * r);
 void RTMP_DropRequest(RTMP *r, int i, bool freeit);
 

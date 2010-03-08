@@ -1136,11 +1136,9 @@ RTMP_SendPause(RTMP * r, bool DoPause, double dTime)
   return RTMP_SendPacket(r, &packet, true);
 }
 
-#if 0 /* unused */
 SAVC(seek);
 
-static bool
-SendSeek(RTMP * r, double dTime)
+bool RTMP_SendSeek(RTMP * r, double dTime)
 {
   RTMPPacket packet;
   char pbuf[256], *pend = pbuf+sizeof(pbuf);
@@ -1163,7 +1161,6 @@ SendSeek(RTMP * r, double dTime)
 
   return RTMP_SendPacket(r, &packet, true);
 }
-#endif
 
 bool
 RTMP_SendServerBW(RTMP * r)

@@ -155,10 +155,10 @@ RTMP_Init(RTMP * r)
       r->m_vecChannelsIn[i] = NULL;
       r->m_vecChannelsOut[i] = NULL;
     }
+  r->m_socket = -1;
   RTMP_Close(r);
   r->m_nBufferMS = 300;
   r->m_fDuration = 0;
-  r->m_stream_id = -1;
   r->m_pBufferStart = NULL;
   r->m_fAudioCodecs = 3191.0;
   r->m_fVideoCodecs = 252.0;
@@ -177,7 +177,7 @@ RTMP_GetDuration(RTMP * r)
 bool
 RTMP_IsConnected(RTMP * r)
 {
-  return r->m_socket != 0;
+  return r->m_socket != -1;
 }
 
 bool
@@ -2402,7 +2402,7 @@ RTMP_Close(RTMP * r)
     closesocket(r->m_socket);
 
   r->m_stream_id = -1;
-  r->m_socket = 0;
+  r->m_socket = -1;
   r->m_inChunkSize = RTMP_DEFAULT_CHUNKSIZE;
   r->m_outChunkSize = RTMP_DEFAULT_CHUNKSIZE;
   r->m_nBWCheckCounter = 0;

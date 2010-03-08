@@ -38,7 +38,7 @@ clean:
 $(LIBRTMP):
 	@$(MAKE) -C librtmp all CC="$(CC)" CFLAGS="$(CFLAGS)"
 
-rtmpdump: rtmpdump.o parseurl.o $(LIBRTMP)
+rtmpdump: rtmpdump.o $(LIBRTMP)
 	$(CC) $(LDFLAGS) $^ -o $@$(EXT) $(LIBS)
 
 rtmpsrv: rtmpsrv.o thread.o $(LIBRTMP)
@@ -47,10 +47,9 @@ rtmpsrv: rtmpsrv.o thread.o $(LIBRTMP)
 rtmpsuck: rtmpsuck.o thread.o $(LIBRTMP)
 	$(CC) $(LDFLAGS) $^ -o $@$(EXT) $(SLIBS)
 
-rtmpgw: rtmpgw.o parseurl.o thread.o $(LIBRTMP)
+rtmpgw: rtmpgw.o thread.o $(LIBRTMP)
 	$(CC) $(LDFLAGS) $^ -o $@$(EXT) $(SLIBS)
 
-parseurl.o: parseurl.c parseurl.h Makefile
 rtmpgw.o: rtmpgw.c librtmp/rtmp.h librtmp/log.h librtmp/amf.h Makefile
 rtmpdump.o: rtmpdump.c librtmp/rtmp.h librtmp/log.h librtmp/amf.h Makefile
 rtmpsrv.o: rtmpsrv.c librtmp/rtmp.h librtmp/log.h librtmp/amf.h Makefile

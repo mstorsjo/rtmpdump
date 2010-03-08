@@ -31,7 +31,6 @@
 
 #include "librtmp/rtmp.h"
 #include "librtmp/log.h"
-#include "parseurl.h"
 
 #ifdef WIN32
 #define fseeko fseeko64
@@ -97,6 +96,25 @@ sigIntHandler(int sig)
   signal(SIGPIPE, SIG_IGN);
   signal(SIGQUIT, SIG_IGN);
 #endif
+}
+
+#define HEX2BIN(a)      (((a)&0x40)?((a)&0xf)+9:((a)&0xf))
+int hex2bin(char *str, char **hex)
+{
+  char *ptr;
+  int i, l = strlen(str);
+
+  if (l & 1)
+  	return 0;
+
+  *hex = malloc(l/2);
+  ptr = *hex;
+  if (!ptr)
+    return 0;
+
+  for (i=0; i<l; i+=2)
+    *ptr++ = (HEX2BIN(str[i]) << 4) | HEX2BIN(str[i+1]);
+  return l/2;
 }
 
 int
@@ -1485,15 +1503,14 @@ main(int argc, char **argv)
 	  break;
 	case 'r':
 	  {
-	    rtmpurl = optarg;
+		AVal parsedApp, parsedPlaypath;
 
 	    char *parsedHost = 0;
 	    unsigned int parsedPort = 0;
-	    char *parsedPlaypath = 0;
-	    char *parsedApp = 0;
 	    int parsedProtocol = RTMP_PROTOCOL_UNDEFINED;
 
-	    if (!ParseUrl
+	    rtmpurl = optarg;
+	    if (!RTMP_ParseURL
 		(rtmpurl, &parsedProtocol, &parsedHost, &parsedPort,
 		 &parsedPlaypath, &parsedApp))
 	      {
@@ -1506,15 +1523,15 @@ main(int argc, char **argv)
 		  hostname = parsedHost;
 		if (port == -1)
 		  port = parsedPort;
-		if (playpath.av_len == 0 && parsedPlaypath)
+		if (playpath.av_len == 0 && parsedPlaypath.av_len)
 		  {
-		    STR2AVAL(playpath, parsedPlaypath);
+		    playpath = parsedPlaypath;
 		  }
 		if (protocol == RTMP_PROTOCOL_UNDEFINED)
 		  protocol = parsedProtocol;
-		if (app.av_len == 0 && parsedApp)
+		if (app.av_len == 0 && parsedApp.av_len)
 		  {
-		    STR2AVAL(app, parsedApp);
+		    app = parsedApp;
 		  }
 	      }
 	    break;

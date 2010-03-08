@@ -54,6 +54,10 @@
 #include "log.h"
 #include "amf.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define RTMP_PROTOCOL_UNDEFINED	-1
 #define RTMP_PROTOCOL_RTMP      0
 #define RTMP_PROTOCOL_RTMPT     1	// not yet supported
@@ -140,14 +144,15 @@ typedef struct RTMP_LNK
   AVal flashVer;
   AVal subscribepath;
   AVal token;
-  bool authflag;
+  AVal playpath0;
   AMFObject extras;
 
   double seekTime;
   uint32_t length;
+  bool authflag;
   bool bLiveStream;
 
-  long int timeout;		// number of seconds before connection times out
+  int timeout;		// number of seconds before connection times out
 
   const char *sockshost;
   unsigned short socksport;
@@ -205,6 +210,9 @@ typedef struct RTMP
 #define m_bTimedout	m_sb.sb_timedout
 } RTMP;
 
+bool RTMP_ParseURL(const char *url, int *protocol, char **host,
+	unsigned int *port, AVal *playpath, AVal *app);
+void RTMP_ParsePlaypath(AVal *in, AVal *out);
 void RTMP_SetBufferMS(RTMP *r, int size);
 void RTMP_UpdateBufferMS(RTMP *r);
 
@@ -263,6 +271,10 @@ void RTMP_DropRequest(RTMP *r, int i, bool freeit);
 #define HASHLEN	32
 
 int RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash, int age);
+#endif
+
+#ifdef __cplusplus
+};
 #endif
 
 #endif

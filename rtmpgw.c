@@ -29,7 +29,6 @@
 #include <assert.h>
 
 #include "librtmp/rtmp.h"
-#include "parseurl.h"
 
 #include "thread.h"
 
@@ -976,6 +975,25 @@ sigIntHandler(int sig)
   signal(SIGINT, SIG_DFL);
 }
 
+#define HEX2BIN(a)      (((a)&0x40)?((a)&0xf)+9:((a)&0xf))
+int hex2bin(char *str, char **hex)
+{
+  char *ptr;
+  int i, l = strlen(str);
+
+  if (l & 1)
+  	return 0;
+
+  *hex = malloc(l/2);
+  ptr = *hex;
+  if (!ptr)
+    return 0;
+
+  for (i=0; i<l; i+=2)
+    *ptr++ = (HEX2BIN(str[i]) << 4) | HEX2BIN(str[i+1]);
+  return l/2;
+}
+
 // this will parse RTMP related options as needed
 // excludes the following options: h, d, g
 
@@ -1081,13 +1099,12 @@ ParseOption(char opt, char *arg, RTMP_REQUEST * req)
       {
 	req->rtmpurl = arg;
 
+	AVal parsedPlaypath, parsedApp;
 	char *parsedHost = 0;
 	unsigned int parsedPort = 0;
-	char *parsedPlaypath = 0;
-	char *parsedApp = 0;
 	int parsedProtocol = RTMP_PROTOCOL_UNDEFINED;
 
-	if (!ParseUrl
+	if (!RTMP_ParseURL
 	    (req->rtmpurl, &parsedProtocol, &parsedHost, &parsedPort,
 	     &parsedPlaypath, &parsedApp))
 	  {
@@ -1099,15 +1116,15 @@ ParseOption(char opt, char *arg, RTMP_REQUEST * req)
 	      req->hostname = parsedHost;
 	    if (req->rtmpport == -1)
 	      req->rtmpport = parsedPort;
-	    if (req->playpath.av_len == 0 && parsedPlaypath)
+	    if (req->playpath.av_len == 0 && parsedPlaypath.av_len)
 	      {
-		STR2AVAL(req->playpath, parsedPlaypath);
+		    req->playpath = parsedPlaypath;
 	      }
 	    if (req->protocol == RTMP_PROTOCOL_UNDEFINED)
 	      req->protocol = parsedProtocol;
-	    if (req->app.av_len == 0 && parsedApp)
+	    if (req->app.av_len == 0 && parsedApp.av_len)
 	      {
-		STR2AVAL(req->app, parsedApp);
+		    req->app = parsedApp;
 	      }
 	  }
 	break;

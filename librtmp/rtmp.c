@@ -231,7 +231,7 @@ RTMP_SetupStream(RTMP * r,
   if (pageUrl)
     Log(LOGDEBUG, "pageUrl  : %s", pageUrl->av_val);
   if (app)
-    Log(LOGDEBUG, "app      : %s", app->av_val);
+    Log(LOGDEBUG, "app      : %.*s", app->av_len, app->av_val);
   if (auth)
     Log(LOGDEBUG, "auth     : %s", auth->av_val);
   if (subscribepath)
@@ -282,14 +282,20 @@ RTMP_SetupStream(RTMP * r,
       r->Link.socksport = 0;
     }
 
-
-  r->Link.tcUrl = *tcUrl;
-  r->Link.swfUrl = *swfUrl;
-  r->Link.pageUrl = *pageUrl;
-  r->Link.app = *app;
-  r->Link.auth = *auth;
-  r->Link.flashVer = *flashVer;
-  r->Link.subscribepath = *subscribepath;
+  if (tcUrl)
+    r->Link.tcUrl = *tcUrl;
+  if (swfUrl)
+    r->Link.swfUrl = *swfUrl;
+  if (pageUrl)
+    r->Link.pageUrl = *pageUrl;
+  if (app)
+    r->Link.app = *app;
+  if (auth)
+    r->Link.auth = *auth;
+  if (flashVer)
+    r->Link.flashVer = *flashVer;
+  if (subscribepath)
+    r->Link.subscribepath = *subscribepath;
   r->Link.seekTime = dTime;
   r->Link.length = dLength;
   r->Link.bLiveStream = bLiveStream;

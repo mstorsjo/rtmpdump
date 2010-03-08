@@ -210,8 +210,6 @@ RTMP_REQUEST defaultRTMPRequest;
 
 bool ParseOption(char opt, char *arg, RTMP_REQUEST * req);
 
-char DEFAULT_FLASH_VER[] = "LNX 10,0,22,87";
-
 #ifdef _DEBUG
 uint32_t debugTS = 0;
 
@@ -686,11 +684,6 @@ void processTCPrequest(STREAMING_SERVER * server,	// server socket and state (ou
       Log(LOGWARNING,
 	  "You haven't specified a protocol (--protocol) or rtmp url (-r), using default protocol RTMP");
       req.protocol = RTMP_PROTOCOL_RTMP;
-    }
-
-  if (req.flashVer.av_len == 0)
-    {
-      STR2AVAL(req.flashVer, DEFAULT_FLASH_VER);
     }
 
   if (req.tcUrl.av_len == 0 && req.app.av_len != 0)
@@ -1304,7 +1297,7 @@ main(int argc, char **argv)
 	    ("                        Z:(null), NB:name:boolean, NS:name:string, NN:name:number\n");
 	  LogPrintf
 	    ("--flashVer|-f string    Flash version string (default: \"%s\")\n",
-	     DEFAULT_FLASH_VER);
+	     RTMP_DefaultFlashVer.av_val);
 	  LogPrintf
 	    ("--live|-v               Get a live stream, no --resume (seeking) of live streams possible\n");
 	  LogPrintf

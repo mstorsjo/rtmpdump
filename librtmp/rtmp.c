@@ -198,6 +198,21 @@ RTMP_UpdateBufferMS(RTMP * r)
   RTMP_SendCtrl(r, 3, r->m_stream_id, r->m_nBufferMS);
 }
 
+#undef OSS
+#ifdef WIN32
+#define OSS	"WIN"
+#elif defined(__sun__)
+#define OSS	"SOL"
+#elif defined(__APPLE__)
+#define OSS	"MAC"
+#elif defined(__linux__)
+#define OSS	"LNX"
+#else
+#define OSS	"GNU"
+#endif
+static const char DEFAULT_FLASH_VER[] = OSS " 10,0,32,18";
+const AVal RTMP_DefaultFlashVer = {(char *)DEFAULT_FLASH_VER, sizeof(DEFAULT_FLASH_VER)-1};
+
 void
 RTMP_SetupStream(RTMP * r,
 		 int protocol,
@@ -224,19 +239,19 @@ RTMP_SetupStream(RTMP * r,
   Log(LOGDEBUG, "Port     : %d", port);
   Log(LOGDEBUG, "Playpath : %s", playpath->av_val);
 
-  if (tcUrl)
+  if (tcUrl && tcUrl->av_val)
     Log(LOGDEBUG, "tcUrl    : %s", tcUrl->av_val);
-  if (swfUrl)
+  if (swfUrl && swfUrl->av_val)
     Log(LOGDEBUG, "swfUrl   : %s", swfUrl->av_val);
-  if (pageUrl)
+  if (pageUrl && pageUrl->av_val)
     Log(LOGDEBUG, "pageUrl  : %s", pageUrl->av_val);
-  if (app)
+  if (app && app->av_val)
     Log(LOGDEBUG, "app      : %.*s", app->av_len, app->av_val);
-  if (auth)
+  if (auth && auth->av_val)
     Log(LOGDEBUG, "auth     : %s", auth->av_val);
-  if (subscribepath)
+  if (subscribepath && subscribepath->av_val)
     Log(LOGDEBUG, "subscribepath : %s", subscribepath->av_val);
-  if (flashVer)
+  if (flashVer && flashVer->av_val)
     Log(LOGDEBUG, "flashVer : %s", flashVer->av_val);
   if (dTime > 0)
     Log(LOGDEBUG, "SeekTime      : %.3f sec", (double) dTime / 1000.0);
@@ -282,19 +297,21 @@ RTMP_SetupStream(RTMP * r,
       r->Link.socksport = 0;
     }
 
-  if (tcUrl)
+  if (tcUrl && tcUrl->av_len)
     r->Link.tcUrl = *tcUrl;
-  if (swfUrl)
+  if (swfUrl && swfUrl->av_len)
     r->Link.swfUrl = *swfUrl;
-  if (pageUrl)
+  if (pageUrl && pageUrl->av_len)
     r->Link.pageUrl = *pageUrl;
-  if (app)
+  if (app && app->av_len)
     r->Link.app = *app;
-  if (auth)
+  if (auth && auth->av_len)
     r->Link.auth = *auth;
-  if (flashVer)
+  if (flashVer && flashVer->av_len)
     r->Link.flashVer = *flashVer;
-  if (subscribepath)
+  else
+    r->Link.flashVer = RTMP_DefaultFlashVer;
+  if (subscribepath && subscribepath->av_len)
     r->Link.subscribepath = *subscribepath;
   r->Link.seekTime = dTime;
   r->Link.length = dLength;

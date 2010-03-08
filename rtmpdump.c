@@ -1242,15 +1242,6 @@ main(int argc, char **argv)
 
   char *flvFile = 0;
 
-#undef OSS
-#ifdef WIN32
-#define	OSS	"WIN"
-#else
-#define OSS	"LNX"
-#endif
-
-  char DEFAULT_FLASH_VER[] = OSS " 10,0,22,87";
-
   signal(SIGINT, sigIntHandler);
   signal(SIGTERM, sigIntHandler);
 #ifndef WIN32
@@ -1369,7 +1360,7 @@ main(int argc, char **argv)
 	    ("                        Z:(null), NB:name:boolean, NS:name:string, NN:name:number\n");
 	  LogPrintf
 	    ("--flashVer|-f string    Flash version string (default: \"%s\")\n",
-	     DEFAULT_FLASH_VER);
+	     RTMP_DefaultFlashVer.av_val);
 	  LogPrintf
 	    ("--live|-v               Save a live stream, no --resume (seeking) of live streams possible\n");
 	  LogPrintf
@@ -1677,12 +1668,6 @@ main(int argc, char **argv)
       swfHash.av_val = NULL;
     }
 #endif
-
-  if (flashVer.av_len == 0)
-    {
-      STR2AVAL(flashVer, DEFAULT_FLASH_VER);
-    }
-
 
   if (tcUrl.av_len == 0 && app.av_len != 0)
     {

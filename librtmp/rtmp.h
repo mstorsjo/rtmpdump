@@ -74,6 +74,7 @@ extern "C" {
 #define	RTMP_CHANNELS	65600
 
 extern const char RTMPProtocolStringsLower[][7];
+extern const AVal RTMP_DefaultFlashVer;
 extern bool RTMP_ctrlC;
 
 uint32_t RTMP_GetTime();

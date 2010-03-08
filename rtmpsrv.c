@@ -34,7 +34,7 @@
 #include <assert.h>
 
 #include "librtmp/rtmp.h"
-#include "parseurl.h"
+#include "librtmp/log.h"
 
 #include "thread.h"
 

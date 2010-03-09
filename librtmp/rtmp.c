@@ -2571,20 +2571,13 @@ RTMPSockBuf_Send(RTMPSockBuf *sb, const char *buf, int len)
 int
 RTMPSockBuf_Close(RTMPSockBuf *sb)
 {
-  int rc;
-
   if (sb->sb_ssl)
     {
       SSL_shutdown(sb->sb_ssl);
       SSL_free(sb->sb_ssl);
       sb->sb_ssl = NULL;
-      rc = 0;
     }
-  else
-    {
-      rc = closesocket(sb->sb_socket);
-    }
-  return rc;
+  return closesocket(sb->sb_socket);
 }
 
 #define HEX2BIN(a)	(((a)&0x40)?((a)&0xf)+9:((a)&0xf))

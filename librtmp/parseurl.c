@@ -90,12 +90,12 @@ parsehost:
 
 	{
 	int hostlen;
-	if(col)
-		hostlen = col - p;
-	else if(slash)
+	if(slash)
 		hostlen = slash - p;
 	else
 		hostlen = end - p;
+	if(col && col -p < hostlen)
+		hostlen = col - p;
 
 	if(hostlen < 256) {
 		*host = malloc(hostlen+1);

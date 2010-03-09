@@ -1269,7 +1269,7 @@ main(int argc, char **argv)
 	  LogPrintf
 	    ("--socks|-S host:port    Use the specified SOCKS proxy\n");
 	  LogPrintf
-	    ("--protocol|-l           Overrides the protocol in the rtmp url (0 - RTMP, 3 - RTMPE)\n");
+	    ("--protocol|-l           Overrides the protocol in the rtmp url (0 - RTMP, 2 - RTMPE)\n");
 	  LogPrintf
 	    ("--playpath|-y           Overrides the playpath parsed from rtmp url\n");
 	  LogPrintf("--swfUrl|-s url         URL to player swf file\n");

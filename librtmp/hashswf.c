@@ -28,17 +28,22 @@
 #include "log.h"
 #include "http.h"
 
+#include <openssl/ssl.h>
 #include <openssl/sha.h>
 #include <openssl/hmac.h>
 #include <zlib.h>
 
-struct info {
+struct info
+{
   HMAC_CTX *ctx;
   z_stream *zs;
   int first;
   int zlib;
   int size;
 };
+
+extern void RTMP_SSL_Init();
+extern SSL_CTX *RTMP_ssl_ctx;
 
 #define CHUNK	16384
 
@@ -54,10 +59,10 @@ swfcrunch(void *ptr, size_t size, size_t nmemb, void *stream)
       i->first = 0;
       /* compressed? */
       if (!strncmp(p, "CWS", 3))
-        {
-          *p = 'F';
-          i->zlib = 1;
-        }
+	{
+	  *p = 'F';
+	  i->zlib = 1;
+	}
       HMAC_Update(i->ctx, (unsigned char *)p, 8);
       p += 8;
       len -= 8;
@@ -70,14 +75,15 @@ swfcrunch(void *ptr, size_t size, size_t nmemb, void *stream)
       i->zs->next_in = (unsigned char *)p;
       i->zs->avail_in = len;
       do
-        {
-          i->zs->avail_out = CHUNK;
-          i->zs->next_out = out;
-          inflate(i->zs, Z_NO_FLUSH);
-          len = CHUNK - i->zs->avail_out;
-          i->size += len;
-          HMAC_Update(i->ctx, out, len);
-        } while (i->zs->avail_out == 0);
+	{
+	  i->zs->avail_out = CHUNK;
+	  i->zs->next_out = out;
+	  inflate(i->zs, Z_NO_FLUSH);
+	  len = CHUNK - i->zs->avail_out;
+	  i->size += len;
+	  HMAC_Update(i->ctx, out, len);
+	}
+      while (i->zs->avail_out == 0);
     }
   else
     {
@@ -117,13 +123,15 @@ HTTP_get(struct HTTP_ctx *http, const char *url, HTTP_read_callback *cb)
     {
       ssl = 1;
       port = 443;
+      if (!RTMP_ssl_ctx)
+	RTMP_SSL_Init();
     }
 
-  p1 = strchr(url+4, ':');
+  p1 = strchr(url + 4, ':');
   if (!p1 || strncmp(p1, "://", 3))
     return HTTPRES_BAD_REQUEST;
 
-  host = p1+3;
+  host = p1 + 3;
   path = strchr(host, '/');
   hlen = path - host;
   strncpy(hbuf, host, hlen);
@@ -141,34 +149,48 @@ HTTP_get(struct HTTP_ctx *http, const char *url, HTTP_read_callback *cb)
     {
       struct hostent *hp = gethostbyname(host);
       if (!hp || !hp->h_addr)
-        return HTTPRES_LOST_CONNECTION;
+	return HTTPRES_LOST_CONNECTION;
       sa.sin_addr = *(struct in_addr *)hp->h_addr;
     }
   sa.sin_port = htons(port);
   sb.sb_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
   if (sb.sb_socket < 0)
     return HTTPRES_LOST_CONNECTION;
-  i = sprintf(sb.sb_buf, "GET %s HTTP/1.0\r\nUser-Agent: %s\r\nHost: %s\r\nReferrer: %.*s\r\n",
-    path, AGENT, host, (int)(path-url+1), url);
+  i =
+    sprintf(sb.sb_buf,
+	    "GET %s HTTP/1.0\r\nUser-Agent: %s\r\nHost: %s\r\nReferrer: %.*s\r\n",
+	    path, AGENT, host, (int)(path - url + 1), url);
   if (http->date[0])
-    i += sprintf(sb.sb_buf+i, "If-Modified-Since: %s\r\n", http->date);
-  i += sprintf(sb.sb_buf+i, "\r\n");
+    i += sprintf(sb.sb_buf + i, "If-Modified-Since: %s\r\n", http->date);
+  i += sprintf(sb.sb_buf + i, "\r\n");
 
-  if (connect(sb.sb_socket, (struct sockaddr *)&sa, sizeof(struct sockaddr)) < 0)
+  if (connect
+      (sb.sb_socket, (struct sockaddr *)&sa, sizeof(struct sockaddr)) < 0)
     {
       ret = HTTPRES_LOST_CONNECTION;
       goto leave;
     }
-  send(sb.sb_socket, sb.sb_buf, i, 0);
+  if (ssl)
+    {
+      sb.sb_ssl = SSL_new(RTMP_ssl_ctx);
+      SSL_set_fd(sb.sb_ssl, sb.sb_socket);
+      if (SSL_connect(sb.sb_ssl) < 0)
+	{
+	  Log(LOGERROR, "%s, SSL_Connect failed", __FUNCTION__);
+	  ret = HTTPRES_LOST_CONNECTION;
+	  goto leave;
+	}
+    }
+  RTMPSockBuf_Send(&sb, sb.sb_buf, i);
 
   // set timeout
 #define HTTP_TIMEOUT	5
   SET_RCVTIMEO(tv, HTTP_TIMEOUT);
   if (setsockopt
-    (sb.sb_socket, SOL_SOCKET, SO_RCVTIMEO, (char *) &tv, sizeof(tv)))
+      (sb.sb_socket, SOL_SOCKET, SO_RCVTIMEO, (char *)&tv, sizeof(tv)))
     {
       Log(LOGERROR, "%s, Setting socket timeout to %ds failed!",
-          __FUNCTION__, HTTP_TIMEOUT);
+	  __FUNCTION__, HTTP_TIMEOUT);
     }
 
   sb.sb_size = 0;
@@ -185,24 +207,25 @@ HTTP_get(struct HTTP_ctx *http, const char *url, HTTP_read_callback *cb)
     }
 
   p1 = strchr(sb.sb_buf, ' ');
-  rc = atoi(p1+1);
+  rc = atoi(p1 + 1);
   http->status = rc;
 
-  if (rc >= 300) {
-    if (rc == 304)
-      {
-        ret = HTTPRES_OK_NOT_MODIFIED;
-        goto leave;
-      }
-    else if (rc == 404)
-      ret = HTTPRES_NOT_FOUND;
-    else if (rc >= 500)
-      ret = HTTPRES_SERVER_ERROR;
-    else if (rc >= 400)
-      ret = HTTPRES_BAD_REQUEST;
-    else
-      ret = HTTPRES_REDIRECTED;
-  }
+  if (rc >= 300)
+    {
+      if (rc == 304)
+	{
+	  ret = HTTPRES_OK_NOT_MODIFIED;
+	  goto leave;
+	}
+      else if (rc == 404)
+	ret = HTTPRES_NOT_FOUND;
+      else if (rc >= 500)
+	ret = HTTPRES_SERVER_ERROR;
+      else if (rc >= 400)
+	ret = HTTPRES_BAD_REQUEST;
+      else
+	ret = HTTPRES_REDIRECTED;
+    }
 
   p1 = memchr(sb.sb_buf, '\n', sb.sb_size);
   if (!p1)
@@ -210,46 +233,50 @@ HTTP_get(struct HTTP_ctx *http, const char *url, HTTP_read_callback *cb)
       ret = HTTPRES_BAD_REQUEST;
       goto leave;
     }
-  sb.sb_start = p1+1;
+  sb.sb_start = p1 + 1;
   sb.sb_size -= sb.sb_start - sb.sb_buf;
 
-  while((p2=memchr(sb.sb_start, '\r', sb.sb_size)))
+  while ((p2 = memchr(sb.sb_start, '\r', sb.sb_size)))
     {
       if (*sb.sb_start == '\r')
-        {
-          sb.sb_start += 2;
-          sb.sb_size -= 2;
-          break;
-        }
-      else if (!strncasecmp(sb.sb_start, "Content-Length: ", sizeof("Content-Length: ")-1))
-        {
-          flen = atoi(sb.sb_start+sizeof("Content-Length: ")-1);
-        }
-      else if (!strncasecmp(sb.sb_start, "Last-Modified: ", sizeof("Last-Modified: ")-1))
-        {
-          *p2 = '\0';
-          strcpy(http->date, sb.sb_start+sizeof("Last-Modified: ")-1);
-        }
+	{
+	  sb.sb_start += 2;
+	  sb.sb_size -= 2;
+	  break;
+	}
+      else
+	if (!strncasecmp
+	    (sb.sb_start, "Content-Length: ", sizeof("Content-Length: ") - 1))
+	{
+	  flen = atoi(sb.sb_start + sizeof("Content-Length: ") - 1);
+	}
+      else
+	if (!strncasecmp
+	    (sb.sb_start, "Last-Modified: ", sizeof("Last-Modified: ") - 1))
+	{
+	  *p2 = '\0';
+	  strcpy(http->date, sb.sb_start + sizeof("Last-Modified: ") - 1);
+	}
       p2 += 2;
-      sb.sb_size -= p2-sb.sb_start;
+      sb.sb_size -= p2 - sb.sb_start;
       sb.sb_start = p2;
       if (sb.sb_size < 1)
-        {
-          if (RTMPSockBuf_Fill(&sb) < 1)
-            {
-              ret = HTTPRES_LOST_CONNECTION;
-              goto leave;
-            }
-        }
+	{
+	  if (RTMPSockBuf_Fill(&sb) < 1)
+	    {
+	      ret = HTTPRES_LOST_CONNECTION;
+	      goto leave;
+	    }
+	}
     }
 
   len_known = flen > 0;
   while ((!len_known || flen > 0) &&
-         (sb.sb_size > 0 || RTMPSockBuf_Fill(&sb) > 0))
+	 (sb.sb_size > 0 || RTMPSockBuf_Fill(&sb) > 0))
     {
       cb(sb.sb_start, 1, sb.sb_size, http->data);
       if (len_known)
-        flen -= sb.sb_size;
+	flen -= sb.sb_size;
       http->size += sb.sb_size;
       sb.sb_size = 0;
     }
@@ -258,7 +285,7 @@ HTTP_get(struct HTTP_ctx *http, const char *url, HTTP_read_callback *cb)
     ret = HTTPRES_LOST_CONNECTION;
 
 leave:
-  closesocket(sb.sb_socket);
+  RTMPSockBuf_Close(&sb);
   return ret;
 }
 
@@ -267,105 +294,111 @@ static int tzchecked;
 
 #define	JAN02_1980	318340800
 
-static const char *monthtab[12] = {"Jan", "Feb", "Mar",
-				"Apr", "May", "Jun",
-				"Jul", "Aug", "Sep",
-				"Oct", "Nov", "Dec"};
-static const char *days[] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
+static const char *monthtab[12] = { "Jan", "Feb", "Mar",
+  "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep",
+  "Oct", "Nov", "Dec"
+};
+static const char *days[] =
+  { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
 
 /* Parse an HTTP datestamp into Unix time */
 static time_t
 make_unix_time(char *s)
 {
-    struct tm       time;
-    int             i, ysub = 1900, fmt = 0;
-    char           *month;
-    char           *n;
-    time_t res;
+  struct tm time;
+  int i, ysub = 1900, fmt = 0;
+  char *month;
+  char *n;
+  time_t res;
 
-    if (s[3] != ' ')
+  if (s[3] != ' ')
     {
-	fmt = 1;
-	if (s[3] != ',')
-	    ysub = 0;
+      fmt = 1;
+      if (s[3] != ',')
+	ysub = 0;
     }
-    for (n = s; *n; ++n)
-	if (*n == '-' || *n == ':')
-	    *n = ' ';
+  for (n = s; *n; ++n)
+    if (*n == '-' || *n == ':')
+      *n = ' ';
 
-    time.tm_mon = 0;
-    n = strchr(s, ' ');
-    if (fmt)
+  time.tm_mon = 0;
+  n = strchr(s, ' ');
+  if (fmt)
     {
-	/* Day, DD-MMM-YYYY HH:MM:SS GMT */
-	time.tm_mday = strtol(n+1, &n, 0);
-	month = n+1;
-	n = strchr(month, ' ');
-	time.tm_year = strtol(n+1, &n, 0);
-	time.tm_hour = strtol(n+1, &n, 0);
-	time.tm_min = strtol(n+1, &n, 0);
-	time.tm_sec = strtol(n+1, NULL, 0);
-    } else
-    {
-	/* Unix ctime() format. Does not conform to HTTP spec. */
-	/* Day MMM DD HH:MM:SS YYYY */
-	month = n+1;
-	n = strchr(month, ' ');
-	while (isspace(*n)) n++;
-	time.tm_mday = strtol(n, &n, 0);
-	time.tm_hour = strtol(n+1, &n, 0);
-	time.tm_min = strtol(n+1, &n, 0);
-	time.tm_sec = strtol(n+1, &n, 0);
-	time.tm_year = strtol(n+1, NULL, 0);
+      /* Day, DD-MMM-YYYY HH:MM:SS GMT */
+      time.tm_mday = strtol(n + 1, &n, 0);
+      month = n + 1;
+      n = strchr(month, ' ');
+      time.tm_year = strtol(n + 1, &n, 0);
+      time.tm_hour = strtol(n + 1, &n, 0);
+      time.tm_min = strtol(n + 1, &n, 0);
+      time.tm_sec = strtol(n + 1, NULL, 0);
     }
-    if (time.tm_year > 100)
-	time.tm_year -= ysub;
-
-    for (i = 0; i < 12; i++)
-	if (!strncasecmp(month, monthtab[i], 3))
-	{
-	    time.tm_mon = i;
-	    break;
-	}
-    time.tm_isdst = 0;		/* daylight saving is never in effect in GMT */
-
-    /* this is normally the value of extern int timezone, but some
-     * braindead C libraries don't provide it.
-     */
-    if (!tzchecked)
+  else
     {
-    	struct tm *tc;
-	time_t then = JAN02_1980;
-	tc = localtime(&then);
-	tzoff = (12 - tc->tm_hour) * 3600 + tc->tm_min * 60 + tc->tm_sec;
-	tzchecked = 1;
+      /* Unix ctime() format. Does not conform to HTTP spec. */
+      /* Day MMM DD HH:MM:SS YYYY */
+      month = n + 1;
+      n = strchr(month, ' ');
+      while (isspace(*n))
+	n++;
+      time.tm_mday = strtol(n, &n, 0);
+      time.tm_hour = strtol(n + 1, &n, 0);
+      time.tm_min = strtol(n + 1, &n, 0);
+      time.tm_sec = strtol(n + 1, &n, 0);
+      time.tm_year = strtol(n + 1, NULL, 0);
     }
-    res = mktime(&time);
-    /* Unfortunately, mktime() assumes the input is in local time,
-     * not GMT, so we have to correct it here.
-     */
-    if (res != -1)
-	res += tzoff;
-    return res;
+  if (time.tm_year > 100)
+    time.tm_year -= ysub;
+
+  for (i = 0; i < 12; i++)
+    if (!strncasecmp(month, monthtab[i], 3))
+      {
+	time.tm_mon = i;
+	break;
+      }
+  time.tm_isdst = 0;		/* daylight saving is never in effect in GMT */
+
+  /* this is normally the value of extern int timezone, but some
+   * braindead C libraries don't provide it.
+   */
+  if (!tzchecked)
+    {
+      struct tm *tc;
+      time_t then = JAN02_1980;
+      tc = localtime(&then);
+      tzoff = (12 - tc->tm_hour) * 3600 + tc->tm_min * 60 + tc->tm_sec;
+      tzchecked = 1;
+    }
+  res = mktime(&time);
+  /* Unfortunately, mktime() assumes the input is in local time,
+   * not GMT, so we have to correct it here.
+   */
+  if (res != -1)
+    res += tzoff;
+  return res;
 }
 
 /* Convert a Unix time to a network time string
  * Weekday, DD-MMM-YYYY HH:MM:SS GMT
  */
-void strtime(time_t *t, char *s)
+void
+strtime(time_t * t, char *s)
 {
-    struct tm *tm;
+  struct tm *tm;
 
-    tm = gmtime((time_t *)t);
-    sprintf(s, "%s, %02d %s %d %02d:%02d:%02d GMT",
-	days[tm->tm_wday], tm->tm_mday, monthtab[tm->tm_mon],
-	tm->tm_year + 1900, tm->tm_hour, tm->tm_min, tm->tm_sec);
+  tm = gmtime((time_t *) t);
+  sprintf(s, "%s, %02d %s %d %02d:%02d:%02d GMT",
+	  days[tm->tm_wday], tm->tm_mday, monthtab[tm->tm_mon],
+	  tm->tm_year + 1900, tm->tm_hour, tm->tm_min, tm->tm_sec);
 }
 
 #define HEX2BIN(a)      (((a)&0x40)?((a)&0xf)+9:((a)&0xf))
 
 int
-RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash, int age)
+RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash,
+	     int age)
 {
   FILE *f = NULL;
   char *path, *home, date[64], cctim[64];
@@ -373,10 +406,10 @@ RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash, int age)
   time_t ctim = -1, cnow;
   int i, got = 0, ret = 0;
   unsigned int hlen;
-  struct info in = {0};
-  struct HTTP_ctx http = {0};
+  struct info in = { 0 };
+  struct HTTP_ctx http = { 0 };
   HTTPResult httpres;
-  z_stream zs = {0};
+  z_stream zs = { 0 };
   HMAC_CTX ctx;
 
   date[0] = '\0';
@@ -394,7 +427,7 @@ RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash, int age)
    * These fields must be present in this order. All fields
    * besides URL are fixed size.
    */
-  path=malloc(strlen(home)+sizeof("/.swfinfo"));
+  path = malloc(strlen(home) + sizeof("/.swfinfo"));
   strcpy(path, home);
   strcat(path, "/.swfinfo");
 
@@ -405,67 +438,67 @@ RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash, int age)
 
       file = strchr(url, '/');
       if (!file)
-        break;
+	break;
       file += 2;
       file = strchr(file, '/');
       if (!file)
-        break;
+	break;
       file++;
       hlen = file - url;
       p = strrchr(file, '/');
       if (p)
-        file = p;
+	file = p;
       else
-        file--;
+	file--;
 
       while (fgets(buf, sizeof(buf), f))
-        {
-          char *r1;
+	{
+	  char *r1;
 
-          got = 0;
+	  got = 0;
 
-          if (strncmp(buf, "url: ", 5))
-            continue;
-          if (strncmp(buf+5, url, hlen))
-            continue;
-          r1 = strrchr(buf, '/');
-          i = strlen(r1);
-          r1[--i] = '\0';
-          if (strncmp(r1, file, i))
-            continue;
-          pos = ftell(f);
-          while (got < 4 && fgets(buf, sizeof(buf), f))
-            {
-              if (!strncmp(buf, "size: ", 6))
-                {
-                  *size = strtol(buf+6, NULL, 16);
-                  got++;
-                }
-              else if (!strncmp(buf, "hash: ", 6))
-                {
-                  unsigned char *ptr = hash, *in = (unsigned char *)buf+6;
-                  int l = strlen((char *)in)-1;
-                  for (i=0; i<l; i+=2)
-                    *ptr++ = (HEX2BIN(in[i]) << 4) | HEX2BIN(in[i+1]);
-                  got++;
-                }
-              else if (!strncmp(buf, "date: ", 6))
-                {
-                  buf[strlen(buf)-1] = '\0';
-                  strncpy(date, buf+6, sizeof(date));
-                  got++;
-                }
-              else if (!strncmp(buf, "ctim: ", 6))
-                {
-                  buf[strlen(buf)-1] = '\0';
-		  ctim = make_unix_time(buf+6);
-                  got++;
-                }
-              else if (!strncmp(buf, "url: ", 5))
-                break;
-            }
-          break;
-        }
+	  if (strncmp(buf, "url: ", 5))
+	    continue;
+	  if (strncmp(buf + 5, url, hlen))
+	    continue;
+	  r1 = strrchr(buf, '/');
+	  i = strlen(r1);
+	  r1[--i] = '\0';
+	  if (strncmp(r1, file, i))
+	    continue;
+	  pos = ftell(f);
+	  while (got < 4 && fgets(buf, sizeof(buf), f))
+	    {
+	      if (!strncmp(buf, "size: ", 6))
+		{
+		  *size = strtol(buf + 6, NULL, 16);
+		  got++;
+		}
+	      else if (!strncmp(buf, "hash: ", 6))
+		{
+		  unsigned char *ptr = hash, *in = (unsigned char *)buf + 6;
+		  int l = strlen((char *)in) - 1;
+		  for (i = 0; i < l; i += 2)
+		    *ptr++ = (HEX2BIN(in[i]) << 4) | HEX2BIN(in[i + 1]);
+		  got++;
+		}
+	      else if (!strncmp(buf, "date: ", 6))
+		{
+		  buf[strlen(buf) - 1] = '\0';
+		  strncpy(date, buf + 6, sizeof(date));
+		  got++;
+		}
+	      else if (!strncmp(buf, "ctim: ", 6))
+		{
+		  buf[strlen(buf) - 1] = '\0';
+		  ctim = make_unix_time(buf + 6);
+		  got++;
+		}
+	      else if (!strncmp(buf, "url: ", 5))
+		break;
+	    }
+	  break;
+	}
       break;
     }
 
@@ -474,14 +507,15 @@ RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash, int age)
   if (age && ctim > 0)
     {
       ctim = cnow - ctim;
-      ctim /= 3600 * 24; /* seconds to days */
-      if (ctim < age)	/* ok, it's new enough */
-        goto out;
+      ctim /= 3600 * 24;	/* seconds to days */
+      if (ctim < age)		/* ok, it's new enough */
+	goto out;
     }
 
   in.first = 1;
   HMAC_CTX_init(&ctx);
-  HMAC_Init_ex(&ctx, "Genuine Adobe Flash Player 001", 30, EVP_sha256(), NULL);
+  HMAC_Init_ex(&ctx, "Genuine Adobe Flash Player 001", 30, EVP_sha256(),
+	       NULL);
   inflateInit(&zs);
   in.ctx = &ctx;
   in.zs = &zs;
@@ -497,56 +531,56 @@ RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash, int age)
     {
       ret = -1;
       if (httpres == HTTPRES_LOST_CONNECTION)
-        Log(LOGERROR, "%s: connection lost while downloading swfurl %s",
-            __FUNCTION__, url);
+	Log(LOGERROR, "%s: connection lost while downloading swfurl %s",
+	    __FUNCTION__, url);
       else if (httpres == HTTPRES_NOT_FOUND)
-        Log(LOGERROR, "%s: swfurl %s not found",
-            __FUNCTION__, url);
+	Log(LOGERROR, "%s: swfurl %s not found", __FUNCTION__, url);
       else
-        Log(LOGERROR, "%s: couldn't contact swfurl %s (HTTP error %d)",
-            __FUNCTION__, url, http.status);
+	Log(LOGERROR, "%s: couldn't contact swfurl %s (HTTP error %d)",
+	    __FUNCTION__, url, http.status);
     }
   else
     {
       if (got && pos)
-        fseek(f, pos, SEEK_SET);
+	fseek(f, pos, SEEK_SET);
       else
-        {
-          char *q;
-          if (!f)
-            f = fopen(path, "w");
-          if (!f)
-            {
-              int err = errno;
-              Log(LOGERROR, "%s: couldn't open %s for writing, errno %d (%s)",
-                __FUNCTION__, path, err, strerror(err));
-              ret = -1;
-              goto out;
-            }
-          fseek(f, 0, SEEK_END);
-          q = strchr(url, '?');
-          if (q)
-            i = q - url;
-          else
-            i = strlen(url);
+	{
+	  char *q;
+	  if (!f)
+	    f = fopen(path, "w");
+	  if (!f)
+	    {
+	      int err = errno;
+	      Log(LOGERROR,
+		  "%s: couldn't open %s for writing, errno %d (%s)",
+		  __FUNCTION__, path, err, strerror(err));
+	      ret = -1;
+	      goto out;
+	    }
+	  fseek(f, 0, SEEK_END);
+	  q = strchr(url, '?');
+	  if (q)
+	    i = q - url;
+	  else
+	    i = strlen(url);
 
-          fprintf(f, "url: %.*s\n", i, url);
-        }
+	  fprintf(f, "url: %.*s\n", i, url);
+	}
       strtime(&cnow, cctim);
       fprintf(f, "ctim: %s\n", cctim);
 
       if (!in.first)
-        {
-          HMAC_Final(&ctx, (unsigned char *)hash, &hlen);
-          *size = in.size;
+	{
+	  HMAC_Final(&ctx, (unsigned char *)hash, &hlen);
+	  *size = in.size;
 
-          fprintf(f, "date: %s\n", date);
-          fprintf(f, "size: %08x\n", in.size);
-          fprintf(f, "hash: ");
-          for (i=0; i<SHA256_DIGEST_LENGTH; i++)
-            fprintf(f, "%02x", hash[i]);
-          fprintf(f, "\n");
-        }
+	  fprintf(f, "date: %s\n", date);
+	  fprintf(f, "size: %08x\n", in.size);
+	  fprintf(f, "hash: ");
+	  for (i = 0; i < SHA256_DIGEST_LENGTH; i++)
+	    fprintf(f, "%02x", hash[i]);
+	  fprintf(f, "\n");
+	}
     }
   HMAC_CTX_cleanup(&ctx);
 out:

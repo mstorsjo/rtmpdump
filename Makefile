@@ -5,7 +5,7 @@ DEF=-DRTMPDUMP_VERSION=\"v2.2\"
 OPT=-O2
 CFLAGS=-Wall $(XCFLAGS) $(INC) $(DEF) $(OPT)
 LDFLAGS=-Wall $(XLDFLAGS)
-LIBS=-lcrypto -lz
+LIBS=-lssl -lcrypto -lz
 THREADLIB=-lpthread
 LIBRTMP=librtmp/librtmp.a
 SLIBS=$(THREADLIB) $(LIBS)

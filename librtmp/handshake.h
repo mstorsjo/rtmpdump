@@ -312,8 +312,7 @@ HandShake(RTMP * r, bool FP9HandShake)
   int i;
   int dhposClient = 0;
   int digestPosClient = 0;
-  bool encrypted = r->Link.protocol == RTMP_PROTOCOL_RTMPE
-    || r->Link.protocol == RTMP_PROTOCOL_RTMPTE;
+  bool encrypted = r->Link.protocol & RTMP_FEATURE_ENC;
 
   RC4_KEY *keyIn = 0;
   RC4_KEY *keyOut = 0;
@@ -711,13 +710,12 @@ SHandShake(RTMP * r)
   if (type == 3)
     {
       encrypted = false;
-      r->Link.protocol = RTMP_PROTOCOL_RTMP;
     }
   else if (type == 6 || type == 8)
     {
       encrypted = true;
       FP9HandShake = true;
-      r->Link.protocol = RTMP_PROTOCOL_RTMPE;
+      r->Link.protocol |= RTMP_FEATURE_ENC;
     }
   else
     {

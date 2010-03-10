@@ -8,6 +8,7 @@ http://rtmpdump.mplayerhq.hu/
 - fix C++ compatibility for librtmp
 - misc library restructuring
 - add client support for tunneling: rtmpt, rtmpte, rtmps
+- fix rtmpdump/rtmpgw FLV header dataType
 
 4 March 2010, v2.2
 - move RTMP code into library librtmp

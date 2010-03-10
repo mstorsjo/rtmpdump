@@ -2445,7 +2445,7 @@ RTMP_SendPacket(RTMP *r, RTMPPacket *packet, bool queue)
     hptr = AMF_EncodeInt32(hptr, hend, packet->m_nInfoField1);
 
   nSize = packet->m_nBodySize;
-  char *buffer = packet->m_body, *tbuf = NULL, *toff;
+  char *buffer = packet->m_body, *tbuf = NULL, *toff = NULL;
   int nChunkSize = r->m_outChunkSize;
   int tlen;
 

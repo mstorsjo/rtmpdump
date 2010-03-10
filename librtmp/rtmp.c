@@ -451,8 +451,6 @@ RTMP_Connect0(RTMP *r, struct sockaddr * service)
   return true;
 }
 
-#define AGENT	"Mozilla/5.0"
-
 bool
 RTMP_Connect1(RTMP *r, RTMPPacket *cp)
 {
@@ -474,7 +472,7 @@ RTMP_Connect1(RTMP *r, RTMPPacket *cp)
       r->m_clientID.av_len = 0;
       HTTP_Post(r, RTMPT_OPEN, "", 1);
       HTTP_read(r, 1);
-	  r->m_msgCounter = 0;
+      r->m_msgCounter = 0;
     }
   Log(LOGDEBUG, "%s, ... connected, handshaking", __FUNCTION__);
   if (!HandShake(r, true))
@@ -869,10 +867,10 @@ ReadN(RTMP *r, char *buffer, int n)
 	      if (fill)
 	        HTTP_Post(r, RTMPT_IDLE, "", 1);
 	      while (r->m_unackd && !r->m_resplen)
-		    {
+		{
 	          HTTP_read(r, fill);
-			  fill = r->m_sb.sb_size == 0;
-			}
+		  fill = r->m_sb.sb_size == 0;
+		}
 	    }
 	  else if (RTMPSockBuf_Fill(&r->m_sb) < 1)
 	    {
@@ -2741,7 +2739,7 @@ HTTP_Post(RTMP *r, RTMPTCmd cmd, const char *buf, int len)
     "Cache-Control: no-cache\r\n"
     "Content-type: application/x-fcs\r\n"
     "Content-length: %d\r\n\r\n", RTMPT_cmds[cmd],
-	r->m_clientID.av_val ? r->m_clientID.av_val : "",
+    r->m_clientID.av_val ? r->m_clientID.av_val : "",
     r->m_msgCounter, r->Link.hostname, r->Link.port, len);
   RTMPSockBuf_Send(&r->m_sb, hbuf, hlen);
   hlen = RTMPSockBuf_Send(&r->m_sb, buf, len);
@@ -2776,20 +2774,20 @@ HTTP_read(RTMP *r, int fill)
 
   if (!r->m_clientID.av_val)
     {
-	  r->m_clientID.av_len = hlen;
-	  r->m_clientID.av_val = malloc(hlen+1);
-	  if (!r->m_clientID.av_val)
-	    return -1;
-	  r->m_clientID.av_val[0] = '/';
-	  memcpy(r->m_clientID.av_val+1, ptr, hlen-1);
-	  r->m_sb.sb_size = 0;
-	}
+      r->m_clientID.av_len = hlen;
+      r->m_clientID.av_val = malloc(hlen+1);
+      if (!r->m_clientID.av_val)
+        return -1;
+      r->m_clientID.av_val[0] = '/';
+      memcpy(r->m_clientID.av_val+1, ptr, hlen-1);
+      r->m_sb.sb_size = 0;
+    }
   else
     {
-	  r->m_polling = *ptr++;
-	  r->m_resplen = hlen - 1;
-	  r->m_sb.sb_start++;
-	  r->m_sb.sb_size--;
-	}
+      r->m_polling = *ptr++;
+      r->m_resplen = hlen - 1;
+      r->m_sb.sb_start++;
+      r->m_sb.sb_size--;
+    }
   return 0;
 }

@@ -212,9 +212,9 @@ extern "C"
     double m_fDuration;		// duration of stream in seconds
 
     int m_msgCounter;		/* RTMPT stuff */
-	int m_polling;
-	int m_resplen;
-	int m_unackd;
+    int m_polling;
+    int m_resplen;
+    int m_unackd;
     AVal m_clientID;
 
     RTMPSockBuf m_sb;

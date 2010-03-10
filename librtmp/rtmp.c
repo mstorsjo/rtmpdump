@@ -919,10 +919,7 @@ ReadN(RTMP *r, char *buffer, int n)
 	}
 
       if (r->Link.protocol & RTMP_FEATURE_HTTP)
-        {
-          r->m_resplen -= nBytes;
-	  assert(r->m_resplen >= 0);
-	}
+	r->m_resplen -= nBytes;
 
 #ifdef CRYPTO
       if (r->Link.rc4keyIn)

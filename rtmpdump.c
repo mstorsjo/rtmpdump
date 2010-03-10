@@ -1607,22 +1607,28 @@ main(int argc, char **argv)
       return RD_FAILED;
     }
 
-  if (port == -1)
-    {
-      Log(LOGWARNING,
-	  "You haven't specified a port (--port) or rtmp url (-r), using default port 1935");
-      port = 1935;
-    }
-  if (port == 0)
-    {
-      port = 1935;
-    }
   if (protocol == RTMP_PROTOCOL_UNDEFINED)
     {
       Log(LOGWARNING,
 	  "You haven't specified a protocol (--protocol) or rtmp url (-r), using default protocol RTMP");
       protocol = RTMP_PROTOCOL_RTMP;
     }
+  if (port == -1)
+    {
+      Log(LOGWARNING,
+	  "You haven't specified a port (--port) or rtmp url (-r), using default port 1935");
+      port = 0;
+    }
+  if (port == 0)
+    {
+      if (protocol & RTMP_FEATURE_SSL)
+	port = 443;
+      else if (protocol & RTMP_FEATURE_HTTP)
+	port = 80;
+      else
+	port = 1935;
+    }
+
   if (flvFile == 0)
     {
       Log(LOGWARNING,

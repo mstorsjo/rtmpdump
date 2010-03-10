@@ -673,31 +673,37 @@ void processTCPrequest(STREAMING_SERVER * server,	// server socket and state (ou
       goto filenotfound;;
     }
 
-  if (req.rtmpport == -1)
-    {
-      Log(LOGWARNING,
-	  "You haven't specified a port (--port) or rtmp url (-r), using default port 1935");
-      req.rtmpport = 1935;
-    }
   if (req.protocol == RTMP_PROTOCOL_UNDEFINED)
     {
       Log(LOGWARNING,
 	  "You haven't specified a protocol (--protocol) or rtmp url (-r), using default protocol RTMP");
       req.protocol = RTMP_PROTOCOL_RTMP;
     }
+  if (req.rtmpport == -1)
+    {
+      Log(LOGWARNING,
+	  "You haven't specified a port (--port) or rtmp url (-r), using default port");
+      req.rtmpport = 0;
+    }
+  if (req.rtmpport == 0)
+    {
+      if (req.protocol & RTMP_FEATURE_SSL)
+	req.rtmpport = 443;
+      else if (req.protocol & RTMP_FEATURE_HTTP)
+	req.rtmpport = 80;
+      else
+	req.rtmpport = 1935;
+    }
 
   if (req.tcUrl.av_len == 0 && req.app.av_len != 0)
     {
       char str[512] = { 0 };
-      snprintf(str, 511, "%s://%s/%s", RTMPProtocolStringsLower[req.protocol],
-	       req.hostname, req.app.av_val);
+      snprintf(str, 511, "%s://%s:%d/%s", RTMPProtocolStringsLower[req.protocol],
+	       req.hostname, req.rtmpport, req.app.av_val);
       req.tcUrl.av_len = strlen(str);
       req.tcUrl.av_val = (char *) malloc(req.tcUrl.av_len + 1);
       strcpy(req.tcUrl.av_val, str);
     }
-
-  if (req.rtmpport == 0)
-    req.rtmpport = 1935;
 
   if (req.swfVfy)
     {

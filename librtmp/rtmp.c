@@ -68,6 +68,17 @@ const char RTMPProtocolStringsLower[][7] = {
   "rtmfp"
 };
 
+static const char *RTMPT_cmds[] = {
+  "open",
+  "send",
+  "idle",
+  "close"
+};
+
+typedef enum {
+  RTMPT_OPEN=0, RTMPT_SEND, RTMPT_IDLE, RTMPT_CLOSE
+} RTMPTCmd;
+
 static bool DumpMetaData(AMFObject *obj);
 static bool HandShake(RTMP *r, bool FP9HandShake);
 static bool SocksNegotiate(RTMP *r);
@@ -98,6 +109,13 @@ static bool WriteN(RTMP *r, const char *buffer, int n);
 
 static void DecodeTEA(AVal *key, AVal *text);
 
+static int HTTP_Post(RTMP *r, RTMPTCmd cmd, const char *buf, int len);
+static int HTTP_read(RTMP *r, int fill);
+
+#ifndef WIN32
+static int clk_tck;
+#endif
+
 uint32_t
 RTMP_GetTime()
 {
@@ -107,7 +125,8 @@ RTMP_GetTime()
   return timeGetTime();
 #else
   struct tms t;
-  return times(&t) * 1000 / sysconf(_SC_CLK_TCK);
+  if (!clk_tck) clk_tck = sysconf(_SC_CLK_TCK);
+  return times(&t) * 1000 / clk_tck;
 #endif
 }
 
@@ -348,7 +367,14 @@ RTMP_SetupStream(RTMP *r,
   r->Link.playpath = *playpath;
 
   if (r->Link.port == 0)
-    r->Link.port = 1935;
+    {
+      if (protocol & RTMP_FEATURE_SSL)
+	r->Link.port = 443;
+      else if (protocol & RTMP_FEATURE_HTTP)
+	r->Link.port = 80;
+      else
+	r->Link.port = 1935;
+    }
 }
 
 static bool
@@ -425,6 +451,8 @@ RTMP_Connect0(RTMP *r, struct sockaddr * service)
   return true;
 }
 
+#define AGENT	"Mozilla/5.0"
+
 bool
 RTMP_Connect1(RTMP *r, RTMPPacket *cp)
 {
@@ -438,6 +466,15 @@ RTMP_Connect1(RTMP *r, RTMPPacket *cp)
 	  RTMP_Close(r);
 	  return false;
 	}
+    }
+  if (r->Link.protocol & RTMP_FEATURE_HTTP)
+    {
+      r->m_msgCounter = 1;
+      r->m_clientID.av_val = NULL;
+      r->m_clientID.av_len = 0;
+      HTTP_Post(r, RTMPT_OPEN, "", 1);
+      HTTP_read(r, 1);
+	  r->m_msgCounter = 0;
     }
   Log(LOGDEBUG, "%s, ... connected, handshaking", __FUNCTION__);
   if (!HandShake(r, true))
@@ -808,6 +845,7 @@ static int
 ReadN(RTMP *r, char *buffer, int n)
 {
   int nOriginalSize = n;
+  int avail;
   char *ptr;
 
   r->m_sb.sb_timedout = false;
@@ -820,14 +858,33 @@ ReadN(RTMP *r, char *buffer, int n)
   while (n > 0)
     {
       int nBytes = 0, nRead;
-      if (r->m_sb.sb_size == 0)
-	if (RTMPSockBuf_Fill(&r->m_sb) < 1)
-	  {
-	    if (!r->m_sb.sb_timedout)
-	      RTMP_Close(r);
-	    return 0;
-	  }
-      nRead = ((n < r->m_sb.sb_size) ? n : r->m_sb.sb_size);
+      avail = r->m_sb.sb_size;
+      if (r->m_resplen && avail > r->m_resplen)
+        avail = r->m_resplen;
+      if (avail == 0)
+        {
+	  if (r->Link.protocol & RTMP_FEATURE_HTTP)
+	    {
+	      int fill = r->m_sb.sb_size == 0;
+	      if (fill)
+	        HTTP_Post(r, RTMPT_IDLE, "", 1);
+	      while (r->m_unackd && !r->m_resplen)
+		    {
+	          HTTP_read(r, fill);
+			  fill = r->m_sb.sb_size == 0;
+			}
+	    }
+	  else if (RTMPSockBuf_Fill(&r->m_sb) < 1)
+	    {
+	      if (!r->m_sb.sb_timedout)
+	        RTMP_Close(r);
+	      return 0;
+	    }
+	}
+      avail = r->m_sb.sb_size;
+      if (r->m_resplen && avail > r->m_resplen)
+        avail = r->m_resplen;
+      nRead = ((n < avail) ? n : avail);
       if (nRead > 0)
 	{
 	  memcpy(ptr, r->m_sb.sb_start, nRead);
@@ -839,7 +896,6 @@ ReadN(RTMP *r, char *buffer, int n)
 	      && r->m_nBytesIn > r->m_nBytesInSent + r->m_nClientBW / 2)
 	    SendBytesReceived(r);
 	}
-
       //Log(LOGDEBUG, "%s: %d bytes\n", __FUNCTION__, nBytes);
 #ifdef _DEBUG
       fwrite(ptr, 1, nBytes, netstackdump_read);
@@ -852,6 +908,9 @@ ReadN(RTMP *r, char *buffer, int n)
 	  RTMP_Close(r);
 	  break;
 	}
+
+      if (r->Link.protocol & RTMP_FEATURE_HTTP)
+        r->m_resplen -= nBytes;
 
 #ifdef CRYPTO
       if (r->Link.rc4keyIn)
@@ -888,7 +947,12 @@ WriteN(RTMP *r, const char *buffer, int n)
 
   while (n > 0)
     {
-      int nBytes = RTMPSockBuf_Send(&r->m_sb, ptr, n);
+      int nBytes;
+
+      if (r->Link.protocol & RTMP_FEATURE_HTTP)
+        nBytes = HTTP_Post(r, RTMPT_SEND, ptr, n);
+      else
+        nBytes = RTMPSockBuf_Send(&r->m_sb, ptr, n);
       //Log(LOGDEBUG, "%s: %d\n", __FUNCTION__, nBytes);
 
       if (nBytes < 0)
@@ -2452,7 +2516,16 @@ RTMP_Close(RTMP *r)
   int i;
 
   if (RTMP_IsConnected(r))
-    RTMPSockBuf_Close(&r->m_sb);
+    {
+	  if (r->m_clientID.av_val)
+	    {
+		  HTTP_Post(r, RTMPT_CLOSE, "", 1);
+		  free(r->m_clientID.av_val);
+		  r->m_clientID.av_val = NULL;
+		  r->m_clientID.av_len = 0;
+		}
+      RTMPSockBuf_Close(&r->m_sb);
+	}
 
   r->m_stream_id = -1;
   r->m_sb.sb_socket = -1;
@@ -2485,6 +2558,10 @@ RTMP_Close(RTMP *r)
 
   r->m_bPlaying = false;
   r->m_sb.sb_size = 0;
+
+  r->m_msgCounter = 0;
+  r->m_resplen = 0;
+  r->m_unackd = 0;
 
 #ifdef CRYPTO
   if (r->Link.dh)
@@ -2650,4 +2727,69 @@ DecodeTEA(AVal *key, AVal *text)
   text->av_len /= 2;
   memcpy(text->av_val, out, text->av_len);
   free(out);
+}
+
+static int
+HTTP_Post(RTMP *r, RTMPTCmd cmd, const char *buf, int len)
+{
+  char hbuf[512];
+  int hlen = snprintf(hbuf, sizeof(hbuf), "POST /%s%s/%d HTTP/1.1\r\n"
+    "Host: %s:%d\r\n"
+    "Accept: */*\r\n"
+    "User-Agent: Shockwave Flash\n"
+    "Connection: Keep-Alive\n"
+    "Cache-Control: no-cache\r\n"
+    "Content-type: application/x-fcs\r\n"
+    "Content-length: %d\r\n\r\n", RTMPT_cmds[cmd],
+	r->m_clientID.av_val ? r->m_clientID.av_val : "",
+    r->m_msgCounter, r->Link.hostname, r->Link.port, len);
+  RTMPSockBuf_Send(&r->m_sb, hbuf, hlen);
+  hlen = RTMPSockBuf_Send(&r->m_sb, buf, len);
+  r->m_msgCounter++;
+  r->m_unackd++;
+  return hlen;
+}
+
+static int
+HTTP_read(RTMP *r, int fill)
+{
+  char *ptr;
+  int hlen;
+
+  if (fill)
+    RTMPSockBuf_Fill(&r->m_sb);
+  if (r->m_sb.sb_size < 144)
+    return -1;
+  if (strncmp(r->m_sb.sb_start, "HTTP/1.1 200 ", 13))
+    return -1;
+  ptr = strstr(r->m_sb.sb_start, "Content-Length:");
+  if (!ptr)
+    return -1;
+  hlen = atoi(ptr+16);
+  ptr = strstr(ptr, "\r\n\r\n");
+  if (!ptr)
+    return -1;
+  ptr += 4;
+  r->m_sb.sb_size -= ptr - r->m_sb.sb_start;
+  r->m_sb.sb_start = ptr;
+  r->m_unackd--;
+
+  if (!r->m_clientID.av_val)
+    {
+	  r->m_clientID.av_len = hlen;
+	  r->m_clientID.av_val = malloc(hlen+1);
+	  if (!r->m_clientID.av_val)
+	    return -1;
+	  r->m_clientID.av_val[0] = '/';
+	  memcpy(r->m_clientID.av_val+1, ptr, hlen-1);
+	  r->m_sb.sb_size = 0;
+	}
+  else
+    {
+	  r->m_polling = *ptr++;
+	  r->m_resplen = hlen - 1;
+	  r->m_sb.sb_start++;
+	  r->m_sb.sb_size--;
+	}
+  return 0;
 }

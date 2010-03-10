@@ -117,8 +117,6 @@ parsehost:
 		if(p2 > 65535) {
 			Log(LOGWARNING, "Invalid port number!");
 		} else {
-			if (p2 == 0)
-				p2 = 1935;
 			*port = p2;
 		}
 	}

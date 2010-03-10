@@ -108,7 +108,7 @@ HTTP_get(struct HTTP_ctx *http, const char *url, HTTP_read_callback *cb)
   int len_known;
   HTTPResult ret = HTTPRES_OK;
   struct sockaddr_in sa;
-  RTMPSockBuf sb;
+  RTMPSockBuf sb = {0};
 
   http->status = -1;
 

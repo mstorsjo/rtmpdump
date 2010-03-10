@@ -856,32 +856,43 @@ ReadN(RTMP *r, char *buffer, int n)
   while (n > 0)
     {
       int nBytes = 0, nRead;
-      avail = r->m_sb.sb_size;
-      if (r->m_resplen && avail > r->m_resplen)
-        avail = r->m_resplen;
-      if (avail == 0)
+      if (r->Link.protocol & RTMP_FEATURE_HTTP)
         {
-	  if (r->Link.protocol & RTMP_FEATURE_HTTP)
+	  while (!r->m_resplen)
 	    {
-	      int fill = r->m_sb.sb_size == 0;
-	      if (fill)
-	        HTTP_Post(r, RTMPT_IDLE, "", 1);
-	      while (r->m_unackd && !r->m_resplen)
-		{
-	          HTTP_read(r, fill);
-		  fill = r->m_sb.sb_size == 0;
+	      if (r->m_sb.sb_size < 144)
+	        {
+		  if (!r->m_unackd)
+		    HTTP_Post(r, RTMPT_IDLE, "", 1);
+		  if (RTMPSockBuf_Fill(&r->m_sb) < 1)
+		    {
+		      if (!r->m_sb.sb_timedout)
+		        RTMP_Close(r);
+		      return 0;
+		    }
 		}
+	      HTTP_read(r, 0);
 	    }
-	  else if (RTMPSockBuf_Fill(&r->m_sb) < 1)
+	  if (r->m_resplen && !r->m_sb.sb_size)
+	    RTMPSockBuf_Fill(&r->m_sb);
+          avail = r->m_sb.sb_size;
+	  if (avail > r->m_resplen)
+	    avail = r->m_resplen;
+	}
+      else
+        {
+          avail = r->m_sb.sb_size;
+	  if (avail == 0)
 	    {
-	      if (!r->m_sb.sb_timedout)
-	        RTMP_Close(r);
-	      return 0;
+	      if (RTMPSockBuf_Fill(&r->m_sb) < 1)
+	        {
+	          if (!r->m_sb.sb_timedout)
+	            RTMP_Close(r);
+	          return 0;
+		}
+	      avail = r->m_sb.sb_size;
 	    }
 	}
-      avail = r->m_sb.sb_size;
-      if (r->m_resplen && avail > r->m_resplen)
-        avail = r->m_resplen;
       nRead = ((n < avail) ? n : avail);
       if (nRead > 0)
 	{
@@ -908,7 +919,10 @@ ReadN(RTMP *r, char *buffer, int n)
 	}
 
       if (r->Link.protocol & RTMP_FEATURE_HTTP)
-        r->m_resplen -= nBytes;
+        {
+          r->m_resplen -= nBytes;
+	  assert(r->m_resplen >= 0);
+	}
 
 #ifdef CRYPTO
       if (r->Link.rc4keyIn)
@@ -1921,7 +1935,7 @@ HandleCtrl(RTMP *r, const RTMPPacket *packet)
 	case 31:
 	  tmp = AMF_DecodeInt32(packet->m_body + 2);
 	  Log(LOGDEBUG, "%s, Stream BufferEmpty %d", __FUNCTION__, tmp);
-	  if (r->Link.bLiveStream)
+	  if (r->Link.bLiveStream || (r->Link.protocol & RTMP_FEATURE_HTTP))
 	    break;
 	  if (!r->m_pausing)
 	    {
@@ -2434,11 +2448,25 @@ RTMP_SendPacket(RTMP *r, RTMPPacket *packet, bool queue)
     hptr = AMF_EncodeInt32(hptr, hend, packet->m_nInfoField1);
 
   nSize = packet->m_nBodySize;
-  char *buffer = packet->m_body;
+  char *buffer = packet->m_body, *tbuf = NULL, *toff;
   int nChunkSize = r->m_outChunkSize;
+  int tlen;
 
   Log(LOGDEBUG2, "%s: fd=%d, size=%d", __FUNCTION__, r->m_sb.sb_socket,
       nSize);
+  /* send all chunks in one HTTP request */
+  if (r->Link.protocol & RTMP_FEATURE_HTTP)
+    {
+      int chunks = (nSize+nChunkSize-1) / nChunkSize;
+      if (chunks > 1)
+        {
+	  tlen = chunks * (cSize + 1) + nSize + hSize;
+	  tbuf = malloc(tlen);
+	  if (!tbuf)
+	    return false;
+	  toff = tbuf;
+	}
+    }
   while (nSize + hSize)
     {
       int wrote;
@@ -2446,24 +2474,22 @@ RTMP_SendPacket(RTMP *r, RTMPPacket *packet, bool queue)
       if (nSize < nChunkSize)
 	nChunkSize = nSize;
 
-      if (header)
-	{
-	  LogHexString(LOGDEBUG2, header, hSize);
-	  LogHexString(LOGDEBUG2, buffer, nChunkSize);
-	  wrote = WriteN(r, header, nChunkSize + hSize);
-	  header = NULL;
-	  hSize = 0;
+      LogHexString(LOGDEBUG2, header, hSize);
+      LogHexString(LOGDEBUG2, buffer, nChunkSize);
+      if (tbuf)
+        {
+	  memcpy(toff, header, nChunkSize + hSize);
+	  toff += nChunkSize + hSize;
 	}
       else
-	{
-	  LogHexString(LOGDEBUG2, buffer, nChunkSize);
-	  wrote = WriteN(r, buffer, nChunkSize);
+        {
+	  wrote = WriteN(r, header, nChunkSize + hSize);
+	  if (!wrote)
+	    return false;
 	}
-      if (!wrote)
-	return false;
-
       nSize -= nChunkSize;
       buffer += nChunkSize;
+      hSize = 0;
 
       if (nSize > 0)
 	{
@@ -2483,6 +2509,14 @@ RTMP_SendPacket(RTMP *r, RTMPPacket *packet, bool queue)
 		header[2] = tmp >> 8;
 	    }
 	}
+    }
+  if (tbuf)
+    {
+      int wrote = WriteN(r, tbuf, toff-tbuf);
+      free(tbuf);
+      tbuf = NULL;
+      if (!wrote)
+        return false;
     }
 
   /* we invoked a remote method */

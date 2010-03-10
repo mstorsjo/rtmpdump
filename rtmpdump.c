@@ -216,7 +216,7 @@ WriteStream(WSargs *ws)
 	  ret = 0;
 	  break;
 	}
-#if 1 /* def _DEBUG */
+#ifdef _DEBUG
       Log(LOGDEBUG, "type: %02X, size: %d, TS: %d ms, abs TS: %d",
 	  packet.m_packetType, nPacketLen, packet.m_nTimeStamp,
 	  packet.m_hasAbsTimestamp);
@@ -878,7 +878,7 @@ Download(RTMP * rtmp,		// connected RTMP object
   int32_t now, lastUpdate;
   int bufferSize = 1024 * 1024;
   char *buffer = (char *) malloc(bufferSize);
-  int nRead = 0;
+  int nRead = 0, doHeader = 0;
   off_t size = ftello(file);
   unsigned long lastPercent = 0;
   WSargs ws;
@@ -931,21 +931,19 @@ Download(RTMP * rtmp,		// connected RTMP object
   if (dLength > 0)
     LogPrintf("For duration: %.3f sec\n", (double) dLength / 1000.0);
 
+  ws.buf = buffer;
+  ws.buflen = bufferSize;
+
   // write FLV header if not resuming
   if (!bResume)
     {
       nRead = WriteHeader(&buffer, bufferSize);
       if (nRead > 0)
 	{
-	  if (fwrite(buffer, sizeof(unsigned char), nRead, file) !=
-	      (size_t) nRead)
-	    {
-	      Log(LOGERROR, "%s: Failed writing FLV header, exiting!",
-		  __FUNCTION__);
-	      free(buffer);
-	      return RD_FAILED;
-	    }
+	  ws.buf += nRead;
+	  ws.buflen -= nRead;
 	  size += nRead;
+	  doHeader = 1;
 	}
       else
 	{
@@ -956,11 +954,9 @@ Download(RTMP * rtmp,		// connected RTMP object
     }
 
   ws.rtmp = rtmp;
-  ws.buf = buffer;
-  ws.buflen = bufferSize;
   ws.dataType = 0;
   ws.bLiveStream = bLiveStream;
-  ws.bResume = bResume;
+  ws.bResume = bResume && nInitialFrameSize > 0;
   ws.initialFrameType = initialFrameType;
   ws.nResumeTS = dSeek;
   ws.metaHeader = metaHeader;
@@ -976,7 +972,27 @@ Download(RTMP * rtmp,		// connected RTMP object
       //LogPrintf("nRead: %d\n", nRead);
       if (nRead > 0)
 	{
-	  if (fwrite(buffer, sizeof(unsigned char), nRead, file) !=
+	  if (doHeader)
+	    {
+	      /* cache all the ts=0 pkts so we can get the dataType.
+	       * then flush it all with the header when we get ts > 0
+	       */
+	      if (ws.tsm)
+		{
+		  doHeader = 0;
+		  nRead += size;
+		  size = 0;
+		  ws.buf = buffer;
+		  ws.buflen = bufferSize;
+		  buffer[4] = ws.dataType;
+		}
+	      else
+		{
+		  ws.buf += nRead;
+		  ws.buflen -= nRead;
+		}
+	    }
+	  if (!doHeader && fwrite(buffer, sizeof(unsigned char), nRead, file) !=
 	      (size_t) nRead)
 	    {
 	      Log(LOGERROR, "%s: Failed writing, exiting!", __FUNCTION__);
@@ -1074,16 +1090,6 @@ Download(RTMP * rtmp,		// connected RTMP object
       LogPrintf("Couldn't resume FLV file, try --skip %d\n\n",
 		nSkipKeyFrames + 1);
       return RD_FAILED;
-    }
-
-  // finalize header by writing the correct dataType (video, audio, video+audio)
-  if (!bResume && ws.dataType != 0x5 && !bStdoutMode)
-    {
-      //Log(LOGDEBUG, "Writing data type: %02X", dataType);
-      fseek(file, 4, SEEK_SET);
-      fwrite(&ws.dataType, sizeof(unsigned char), 1, file);
-      /* resume uses ftell to see where we left off */
-      fseek(file, 0, SEEK_END);
     }
 
   if (nRead == -3)

@@ -1,4 +1,4 @@
-.TH RTMPGW 8 "2010-03-04" "RTMPDump v2.2"
+.TH RTMPGW 8 "2010-03-10" "RTMPDump v2.2a"
 .\" Copyright 2010 Howard Chu.
 .\" Copying permitted according to the GNU General Public License V2.
 .SH NAME
@@ -94,7 +94,14 @@ Overrides the hostname in the RTMP URL.
 Overrides the port number in the RTMP URL.
 .TP
 \fB\-\-protocol	\-l\fP\ \fInumber\fP
-Overrides the protocol in the RTMP URL. 0 = rtmp, 2 = rtmpe
+Overrides the protocol in the RTMP URL.
+.nf
+  0 = rtmp
+  1 = rtmpt
+  2 = rtmpe
+  3 = rtmpte
+  5 = rtmps
+.fi
 .TP
 \fB\-\-socks		\-S\fP\ \fIhost:port\fP
 Use the specified SOCKS4 proxy.

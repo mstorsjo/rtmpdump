@@ -60,7 +60,7 @@ extern "C"
 {
 #endif
 
-#define RTMP_FEATURE_HTTP	0x01	// not yet supported
+#define RTMP_FEATURE_HTTP	0x01
 #define RTMP_FEATURE_ENC	0x02
 #define RTMP_FEATURE_SSL	0x04
 #define RTMP_FEATURE_MFP	0x08	// not yet supported

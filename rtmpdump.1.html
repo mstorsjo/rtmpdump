@@ -6,7 +6,7 @@
 <tr><td>RTMPDUMP(1)<td align="center"><td align="right">RTMPDUMP(1)
 </thead>
 <tfoot>
-<tr><td>RTMPDump v2.2<td align="center">2010-03-04<td align="right">RTMPDUMP(1)
+<tr><td>RTMPDump v2.2a<td align="center">2010-03-10<td align="right">RTMPDUMP(1)
 </tfoot>
 <tbody><tr><td colspan="3"><br><br><ul>
 <!-- Copyright 2010 Howard Chu.
@@ -64,14 +64,10 @@ specified by the given
 <i>url</i>.
 The url should be of the form
 <pre>
-  rtmp[e]://hostname[:port][/app[/playpath]]
+  rtmp[t][e]://hostname[:port][/app[/playpath]]
 </pre>
 <p>
-Both plaintext
-<i>rtmp://</i>
-and encrypted
-<i>rtmpe://</i>
-sessions are supported.
+Plain rtmp, as well as tunneled and encrypted sessions are supported.
 </ul>
 
 <h3>OPTIONS</h3><ul>
@@ -101,7 +97,14 @@ Overrides the port number in the RTMP URL.
 <dl compact><dt>
 <b>&minus;&minus;protocol	&minus;l</b>&nbsp;<i>number</i>
 <dd>
-Overrides the protocol in the RTMP URL. 0 = rtmp, 2 = rtmpe
+Overrides the protocol in the RTMP URL.
+<pre>
+  0 = rtmp
+  1 = rtmpt
+  2 = rtmpe
+  3 = rtmpte
+  5 = rtmps
+</pre>
 </dl>
 <p>
 <dl compact><dt>

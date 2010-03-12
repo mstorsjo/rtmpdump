@@ -117,450 +117,8 @@ int hex2bin(char *str, char **hex)
   return l/2;
 }
 
-int
-WriteHeader(char **buf,		// target pointer, maybe preallocated
-	    unsigned int len	// length of buffer if preallocated
-  )
-{
-  char flvHeader[] = { 'F', 'L', 'V', 0x01,
-    0x05,			// video + audio, we finalize later if the value is different
-    0x00, 0x00, 0x00, 0x09,
-    0x00, 0x00, 0x00, 0x00	// first prevTagSize=0
-  };
-
-  unsigned int size = sizeof(flvHeader);
-
-  if (size > len)
-    {
-      *buf = (char *) realloc(*buf, size);
-      if (*buf == 0)
-	{
-	  Log(LOGERROR, "Couldn't reallocate memory!");
-	  return -1;		// fatal error
-	}
-    }
-  memcpy(*buf, flvHeader, sizeof(flvHeader));
-  return size;
-}
-
 static const AVal av_onMetaData = AVC("onMetaData");
 static const AVal av_duration = AVC("duration");
-
-typedef struct WSargs {
-  RTMP *rtmp;
-  char *buf;			// target pointer, maybe preallocated
-  unsigned int buflen;		// length of buffer if preallocated
-  uint32_t tsm;			// contain timestamp of last packet returned
-  uint8_t dataType;		// whenever we get a video/audio packet we set an appropriate flag here, this will be later written to the FLV header
-  uint8_t bLiveStream;		// live mode, will not report absolute timestamps
-  uint8_t bResume;		// resuming mode, will not write FLV header and compare metaHeader and first kexframe
-  uint8_t initialFrameType;	// initial frame type (audio or video)
-
-  /* if bResume == TRUE */
-  uint32_t nResumeTS;		// resume keyframe timestamp
-  char *metaHeader;		// pointer to meta header
-  char *initialFrame;		// pointer to initial keyframe (no FLV header or tagSize, raw data)
-  uint32_t nMetaHeaderSize;	// length of meta header, if zero meta header check omitted
-  uint32_t nInitialFrameSize;	// length of initial frame in bytes, if zero initial frame check omitted
-} WSargs;
-
-// Returns -3 if Play.Close/Stop, -2 if fatal error, -1 if no more media packets, 0 if ignorable error, >0 if there is a media packet
-int
-WriteStream(WSargs *ws)
-{
-  static bool bStopIgnoring = false;
-  static bool bFoundKeyframe = false;
-  static bool bFoundFlvKeyframe = false;
-
-  uint32_t prevTagSize = 0;
-  int rtnGetNextMediaPacket = 0, ret = -1;
-  RTMPPacket packet = { 0 };
-
-  rtnGetNextMediaPacket = RTMP_GetNextMediaPacket(ws->rtmp, &packet);
-  while (rtnGetNextMediaPacket)
-    {
-      char *packetBody = packet.m_body;
-      unsigned int nPacketLen = packet.m_nBodySize;
-
-      // Return -3 if this was completed nicely with invoke message Play.Stop or Play.Complete
-      if (rtnGetNextMediaPacket == 2)
-	{
-	  Log(LOGDEBUG,
-	      "Got Play.Complete or Play.Stop from server. Assuming stream is complete");
-	  ret = -3;
-	  break;
-	}
-
-      ws->dataType |= (((packet.m_packetType == 0x08) << 2) |
-        (packet.m_packetType == 0x09));
-
-      // skip video info/command packets
-      if (packet.m_packetType == 0x09 &&
-	  nPacketLen == 2 && ((*packetBody & 0xf0) == 0x50))
-	{
-	  ret = 0;
-	  break;
-	}
-
-      if (packet.m_packetType == 0x09 && nPacketLen <= 5)
-	{
-	  Log(LOGWARNING, "ignoring too small video packet: size: %d",
-	      nPacketLen);
-	  ret = 0;
-	  break;
-	}
-      if (packet.m_packetType == 0x08 && nPacketLen <= 1)
-	{
-	  Log(LOGWARNING, "ignoring too small audio packet: size: %d",
-	      nPacketLen);
-	  ret = 0;
-	  break;
-	}
-#ifdef _DEBUG
-      Log(LOGDEBUG, "type: %02X, size: %d, TS: %d ms, abs TS: %d",
-	  packet.m_packetType, nPacketLen, packet.m_nTimeStamp,
-	  packet.m_hasAbsTimestamp);
-      if (packet.m_packetType == 0x09)
-	Log(LOGDEBUG, "frametype: %02X", (*packetBody & 0xf0));
-#endif
-
-      // check the header if we get one
-      if (ws->bResume && packet.m_nTimeStamp == 0)
-	{
-	  if (ws->nMetaHeaderSize > 0 && packet.m_packetType == 0x12)
-	    {
-
-	      AMFObject metaObj;
-	      int nRes = AMF_Decode(&metaObj, packetBody, nPacketLen, false);
-	      if (nRes >= 0)
-		{
-		  AVal metastring;
-		  AMFProp_GetString(AMF_GetProp(&metaObj, NULL, 0),
-				    &metastring);
-
-		  if (AVMATCH(&metastring, &av_onMetaData))
-		    {
-		      // compare
-		      if ((ws->nMetaHeaderSize != nPacketLen) ||
-			  (memcmp(ws->metaHeader, packetBody, ws->nMetaHeaderSize) !=
-			   0))
-			{
-			  ret = -2;
-			}
-		    }
-		  AMF_Reset(&metaObj);
-		  if (ret == -2)
-		    break;
-		}
-	    }
-
-	  // check first keyframe to make sure we got the right position in the stream!
-	  // (the first non ignored frame)
-	  if (ws->nInitialFrameSize > 0)
-	    {
-
-	      // video or audio data
-	      if (packet.m_packetType == ws->initialFrameType
-		  && ws->nInitialFrameSize == nPacketLen)
-		{
-		  // we don't compare the sizes since the packet can contain several FLV packets, just make
-		  // sure the first frame is our keyframe (which we are going to rewrite)
-		  if (memcmp(ws->initialFrame, packetBody, ws->nInitialFrameSize) ==
-		      0)
-		    {
-		      Log(LOGDEBUG, "Checked keyframe successfully!");
-		      bFoundKeyframe = true;
-		      ret = 0;	// ignore it! (what about audio data after it? it is handled by ignoring all 0ms frames, see below)
-		      break;
-		    }
-		}
-
-	      // hande FLV streams, even though the server resends the keyframe as an extra video packet
-	      // it is also included in the first FLV stream chunk and we have to compare it and
-	      // filter it out !!
-	      //
-	      if (packet.m_packetType == 0x16)
-		{
-		  // basically we have to find the keyframe with the correct TS being nResumeTS
-		  unsigned int pos = 0;
-		  uint32_t ts = 0;
-
-		  while (pos + 11 < nPacketLen)
-		    {
-		      uint32_t dataSize = AMF_DecodeInt24(packetBody + pos + 1);	// size without header (11) and prevTagSize (4)
-		      ts = AMF_DecodeInt24(packetBody + pos + 4);
-		      ts |= (packetBody[pos + 7] << 24);
-
-#ifdef _DEBUG
-		      Log(LOGDEBUG,
-			  "keyframe search: FLV Packet: type %02X, dataSize: %d, timeStamp: %d ms",
-			  packetBody[pos], dataSize, ts);
-#endif
-		      // ok, is it a keyframe!!!: well doesn't work for audio!
-		      if (packetBody[pos /*6928, test 0 */ ] ==
-			  ws->initialFrameType
-			  /* && (packetBody[11]&0xf0) == 0x10 */ )
-			{
-			  if (ts == ws->nResumeTS)
-			    {
-			      Log(LOGDEBUG,
-				  "Found keyframe with resume-keyframe timestamp!");
-			      if (ws->nInitialFrameSize != dataSize
-				  || memcmp(ws->initialFrame,
-					    packetBody + pos + 11,
-					    ws->nInitialFrameSize) != 0)
-				{
-				  Log(LOGERROR,
-				      "FLV Stream: Keyframe doesn't match!");
-				  ret = -2;
-				  break;
-				}
-			      bFoundFlvKeyframe = true;
-
-			      // ok, skip this packet
-			      // check whether skipable:
-			      if (pos + 11 + dataSize + 4 > nPacketLen)
-				{
-				  Log(LOGWARNING,
-				      "Non skipable packet since it doesn't end with chunk, stream corrupt!");
-				  ret = -2;
-				  break;
-				}
-			      packetBody += (pos + 11 + dataSize + 4);
-			      nPacketLen -= (pos + 11 + dataSize + 4);
-
-			      goto stopKeyframeSearch;
-
-			    }
-			  else if (ws->nResumeTS < ts)
-			    {
-			      goto stopKeyframeSearch;	// the timestamp ts will only increase with further packets, wait for seek
-			    }
-			}
-		      pos += (11 + dataSize + 4);
-		    }
-		  if (ts < ws->nResumeTS)
-		    {
-		      Log(LOGERROR,
-			  "First packet does not contain keyframe, all timestamps are smaller than the keyframe timestamp, so probably the resume seek failed?");
-		    }
-		stopKeyframeSearch:
-		  ;
-		  if (!bFoundFlvKeyframe)
-		    {
-		      Log(LOGERROR,
-			  "Couldn't find the seeked keyframe in this chunk!");
-		      ret = 0;
-		      break;
-		    }
-		}
-	    }
-	}
-
-      if (ws->bResume && packet.m_nTimeStamp > 0
-	  && (bFoundFlvKeyframe || bFoundKeyframe))
-	{
-	  // another problem is that the server can actually change from 09/08 video/audio packets to an FLV stream
-	  // or vice versa and our keyframe check will prevent us from going along with the new stream if we resumed
-	  //
-	  // in this case set the 'found keyframe' variables to true
-	  // We assume that if we found one keyframe somewhere and were already beyond TS > 0 we have written
-	  // data to the output which means we can accept all forthcoming data inclusing the change between 08/09 <-> FLV
-	  // packets
-	  bFoundFlvKeyframe = true;
-	  bFoundKeyframe = true;
-	}
-
-      // skip till we find out keyframe (seeking might put us somewhere before it)
-      if (ws->bResume && !bFoundKeyframe && packet.m_packetType != 0x16)
-	{
-	  Log(LOGWARNING,
-	      "Stream does not start with requested frame, ignoring data... ");
-	  nIgnoredFrameCounter++;
-	  if (nIgnoredFrameCounter > MAX_IGNORED_FRAMES)
-	    ret = -2;		// fatal error, couldn't continue stream
-	  else
-	    ret = 0;
-	  break;
-	}
-      // ok, do the same for FLV streams
-      if (ws->bResume && !bFoundFlvKeyframe && packet.m_packetType == 0x16)
-	{
-	  Log(LOGWARNING,
-	      "Stream does not start with requested FLV frame, ignoring data... ");
-	  nIgnoredFlvFrameCounter++;
-	  if (nIgnoredFlvFrameCounter > MAX_IGNORED_FRAMES)
-	    ret = -2;
-	  else
-	    ret = 0;
-	  break;
-	}
-
-      // if bResume, we continue a stream, we have to ignore the 0ms frames since these are the first keyframes, we've got these
-      // so don't mess around with multiple copies sent by the server to us! (if the keyframe is found at a later position
-      // there is only one copy and it will be ignored by the preceding if clause)
-      if (!bStopIgnoring && ws->bResume && packet.m_packetType != 0x16)
-	{			// exclude type 0x16 (FLV) since it can conatin several FLV packets
-	  if (packet.m_nTimeStamp == 0)
-	    {
-	      ret = 0;
-	      break;
-	    }
-	  else
-	    {
-	      bStopIgnoring = true;	// stop ignoring packets
-	    }
-	}
-
-      // calculate packet size and reallocate buffer if necessary
-      unsigned int size = nPacketLen
-	+
-	((packet.m_packetType == 0x08 || packet.m_packetType == 0x09
-	  || packet.m_packetType ==
-	  0x12) ? 11 : 0) + (packet.m_packetType != 0x16 ? 4 : 0);
-
-      if (size + 4 > ws->buflen)
-	{			// the extra 4 is for the case of an FLV stream without a last prevTagSize (we need extra 4 bytes to append it)
-	  ws->buf = realloc(ws->buf, size + 4);
-	  if (ws->buf == 0)
-	    {
-	      Log(LOGERROR, "Couldn't reallocate memory!");
-	      ret = -1;		// fatal error
-	      break;
-	    }
-	  ws->buflen = size + 4;
-	}
-      char *ptr = ws->buf, *pend = ptr+size+4;
-
-      uint32_t nTimeStamp = 0;	// use to return timestamp of last processed packet
-
-      // audio (0x08), video (0x09) or metadata (0x12) packets :
-      // construct 11 byte header then add rtmp packet's data
-      if (packet.m_packetType == 0x08 || packet.m_packetType == 0x09
-	  || packet.m_packetType == 0x12)
-	{
-	  nTimeStamp = ws->nResumeTS + packet.m_nTimeStamp;
-	  prevTagSize = 11 + nPacketLen;
-
-	  *ptr = packet.m_packetType;
-	  ptr++;
-	  ptr = AMF_EncodeInt24(ptr, pend, nPacketLen);
-
-	  /*if(packet.m_packetType == 0x09) { // video
-
-	     // H264 fix:
-	     if((packetBody[0] & 0x0f) == 7) { // CodecId = H264
-	     uint8_t packetType = *(packetBody+1);
-
-	     uint32_t ts = AMF_DecodeInt24(packetBody+2); // composition time
-	     int32_t cts = (ts+0xff800000)^0xff800000;
-	     Log(LOGDEBUG, "cts  : %d\n", cts);
-
-	     nTimeStamp -= cts;
-	     // get rid of the composition time
-	     CRTMP::EncodeInt24(packetBody+2, 0);
-	     }
-	     Log(LOGDEBUG, "VIDEO: nTimeStamp: 0x%08X (%d)\n", nTimeStamp, nTimeStamp);
-	     } */
-
-	  ptr = AMF_EncodeInt24(ptr, pend, nTimeStamp);
-	  *ptr = (char) ((nTimeStamp & 0xFF000000) >> 24);
-	  ptr++;
-
-	  // stream id
-	  ptr = AMF_EncodeInt24(ptr, pend, 0);
-	}
-
-      memcpy(ptr, packetBody, nPacketLen);
-      unsigned int len = nPacketLen;
-
-      // correct tagSize and obtain timestamp if we have an FLV stream
-      if (packet.m_packetType == 0x16)
-	{
-	  unsigned int pos = 0;
-
-	  while (pos + 11 < nPacketLen)
-	    {
-	      uint32_t dataSize = AMF_DecodeInt24(packetBody + pos + 1);	// size without header (11) and without prevTagSize (4)
-	      nTimeStamp = AMF_DecodeInt24(packetBody + pos + 4);
-	      nTimeStamp |= (packetBody[pos + 7] << 24);
-
-	      /*
-	         CRTMP::EncodeInt24(ptr+pos+4, nTimeStamp);
-	         ptr[pos+7] = (nTimeStamp>>24)&0xff;// */
-
-	      // set data type
-	      ws->dataType |=
-		(((*(packetBody + pos) ==
-		   0x08) << 2) | (*(packetBody + pos) == 0x09));
-
-	      if (pos + 11 + dataSize + 4 > nPacketLen)
-		{
-		  if (pos + 11 + dataSize > nPacketLen)
-		    {
-		      Log(LOGERROR,
-			  "Wrong data size (%lu), stream corrupted, aborting!",
-			  dataSize);
-		      ret = -2;
-		      break;
-		    }
-		  Log(LOGWARNING, "No tagSize found, appending!");
-
-		  // we have to append a last tagSize!
-		  prevTagSize = dataSize + 11;
-		  AMF_EncodeInt32(ptr + pos + 11 + dataSize, pend, prevTagSize);
-		  size += 4;
-		  len += 4;
-		}
-	      else
-		{
-		  prevTagSize =
-		    AMF_DecodeInt32(packetBody + pos + 11 + dataSize);
-
-#ifdef _DEBUG
-		  Log(LOGDEBUG,
-		      "FLV Packet: type %02X, dataSize: %lu, tagSize: %lu, timeStamp: %lu ms",
-		      (unsigned char) packetBody[pos], dataSize, prevTagSize,
-		      nTimeStamp);
-#endif
-
-		  if (prevTagSize != (dataSize + 11))
-		    {
-#ifdef _DEBUG
-		      Log(LOGWARNING,
-			  "Tag and data size are not consitent, writing tag size according to dataSize+11: %d",
-			  dataSize + 11);
-#endif
-
-		      prevTagSize = dataSize + 11;
-		      AMF_EncodeInt32(ptr + pos + 11 + dataSize, pend, prevTagSize);
-		    }
-		}
-
-	      pos += prevTagSize + 4;	//(11+dataSize+4);
-	    }
-	}
-      ptr += len;
-
-      if (packet.m_packetType != 0x16)
-	{			// FLV tag packets contain their own prevTagSize
-	  AMF_EncodeInt32(ptr, pend, prevTagSize);
-	  //ptr += 4;
-	}
-
-      // In non-live this nTimeStamp can contain an absolute TS.
-      // Update ext timestamp with this absolute offset in non-live mode otherwise report the relative one
-      // LogPrintf("\nDEBUG: type: %02X, size: %d, pktTS: %dms, TS: %dms, bLiveStream: %d", packet.m_packetType, nPacketLen, packet.m_nTimeStamp, nTimeStamp, bLiveStream);
-      ws->tsm = ws->bLiveStream ? packet.m_nTimeStamp : nTimeStamp;
-
-      ret = size;
-      break;
-    }
-
-  if (rtnGetNextMediaPacket)
-    RTMPPacket_Free(&packet);
-  return ret;			// no more media packets
-}
 
 int
 OpenResumeFile(const char *flvFile,	// file name [in]
@@ -876,21 +434,19 @@ Download(RTMP * rtmp,		// connected RTMP object
 	 FILE * file, uint32_t dSeek, uint32_t dLength, double duration, bool bResume, char *metaHeader, uint32_t nMetaHeaderSize, char *initialFrame, int initialFrameType, uint32_t nInitialFrameSize, int nSkipKeyFrames, bool bStdoutMode, bool bLiveStream, bool bHashes, bool bOverrideBufferTime, uint32_t bufferTime, double *percent)	// percentage downloaded [out]
 {
   int32_t now, lastUpdate;
-  int bufferSize = 1024 * 1024;
+  int bufferSize = 64 * 1024;
   char *buffer = (char *) malloc(bufferSize);
-  int nRead = 0, doHeader = 0;
+  int nRead = 0;
   off_t size = ftello(file);
   unsigned long lastPercent = 0;
-  WSargs ws;
 
-  ws.tsm = dSeek;
-  memset(buffer, 0, bufferSize);
+  rtmp->m_read.timestamp = dSeek;
 
   *percent = 0.0;
 
-  if (ws.tsm)
+  if (rtmp->m_read.timestamp)
     {
-      Log(LOGDEBUG, "Continuing at TS: %d ms\n", ws.tsm);
+      Log(LOGDEBUG, "Continuing at TS: %d ms\n", rtmp->m_read.timestamp);
     }
 
   if (bLiveStream)
@@ -903,20 +459,20 @@ Download(RTMP * rtmp,		// connected RTMP object
       // Workaround to exit with 0 if the file is fully (> 99.9%) downloaded
       if (duration > 0)
 	{
-	  if ((double) ws.tsm >= (double) duration * 999.0)
+	  if ((double) rtmp->m_read.timestamp >= (double) duration * 999.0)
 	    {
 	      LogPrintf("Already Completed at: %.3f sec Duration=%.3f sec\n",
-			(double) ws.tsm / 1000.0,
+			(double) rtmp->m_read.timestamp / 1000.0,
 			(double) duration / 1000.0);
 	      return RD_SUCCESS;
 	    }
 	  else
 	    {
-	      *percent = ((double) ws.tsm) / (duration * 1000.0) * 100.0;
+	      *percent = ((double) rtmp->m_read.timestamp) / (duration * 1000.0) * 100.0;
 	      *percent = ((double) (int) (*percent * 10.0)) / 10.0;
 	      LogPrintf("%s download at: %.3f kB / %.3f sec (%.1f%%)\n",
 			bResume ? "Resuming" : "Starting",
-			(double) size / 1024.0, (double) ws.tsm / 1000.0,
+			(double) size / 1024.0, (double) rtmp->m_read.timestamp / 1000.0,
 			*percent);
 	    }
 	}
@@ -931,68 +487,23 @@ Download(RTMP * rtmp,		// connected RTMP object
   if (dLength > 0)
     LogPrintf("For duration: %.3f sec\n", (double) dLength / 1000.0);
 
-  ws.buf = buffer;
-  ws.buflen = bufferSize;
-
-  // write FLV header if not resuming
-  if (!bResume)
-    {
-      nRead = WriteHeader(&buffer, bufferSize);
-      if (nRead > 0)
-	{
-	  ws.buf += nRead;
-	  ws.buflen -= nRead;
-	  size += nRead;
-	  doHeader = 1;
-	}
-      else
-	{
-	  Log(LOGERROR, "Couldn't obtain FLV header, exiting!");
-	  free(buffer);
-	  return RD_FAILED;
-	}
-    }
-
-  ws.rtmp = rtmp;
-  ws.dataType = 0;
-  ws.bLiveStream = bLiveStream;
-  ws.bResume = bResume && nInitialFrameSize > 0;
-  ws.initialFrameType = initialFrameType;
-  ws.nResumeTS = dSeek;
-  ws.metaHeader = metaHeader;
-  ws.initialFrame = initialFrame;
-  ws.nMetaHeaderSize = nMetaHeaderSize;
-  ws.nInitialFrameSize = nInitialFrameSize;
+  rtmp->m_read.bResume = bResume && nInitialFrameSize > 0;
+  rtmp->m_read.initialFrameType = initialFrameType;
+  rtmp->m_read.nResumeTS = dSeek;
+  rtmp->m_read.metaHeader = metaHeader;
+  rtmp->m_read.initialFrame = initialFrame;
+  rtmp->m_read.nMetaHeaderSize = nMetaHeaderSize;
+  rtmp->m_read.nInitialFrameSize = nInitialFrameSize;
 
   now = RTMP_GetTime();
   lastUpdate = now - 1000;
   do
     {
-      nRead = WriteStream(&ws);
+      nRead = RTMP_Read(rtmp, buffer, bufferSize);
       //LogPrintf("nRead: %d\n", nRead);
       if (nRead > 0)
 	{
-	  if (doHeader)
-	    {
-	      /* cache all the ts=0 pkts so we can get the dataType.
-	       * then flush it all with the header when we get ts > 0
-	       */
-	      if (ws.tsm)
-		{
-		  doHeader = 0;
-		  nRead += size;
-		  size = 0;
-		  ws.buf = buffer;
-		  ws.buflen = bufferSize;
-		  buffer[4] = ws.dataType;
-		}
-	      else
-		{
-		  ws.buf += nRead;
-		  ws.buflen -= nRead;
-		}
-	    }
-	  if (!doHeader && fwrite(buffer, sizeof(unsigned char), nRead, file) !=
+	  if (fwrite(buffer, sizeof(unsigned char), nRead, file) !=
 	      (size_t) nRead)
 	    {
 	      Log(LOGERROR, "%s: Failed writing, exiting!", __FUNCTION__);
@@ -1018,7 +529,7 @@ Download(RTMP * rtmp,		// connected RTMP object
 		  RTMP_SetBufferMS(rtmp, bufferTime);
 		  RTMP_UpdateBufferMS(rtmp);
 		}
-	      *percent = ((double) ws.tsm) / (duration * 1000.0) * 100.0;
+	      *percent = ((double) rtmp->m_read.timestamp) / (duration * 1000.0) * 100.0;
 	      *percent = ((double) (int) (*percent * 10.0)) / 10.0;
 	      if (bHashes)
 		{
@@ -1035,7 +546,7 @@ Download(RTMP * rtmp,		// connected RTMP object
 		    {
 		      LogStatus("\r%.3f kB / %.2f sec (%.1f%%)",
 				(double) size / 1024.0,
-				(double) (ws.tsm) / 1000.0, *percent);
+				(double) (rtmp->m_read.timestamp) / 1000.0, *percent);
 		      lastUpdate = now;
 		    }
 		}
@@ -1049,7 +560,7 @@ Download(RTMP * rtmp,		// connected RTMP object
 		    LogStatus("#");
 		  else
 		    LogStatus("\r%.3f kB / %.2f sec", (double) size / 1024.0,
-			      (double) (ws.tsm) / 1000.0);
+			      (double) (rtmp->m_read.timestamp) / 1000.0);
 		  lastUpdate = now;
 		}
 	    }
@@ -1064,26 +575,28 @@ Download(RTMP * rtmp,		// connected RTMP object
     }
   while (!RTMP_ctrlC && nRead > -1 && RTMP_IsConnected(rtmp));
   free(buffer);
+  if (nRead < 0)
+    nRead = rtmp->m_read.status;
 
   /* Final status update */
   if (!bHashes)
     {
       if (duration > 0)
 	{
-	  *percent = ((double) ws.tsm) / (duration * 1000.0) * 100.0;
+	  *percent = ((double) rtmp->m_read.timestamp) / (duration * 1000.0) * 100.0;
 	  *percent = ((double) (int) (*percent * 10.0)) / 10.0;
 	  LogStatus("\r%.3f kB / %.2f sec (%.1f%%)",
 	    (double) size / 1024.0,
-	    (double) (ws.tsm) / 1000.0, *percent);
+	    (double) (rtmp->m_read.timestamp) / 1000.0, *percent);
 	}
       else
 	{
 	  LogStatus("\r%.3f kB / %.2f sec", (double) size / 1024.0,
-	    (double) (ws.tsm) / 1000.0);
+	    (double) (rtmp->m_read.timestamp) / 1000.0);
 	}
     }
 
-  Log(LOGDEBUG, "WriteStream returned: %d", nRead);
+  Log(LOGDEBUG, "RTMP_Read returned: %d", nRead);
 
   if (bResume && nRead == -2)
     {

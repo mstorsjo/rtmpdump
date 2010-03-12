@@ -265,211 +265,6 @@ http_unescape(char *data)
   data[dst_x] = '\0';
 }
 
-int
-WriteHeader(char **buf,		// target pointer, maybe preallocated
-	    unsigned int len	// length of buffer if preallocated
-  )
-{
-  char flvHeader[] = { 'F', 'L', 'V', 0x01,
-    0x05,			// video + audio, we finalize later if the value is different
-    0x00, 0x00, 0x00, 0x09,
-    0x00, 0x00, 0x00, 0x00	// first prevTagSize=0
-  };
-
-  unsigned int size = sizeof(flvHeader);
-
-  if (size > len)
-    {
-      *buf = (char *) realloc(*buf, size);
-      if (*buf == 0)
-	{
-	  Log(LOGERROR, "Couldn't reallocate memory!");
-	  return -1;		// fatal error
-	}
-    }
-  memcpy(*buf, flvHeader, sizeof(flvHeader));
-  return size;
-}
-
-typedef struct WSargs {
-  RTMP *rtmp;
-  char *buf;			// target pointer, maybe preallocated
-  unsigned int buflen;		// length of buffer if preallocated
-  uint32_t nTimeStamp;		// timestamp of last packet returned
-  uint8_t dataType;		// type of stream for FLV header
-} WSargs;
-
-int
-WriteStream(WSargs *ws)
-{
-  uint32_t prevTagSize = 0;
-  int rtnGetNextMediaPacket = 0, ret = -1;
-  RTMPPacket packet = { 0 };
-
-  rtnGetNextMediaPacket = RTMP_GetNextMediaPacket(ws->rtmp, &packet);
-  while (rtnGetNextMediaPacket)
-    {
-      char *packetBody = packet.m_body;
-      unsigned int nPacketLen = packet.m_nBodySize;
-
-      // set data type
-      ws->dataType |= (((packet.m_packetType == 0x08)<<2)|(packet.m_packetType == 0x09));
-
-      // skip video info/command packets
-      if (packet.m_packetType == 0x09 &&
-	  nPacketLen == 2 && ((*packetBody & 0xf0) == 0x50))
-	{
-	  ret = 0;
-	  break;
-	}
-
-      if (packet.m_packetType == 0x09 && nPacketLen <= 5)
-	{
-	  Log(LOGWARNING, "ignoring too small video packet: size: %d",
-	      nPacketLen);
-	  ret = 0;
-	  break;
-	}
-      if (packet.m_packetType == 0x08 && nPacketLen <= 1)
-	{
-	  Log(LOGWARNING, "ignoring too small audio packet: size: %d",
-	      nPacketLen);
-	  ret = 0;
-	  break;
-	}
-#ifdef _DEBUG
-      Log(LOGDEBUG, "type: %02X, size: %d, TS: %d ms", packet.m_packetType,
-	  nPacketLen, packet.m_nTimeStamp);
-      if (packet.m_packetType == 0x09)
-	Log(LOGDEBUG, "frametype: %02X", (*packetBody & 0xf0));
-#endif
-
-      // calculate packet size and reallocate buffer if necessary
-      unsigned int size = nPacketLen
-	+
-	((packet.m_packetType == 0x08 || packet.m_packetType == 0x09
-	  || packet.m_packetType == 0x12) ? 11 : 0) + (packet.m_packetType !=
-						       0x16 ? 4 : 0);
-
-      if (size + 4 > ws->buflen)
-	{			// the extra 4 is for the case of an FLV stream without a last prevTagSize (we need extra 4 bytes to append it)
-	  ws->buf = realloc(ws->buf, size + 4);
-	  if (ws->buf == 0)
-	    {
-	      Log(LOGERROR, "Couldn't reallocate memory!");
-	      ret = -1;		// fatal error
-	      break;
-	    }
-	  ws->buflen = size + 4;
-	}
-      char *ptr = ws->buf, *pend = ptr + size+4;
-
-      // audio (0x08), video (0x09) or metadata (0x12) packets :
-      // construct 11 byte header then add rtmp packet's data
-      if (packet.m_packetType == 0x08 || packet.m_packetType == 0x09
-	  || packet.m_packetType == 0x12)
-	{
-	  ws->nTimeStamp = packet.m_nTimeStamp;
-	  prevTagSize = 11 + nPacketLen;
-
-	  *ptr++ = packet.m_packetType;
-	  ptr = AMF_EncodeInt24(ptr, pend, nPacketLen);
-	  ptr = AMF_EncodeInt24(ptr, pend, ws->nTimeStamp);
-	  *ptr = (char) (((ws->nTimeStamp) & 0xFF000000) >> 24);
-	  ptr++;
-
-	  // stream id
-	  ptr = AMF_EncodeInt24(ptr, pend, 0);
-	}
-
-      memcpy(ptr, packetBody, nPacketLen);
-      unsigned int len = nPacketLen;
-
-      // correct tagSize and obtain timestamp if we have an FLV stream
-      if (packet.m_packetType == 0x16)
-	{
-	  unsigned int pos = 0;
-
-	  while (pos + 11 < nPacketLen)
-	    {
-	      uint32_t dataSize = AMF_DecodeInt24(packetBody + pos + 1);	// size without header (11) and without prevTagSize (4)
-	      ws->nTimeStamp = AMF_DecodeInt24(packetBody + pos + 4);
-	      ws->nTimeStamp |= (packetBody[pos + 7] << 24);
-
-	      // set data type
-	      ws->dataType |= (((*(packetBody+pos) == 0x08)<<2)|(*(packetBody+pos) == 0x09));
-
-	      if (pos + 11 + dataSize + 4 > nPacketLen)
-		{
-		  if (pos + 11 + dataSize > nPacketLen)
-		    {
-		      Log(LOGERROR,
-			  "Wrong data size (%lu), stream corrupted, aborting!",
-			  dataSize);
-		      ret = -2;
-		      break;
-		    }
-		  Log(LOGWARNING, "No tagSize found, appending!");
-
-		  // we have to append a last tagSize!
-		  prevTagSize = dataSize + 11;
-		  AMF_EncodeInt32(ptr + pos + 11 + dataSize, pend, prevTagSize);
-		  size += 4;
-		  len += 4;
-		}
-	      else
-		{
-		  prevTagSize =
-		    AMF_DecodeInt32(packetBody + pos + 11 + dataSize);
-
-#ifdef _DEBUG
-		  Log(LOGDEBUG,
-		      "FLV Packet: type %02X, dataSize: %lu, tagSize: %lu, timeStamp: %lu ms",
-		      (unsigned char) packetBody[pos], dataSize, prevTagSize,
-		      ws->nTimeStamp);
-#endif
-
-		  if (prevTagSize != (dataSize + 11))
-		    {
-#ifdef _DEBUG
-		      Log(LOGWARNING,
-			  "Tag and data size are not consitent, writing tag size according to dataSize+11: %d",
-			  dataSize + 11);
-#endif
-
-		      prevTagSize = dataSize + 11;
-		      AMF_EncodeInt32(ptr + pos + 11 + dataSize, pend, prevTagSize);
-		    }
-		}
-
-	      pos += prevTagSize + 4;	//(11+dataSize+4);
-	    }
-	}
-      ptr += len;
-
-      if (packet.m_packetType != 0x16)
-	{			// FLV tag packets contain their own prevTagSize
-	  AMF_EncodeInt32(ptr, pend, prevTagSize);
-	  //ptr += 4;
-	}
-
-      // Return 0 if this was completed nicely with invoke message Play.Stop or Play.Complete
-      if (rtnGetNextMediaPacket == 2)
-	{
-	  Log(LOGDEBUG,
-	      "Got Play.Complete or Play.Stop from server. Assuming stream is complete");
-	  ret = 0;
-	  break;
-	}
-
-      ret = size;
-      break;
-    }
-
-  RTMPPacket_Free(&packet);
-  return ret;			// no more media packets
-}
-
 TFTYPE
 controlServerThread(void *unused)
 {
@@ -538,7 +333,6 @@ void processTCPrequest(STREAMING_SERVER * server,	// server socket and state (ou
   char *ptr = NULL;		// header pointer
 
   size_t nRead = 0;
-  int doHeader = 1;
 
   char srvhead[] =
     "\r\nServer:HTTP-RTMP Stream Server \r\nContent-Type: Video/MPEG \r\n\r\n";
@@ -547,7 +341,6 @@ void processTCPrequest(STREAMING_SERVER * server,	// server socket and state (ou
 
   RTMP rtmp = { 0 };
   uint32_t dSeek = 0;		// can be used to start from a later point in the stream
-  WSargs ws;
 
   // reset RTMP options to defaults specified upon invokation of streams
   RTMP_REQUEST req;
@@ -728,11 +521,6 @@ void processTCPrequest(STREAMING_SERVER * server,	// server socket and state (ou
 
   // send the packets
   buffer = (char *) calloc(PACKET_SIZE, 1);
-  ws.rtmp = &rtmp;
-  ws.buf = buffer;
-  ws.buflen = PACKET_SIZE;
-  ws.nTimeStamp = dSeek;
-  ws.dataType = 0;
 
   // User defined seek offset
   if (req.dStartOffset > 0)
@@ -746,7 +534,7 @@ void processTCPrequest(STREAMING_SERVER * server,	// server socket and state (ou
 
   if (dSeek != 0)
     {
-      LogPrintf("Starting at TS: %d ms\n", ws.nTimeStamp);
+      LogPrintf("Starting at TS: %d ms\n", dSeek);
     }
 
   Log(LOGDEBUG, "Setting buffer time to: %dms", req.bufferTime);
@@ -761,6 +549,7 @@ void processTCPrequest(STREAMING_SERVER * server,	// server socket and state (ou
 
   rtmp.Link.extras = req.extras;
   rtmp.Link.token = req.token;
+  rtmp.m_read.timestamp = dSeek;
 
   LogPrintf("Connecting ... port: %d, app: %s\n", req.rtmpport, req.app);
   if (!RTMP_Connect(&rtmp, NULL))
@@ -776,46 +565,13 @@ void processTCPrequest(STREAMING_SERVER * server,	// server socket and state (ou
       int nWritten = 0;
       int nRead = 0;
 
-      // write FLV header first
-      nRead = WriteHeader(&buffer, PACKET_SIZE);
-      if (nRead > 0)
-	{
-	  ws.buf += nRead;
-	  ws.buflen -= nRead;
-	  size += nRead;
-	}
-      else
-	{
-	  Log(LOGERROR, "%s: Couldn't obtain FLV header, exiting!",
-	      __FUNCTION__);
-	  goto cleanup;
-	}
-
-      // get the rest of the stream
       do
 	{
-	  nRead = WriteStream(&ws);
+	  nRead = RTMP_Read(&rtmp, buffer, PACKET_SIZE);
 
 	  if (nRead > 0)
 	    {
-	      if (doHeader)
-	        {
-		  if (ws.nTimeStamp > dSeek)
-		    {
-		      doHeader = 0;
-		      nRead += size;
-		      size = 0;
-		      ws.buf = buffer;
-		      ws.buflen = PACKET_SIZE;
-		      buffer[4] = ws.dataType;
-		    }
-		  else
-		    {
-		      ws.buf += nRead;
-		      ws.buflen -= nRead;
-		    }
-		}
-	      if (!doHeader && (nWritten = send(sockfd, buffer, nRead, 0)) < 0)
+	      if ((nWritten = send(sockfd, buffer, nRead, 0)) < 0)
 		{
 		  Log(LOGERROR, "%s, sending failed, error: %d", __FUNCTION__,
 		      GetSockError());
@@ -831,17 +587,17 @@ void processTCPrequest(STREAMING_SERVER * server,	// server socket and state (ou
 	      if (duration > 0)
 		{
 		  percent =
-		    ((double) (dSeek + ws.nTimeStamp)) / (duration *
+		    ((double) (dSeek + rtmp.m_read.timestamp)) / (duration *
 							   1000.0) * 100.0;
 		  percent = ((double) (int) (percent * 10.0)) / 10.0;
 		  LogStatus("\r%.3f KB / %.2f sec (%.1f%%)",
 			    (double) size / 1024.0,
-			    (double) (ws.nTimeStamp) / 1000.0, percent);
+			    (double) (rtmp.m_read.timestamp) / 1000.0, percent);
 		}
 	      else
 		{
 		  LogStatus("\r%.3f KB / %.2f sec", (double) size / 1024.0,
-			    (double) (ws.nTimeStamp) / 1000.0);
+			    (double) (rtmp.m_read.timestamp) / 1000.0);
 		}
 	    }
 #ifdef _DEBUG
@@ -852,7 +608,7 @@ void processTCPrequest(STREAMING_SERVER * server,	// server socket and state (ou
 #endif
 
 	  // Force clean close if a specified stop offset is reached
-	  if (req.dStopOffset && ws.nTimeStamp >= req.dStopOffset)
+	  if (req.dStopOffset && rtmp.m_read.timestamp >= req.dStopOffset)
 	    {
 	      LogPrintf("\nStop offset has been reached at %.2f seconds\n",
 			(double) req.dStopOffset / 1000.0);

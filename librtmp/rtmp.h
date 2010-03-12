@@ -183,7 +183,7 @@ extern "C"
     char *buf;
     char *bufpos;
     unsigned int buflen;
-    uint32_t tsm;
+    uint32_t timestamp;
     uint8_t dataType;
     uint8_t bResume;
     uint8_t bDidHeader;

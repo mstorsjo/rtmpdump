@@ -3266,7 +3266,7 @@ Read_1_Packet(RTMP *r, char *buf, int buflen)
        * otherwise report the relative one
        */
       // LogPrintf("\nDEBUG: type: %02X, size: %d, pktTS: %dms, TS: %dms, bLiveStream: %d", packet.m_packetType, nPacketLen, packet.m_nTimeStamp, nTimeStamp, bLiveStream);
-      r->m_read.tsm = r->Link.bLiveStream ? packet.m_nTimeStamp : nTimeStamp;
+      r->m_read.timestamp = r->Link.bLiveStream ? packet.m_nTimeStamp : nTimeStamp;
 
       ret = size;
       break;
@@ -3313,7 +3313,7 @@ RTMP_Read(RTMP *r, char *buf, int size)
 	  r->m_read.buf += sizeof(flvHeader);
 	  r->m_read.buflen -= sizeof(flvHeader);
 
-	  while (r->m_read.tsm == 0)
+	  while (r->m_read.timestamp == 0)
 	    {
 	      nRead = Read_1_Packet(r, r->m_read.buf, r->m_read.buflen);
 	      if (nRead < 0)

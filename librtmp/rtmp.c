@@ -2567,6 +2567,17 @@ RTMP_Close(RTMP *r)
   r->m_nClientBW2 = 2;
   r->m_nServerBW = 2500000;
 
+  r->m_read.buf = NULL;
+  r->m_read.dataType = 0;
+  r->m_read.bResume = 0;
+  r->m_read.status = 0;
+  r->m_read.bStopIgnoring = false;
+  r->m_read.bFoundKeyframe = false;
+  r->m_read.bFoundFlvKeyframe = false;
+  r->m_read.nResumeTS = 0;
+  r->m_read.nIgnoredFrameCounter = 0;
+  r->m_read.nIgnoredFlvFrameCounter = 0;
+
   for (i = 0; i < RTMP_CHANNELS; i++)
     {
       if (r->m_vecChannelsIn[i])
@@ -2821,4 +2832,542 @@ HTTP_read(RTMP *r, int fill)
       r->m_sb.sb_size--;
     }
   return 0;
+}
+
+#define MAX_IGNORED_FRAMES	50
+
+/* Read from the stream until we get a media packet.
+ * Returns -3 if Play.Close/Stop, -2 if fatal error, -1 if no more media
+ * packets, 0 if ignorable error, >0 if there is a media packet
+ */
+static int
+Read_1_Packet(RTMP *r, char *buf, int buflen)
+{
+  uint32_t prevTagSize = 0;
+  int rtnGetNextMediaPacket = 0, ret = RTMP_READ_EOF;
+  RTMPPacket packet = { 0 };
+  bool recopy = false;
+
+  rtnGetNextMediaPacket = RTMP_GetNextMediaPacket(r, &packet);
+  while (rtnGetNextMediaPacket)
+    {
+      char *packetBody = packet.m_body;
+      unsigned int nPacketLen = packet.m_nBodySize;
+
+      /* Return -3 if this was completed nicely with invoke message
+       * Play.Stop or Play.Complete
+       */
+      if (rtnGetNextMediaPacket == 2)
+	{
+	  Log(LOGDEBUG,
+	      "Got Play.Complete or Play.Stop from server. "
+	      "Assuming stream is complete");
+	  ret = RTMP_READ_COMPLETE;
+	  break;
+	}
+
+      r->m_read.dataType |= (((packet.m_packetType == 0x08) << 2) |
+			     (packet.m_packetType == 0x09));
+
+      if (packet.m_packetType == 0x09 && nPacketLen <= 5)
+	{
+	  Log(LOGWARNING, "ignoring too small video packet: size: %d",
+	      nPacketLen);
+	  ret = RTMP_READ_IGNORE;
+	  break;
+	}
+      if (packet.m_packetType == 0x08 && nPacketLen <= 1)
+	{
+	  Log(LOGWARNING, "ignoring too small audio packet: size: %d",
+	      nPacketLen);
+	  ret = RTMP_READ_IGNORE;
+	  break;
+	}
+#if 1				/* _DEBUG */
+      Log(LOGDEBUG, "type: %02X, size: %d, TS: %d ms, abs TS: %d",
+	  packet.m_packetType, nPacketLen, packet.m_nTimeStamp,
+	  packet.m_hasAbsTimestamp);
+      if (packet.m_packetType == 0x09)
+	Log(LOGDEBUG, "frametype: %02X", (*packetBody & 0xf0));
+#endif
+
+      if (r->m_read.bResume)
+	{
+	  /* check the header if we get one */
+	  if (packet.m_nTimeStamp == 0)
+	    {
+	      if (r->m_read.nMetaHeaderSize > 0
+		  && packet.m_packetType == 0x12)
+		{
+		  AMFObject metaObj;
+		  int nRes =
+		    AMF_Decode(&metaObj, packetBody, nPacketLen, false);
+		  if (nRes >= 0)
+		    {
+		      AVal metastring;
+		      AMFProp_GetString(AMF_GetProp(&metaObj, NULL, 0),
+					&metastring);
+
+		      if (AVMATCH(&metastring, &av_onMetaData))
+			{
+			  // compare
+			  if ((r->m_read.nMetaHeaderSize != nPacketLen) ||
+			      (memcmp
+			       (r->m_read.metaHeader, packetBody,
+				r->m_read.nMetaHeaderSize) != 0))
+			    {
+			      ret = RTMP_READ_ERROR;
+			    }
+			}
+		      AMF_Reset(&metaObj);
+		      if (ret == RTMP_READ_ERROR)
+			break;
+		    }
+		}
+
+	      /* check first keyframe to make sure we got the right position
+	       * in the stream! (the first non ignored frame)
+	       */
+	      if (r->m_read.nInitialFrameSize > 0)
+		{
+		  /* video or audio data */
+		  if (packet.m_packetType == r->m_read.initialFrameType
+		      && r->m_read.nInitialFrameSize == nPacketLen)
+		    {
+		      /* we don't compare the sizes since the packet can
+		       * contain several FLV packets, just make sure the
+		       * first frame is our keyframe (which we are going
+		       * to rewrite)
+		       */
+		      if (memcmp
+			  (r->m_read.initialFrame, packetBody,
+			   r->m_read.nInitialFrameSize) == 0)
+			{
+			  Log(LOGDEBUG, "Checked keyframe successfully!");
+			  r->m_read.bFoundKeyframe = true;
+			  /* ignore it! (what about audio data after it? it is
+			   * handled by ignoring all 0ms frames, see below)
+			   */
+			  ret = RTMP_READ_IGNORE;
+			  break;
+			}
+		    }
+
+		  /* hande FLV streams, even though the server resends the
+		   * keyframe as an extra video packet it is also included
+		   * in the first FLV stream chunk and we have to compare
+		   * it and filter it out !!
+		   */
+		  if (packet.m_packetType == 0x16)
+		    {
+		      /* basically we have to find the keyframe with the
+		       * correct TS being nResumeTS
+		       */
+		      unsigned int pos = 0;
+		      uint32_t ts = 0;
+
+		      while (pos + 11 < nPacketLen)
+			{
+			  /* size without header (11) and prevTagSize (4) */
+			  uint32_t dataSize =
+			    AMF_DecodeInt24(packetBody + pos + 1);
+			  ts = AMF_DecodeInt24(packetBody + pos + 4);
+			  ts |= (packetBody[pos + 7] << 24);
+
+#ifdef _DEBUG
+			  Log(LOGDEBUG,
+			      "keyframe search: FLV Packet: type %02X, dataSize: %d, timeStamp: %d ms",
+			      packetBody[pos], dataSize, ts);
+#endif
+			  /* ok, is it a keyframe?:
+			   * well doesn't work for audio!
+			   */
+			  if (packetBody[pos /*6928, test 0 */ ] ==
+			      r->m_read.initialFrameType
+			      /* && (packetBody[11]&0xf0) == 0x10 */ )
+			    {
+			      if (ts == r->m_read.nResumeTS)
+				{
+				  Log(LOGDEBUG,
+				      "Found keyframe with resume-keyframe timestamp!");
+				  if (r->m_read.nInitialFrameSize != dataSize
+				      || memcmp(r->m_read.initialFrame,
+						packetBody + pos + 11,
+						r->m_read.
+						nInitialFrameSize) != 0)
+				    {
+				      Log(LOGERROR,
+					  "FLV Stream: Keyframe doesn't match!");
+				      ret = RTMP_READ_ERROR;
+				      break;
+				    }
+				  r->m_read.bFoundFlvKeyframe = true;
+
+				  /* skip this packet?
+				   * check whether skippable:
+				   */
+				  if (pos + 11 + dataSize + 4 > nPacketLen)
+				    {
+				      Log(LOGWARNING,
+					  "Non skipable packet since it doesn't end with chunk, stream corrupt!");
+				      ret = RTMP_READ_ERROR;
+				      break;
+				    }
+				  packetBody += (pos + 11 + dataSize + 4);
+				  nPacketLen -= (pos + 11 + dataSize + 4);
+
+				  goto stopKeyframeSearch;
+
+				}
+			      else if (r->m_read.nResumeTS < ts)
+				{
+				  /* the timestamp ts will only increase with
+				   * further packets, wait for seek
+				   */
+				  goto stopKeyframeSearch;
+				}
+			    }
+			  pos += (11 + dataSize + 4);
+			}
+		      if (ts < r->m_read.nResumeTS)
+			{
+			  Log(LOGERROR,
+			      "First packet does not contain keyframe, all "
+			      "timestamps are smaller than the keyframe "
+			      "timestamp; probably the resume seek failed?");
+			}
+		    stopKeyframeSearch:
+		      ;
+		      if (!r->m_read.bFoundFlvKeyframe)
+			{
+			  Log(LOGERROR,
+			      "Couldn't find the seeked keyframe in this chunk!");
+			  ret = RTMP_READ_IGNORE;
+			  break;
+			}
+		    }
+		}
+	    }
+
+	  if (packet.m_nTimeStamp > 0
+	      && (r->m_read.bFoundFlvKeyframe || r->m_read.bFoundKeyframe))
+	    {
+	      /* another problem is that the server can actually change from
+	       * 09/08 video/audio packets to an FLV stream or vice versa and
+	       * our keyframe check will prevent us from going along with the
+	       * new stream if we resumed.
+	       *
+	       * in this case set the 'found keyframe' variables to true.
+	       * We assume that if we found one keyframe somewhere and were
+	       * already beyond TS > 0 we have written data to the output
+	       * which means we can accept all forthcoming data including the
+	       * change between 08/09 <-> FLV packets
+	       */
+	      r->m_read.bFoundFlvKeyframe = true;
+	      r->m_read.bFoundKeyframe = true;
+	    }
+
+	  /* skip till we find our keyframe
+	   * (seeking might put us somewhere before it)
+	   */
+	  if (!r->m_read.bFoundKeyframe && packet.m_packetType != 0x16)
+	    {
+	      Log(LOGWARNING,
+		  "Stream does not start with requested frame, ignoring data... ");
+	      r->m_read.nIgnoredFrameCounter++;
+	      if (r->m_read.nIgnoredFrameCounter > MAX_IGNORED_FRAMES)
+		ret = RTMP_READ_ERROR;	/* fatal error, couldn't continue stream */
+	      else
+		ret = RTMP_READ_IGNORE;
+	      break;
+	    }
+	  /* ok, do the same for FLV streams */
+	  if (!r->m_read.bFoundFlvKeyframe && packet.m_packetType == 0x16)
+	    {
+	      Log(LOGWARNING,
+		  "Stream does not start with requested FLV frame, ignoring data... ");
+	      r->m_read.nIgnoredFlvFrameCounter++;
+	      if (r->m_read.nIgnoredFlvFrameCounter > MAX_IGNORED_FRAMES)
+		ret = RTMP_READ_ERROR;
+	      else
+		ret = RTMP_READ_IGNORE;
+	      break;
+	    }
+
+	  /* we have to ignore the 0ms frames since these are the first
+	   * keyframes; we've got these so don't mess around with multiple
+	   * copies sent by the server to us! (if the keyframe is found at a
+	   * later position there is only one copy and it will be ignored by
+	   * the preceding if clause)
+	   */
+	  if (!r->m_read.bStopIgnoring && packet.m_packetType != 0x16)
+	    {			/* exclude type 0x16 (FLV) since it can
+				 * contain several FLV packets */
+	      if (packet.m_nTimeStamp == 0)
+		{
+		  ret = RTMP_READ_IGNORE;
+		  break;
+		}
+	      else
+		{
+		  r->m_read.bStopIgnoring = true;	/* stop ignoring packets */
+		}
+	    }
+	}
+
+      /* calculate packet size and allocate slop buffer if necessary */
+      unsigned int size = nPacketLen +
+	((packet.m_packetType == 0x08 || packet.m_packetType == 0x09
+	  || packet.m_packetType == 0x12) ? 11 : 0) +
+	(packet.m_packetType != 0x16 ? 4 : 0);
+
+      char *ptr, *pend;
+      if (size + 4 > buflen)
+	{
+	  /* the extra 4 is for the case of an FLV stream without a last
+	   * prevTagSize (we need extra 4 bytes to append it) */
+	  r->m_read.buf = malloc(size + 4);
+	  if (r->m_read.buf == 0)
+	    {
+	      Log(LOGERROR, "Couldn't allocate memory!");
+	      ret = RTMP_READ_ERROR;		// fatal error
+	      break;
+	    }
+	  recopy = true;
+	  ptr = r->m_read.buf;
+	}
+      else
+	{
+	  ptr = buf;
+	}
+      pend = ptr + size + 4;
+
+      /* use to return timestamp of last processed packet */
+      uint32_t nTimeStamp = 0;
+
+      /* audio (0x08), video (0x09) or metadata (0x12) packets :
+       * construct 11 byte header then add rtmp packet's data */
+      if (packet.m_packetType == 0x08 || packet.m_packetType == 0x09
+	  || packet.m_packetType == 0x12)
+	{
+	  nTimeStamp = r->m_read.nResumeTS + packet.m_nTimeStamp;
+	  prevTagSize = 11 + nPacketLen;
+
+	  *ptr = packet.m_packetType;
+	  ptr++;
+	  ptr = AMF_EncodeInt24(ptr, pend, nPacketLen);
+
+	  /*if(packet.m_packetType == 0x09) { // video
+
+	     // H264 fix:
+	     if((packetBody[0] & 0x0f) == 7) { // CodecId = H264
+	     uint8_t packetType = *(packetBody+1);
+
+	     uint32_t ts = AMF_DecodeInt24(packetBody+2); // composition time
+	     int32_t cts = (ts+0xff800000)^0xff800000;
+	     Log(LOGDEBUG, "cts  : %d\n", cts);
+
+	     nTimeStamp -= cts;
+	     // get rid of the composition time
+	     CRTMP::EncodeInt24(packetBody+2, 0);
+	     }
+	     Log(LOGDEBUG, "VIDEO: nTimeStamp: 0x%08X (%d)\n", nTimeStamp, nTimeStamp);
+	     } */
+
+	  ptr = AMF_EncodeInt24(ptr, pend, nTimeStamp);
+	  *ptr = (char)((nTimeStamp & 0xFF000000) >> 24);
+	  ptr++;
+
+	  /* stream id */
+	  ptr = AMF_EncodeInt24(ptr, pend, 0);
+	}
+
+      memcpy(ptr, packetBody, nPacketLen);
+      unsigned int len = nPacketLen;
+
+      /* correct tagSize and obtain timestamp if we have an FLV stream */
+      if (packet.m_packetType == 0x16)
+	{
+	  unsigned int pos = 0;
+
+	  while (pos + 11 < nPacketLen)
+	    {
+	      /* size without header (11) and without prevTagSize (4) */
+	      uint32_t dataSize = AMF_DecodeInt24(packetBody + pos + 1);
+	      nTimeStamp = AMF_DecodeInt24(packetBody + pos + 4);
+	      nTimeStamp |= (packetBody[pos + 7] << 24);
+
+	      /*
+	         CRTMP::EncodeInt24(ptr+pos+4, nTimeStamp);
+	         ptr[pos+7] = (nTimeStamp>>24)&0xff;// */
+
+	      /* set data type */
+	      r->m_read.dataType |= (((*(packetBody + pos) == 0x08) << 2) |
+				     (*(packetBody + pos) == 0x09));
+
+	      if (pos + 11 + dataSize + 4 > nPacketLen)
+		{
+		  if (pos + 11 + dataSize > nPacketLen)
+		    {
+		      Log(LOGERROR,
+			  "Wrong data size (%lu), stream corrupted, aborting!",
+			  dataSize);
+		      ret = RTMP_READ_ERROR;
+		      break;
+		    }
+		  Log(LOGWARNING, "No tagSize found, appending!");
+
+		  /* we have to append a last tagSize! */
+		  prevTagSize = dataSize + 11;
+		  AMF_EncodeInt32(ptr + pos + 11 + dataSize, pend,
+				  prevTagSize);
+		  size += 4;
+		  len += 4;
+		}
+	      else
+		{
+		  prevTagSize =
+		    AMF_DecodeInt32(packetBody + pos + 11 + dataSize);
+
+#ifdef _DEBUG
+		  Log(LOGDEBUG,
+		      "FLV Packet: type %02X, dataSize: %lu, tagSize: %lu, timeStamp: %lu ms",
+		      (unsigned char)packetBody[pos], dataSize, prevTagSize,
+		      nTimeStamp);
+#endif
+
+		  if (prevTagSize != (dataSize + 11))
+		    {
+#ifdef _DEBUG
+		      Log(LOGWARNING,
+			  "Tag and data size are not consitent, writing tag size according to dataSize+11: %d",
+			  dataSize + 11);
+#endif
+
+		      prevTagSize = dataSize + 11;
+		      AMF_EncodeInt32(ptr + pos + 11 + dataSize, pend,
+				      prevTagSize);
+		    }
+		}
+
+	      pos += prevTagSize + 4;	//(11+dataSize+4);
+	    }
+	}
+      ptr += len;
+
+      if (packet.m_packetType != 0x16)
+	{
+	  /* FLV tag packets contain their own prevTagSize */
+	  AMF_EncodeInt32(ptr, pend, prevTagSize);
+	}
+
+      /* In non-live this nTimeStamp can contain an absolute TS.
+       * Update ext timestamp with this absolute offset in non-live mode
+       * otherwise report the relative one
+       */
+      // LogPrintf("\nDEBUG: type: %02X, size: %d, pktTS: %dms, TS: %dms, bLiveStream: %d", packet.m_packetType, nPacketLen, packet.m_nTimeStamp, nTimeStamp, bLiveStream);
+      r->m_read.tsm = r->Link.bLiveStream ? packet.m_nTimeStamp : nTimeStamp;
+
+      ret = size;
+      break;
+    }
+
+  if (rtnGetNextMediaPacket)
+    RTMPPacket_Free(&packet);
+
+  if (recopy)
+    {
+      memcpy(buf, r->m_read.buf, buflen);
+      r->m_read.bufpos = r->m_read.buf + buflen;
+      r->m_read.buflen = ret - buflen;
+    }
+  return ret;
+}
+
+static const char flvHeader[] = { 'F', 'L', 'V', 0x01,
+  0x00,				/* 0x04 == audio, 0x01 == video */
+  0x00, 0x00, 0x00, 0x09,
+  0x00, 0x00, 0x00, 0x00
+};
+
+#define HEADERBUF	(128*1024)
+int
+RTMP_Read(RTMP *r, char *buf, int size)
+{
+  int nRead = 0, total = 0;
+
+  /* can't continue */
+  if (r->m_read.status < 0)
+    return -1;
+
+  /* first time thru */
+  if (!r->m_read.bDidHeader)
+    {
+      if (!r->m_read.bResume)
+	{
+	  char *mybuf = malloc(HEADERBUF);
+	  r->m_read.buf = mybuf;
+	  r->m_read.buflen = HEADERBUF;
+
+	  memcpy(mybuf, flvHeader, sizeof(flvHeader));
+	  r->m_read.buf += sizeof(flvHeader);
+	  r->m_read.buflen -= sizeof(flvHeader);
+
+	  while (r->m_read.tsm == 0)
+	    {
+	      nRead = Read_1_Packet(r, r->m_read.buf, r->m_read.buflen);
+	      if (nRead < 0)
+		{
+		  free(mybuf);
+		  r->m_read.buf = NULL;
+		  r->m_read.buflen = 0;
+		  r->m_read.status = nRead;
+		  return -1;
+		}
+	      r->m_read.buf += nRead;
+	      r->m_read.buflen -= nRead;
+	    }
+	  mybuf[4] = r->m_read.dataType;
+	  r->m_read.buflen = r->m_read.buf - mybuf;
+	  r->m_read.buf = mybuf;
+	  r->m_read.bufpos = mybuf;
+	}
+      r->m_read.bDidHeader = true;
+    }
+
+  /* If there's leftover data buffered, use it up */
+  if (r->m_read.buf)
+    {
+      nRead = r->m_read.buflen;
+      if (nRead > size)
+	nRead = size;
+      memcpy(buf, r->m_read.bufpos, nRead);
+      r->m_read.buflen -= nRead;
+      if (!r->m_read.buflen)
+	{
+	  free(r->m_read.buf);
+	  r->m_read.buf = NULL;
+	  r->m_read.bufpos = NULL;
+	}
+      else
+	{
+	  r->m_read.bufpos += nRead;
+	}
+      buf += nRead;
+      total += nRead;
+      size -= nRead;
+    }
+
+  while (size > 0 && (nRead = Read_1_Packet(r, buf, size)) >= 0)
+    {
+      buf += nRead;
+      total += nRead;
+      size -= nRead;
+    }
+  if (nRead < 0)
+    r->m_read.status = nRead;
+
+  if (size < 0)
+    total += size;
+  return total;
 }

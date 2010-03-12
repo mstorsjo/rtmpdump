@@ -177,6 +177,36 @@ extern "C"
 #endif
   } RTMP_LNK;
 
+  /* state for read() wrapper */
+  typedef struct RTMP_READ
+  {
+    char *buf;
+    char *bufpos;
+    unsigned int buflen;
+    uint32_t tsm;
+    uint8_t dataType;
+    uint8_t bResume;
+    uint8_t bDidHeader;
+    int8_t status;
+#define RTMP_READ_COMPLETE	-3
+#define RTMP_READ_ERROR	-2
+#define RTMP_READ_EOF	-1
+#define RTMP_READ_IGNORE	0
+
+    /* if bResume == TRUE */
+    uint8_t initialFrameType;
+    uint8_t bStopIgnoring;
+    uint8_t bFoundKeyframe;
+    uint8_t bFoundFlvKeyframe;
+    uint32_t nResumeTS;
+    char *metaHeader;
+    char *initialFrame;
+    uint32_t nMetaHeaderSize;
+    uint32_t nInitialFrameSize;
+    uint32_t nIgnoredFrameCounter;
+    uint32_t nIgnoredFlvFrameCounter;
+  } RTMP_READ;
+
   typedef struct RTMP
   {
     int m_inChunkSize;
@@ -193,9 +223,9 @@ extern "C"
     int m_nServerBW;
     int m_nClientBW;
     uint8_t m_nClientBW2;
-    bool m_bPlaying;
-    bool m_bSendEncoding;
-    bool m_bSendCounter;
+    uint8_t m_bPlaying;
+    uint8_t m_bSendEncoding;
+    uint8_t m_bSendCounter;
 
     AVal *m_methodCalls;	/* remote method calls queue */
     int m_numCalls;
@@ -217,6 +247,7 @@ extern "C"
     int m_unackd;
     AVal m_clientID;
 
+    RTMP_READ m_read;
     RTMPSockBuf m_sb;
   } RTMP;
 
@@ -280,6 +311,7 @@ extern "C"
   bool RTMP_SendSeek(RTMP *r, double dTime);
   bool RTMP_SendServerBW(RTMP *r);
   void RTMP_DropRequest(RTMP *r, int i, bool freeit);
+  int RTMP_Read(RTMP *r, char *buf, int size);
 
 #ifdef CRYPTO
 /* hashswf.c */

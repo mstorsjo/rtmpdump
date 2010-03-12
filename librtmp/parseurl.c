@@ -37,6 +37,7 @@ bool RTMP_ParseURL(const char *url, int *protocol, char **host, unsigned int *po
 	Log(LOGDEBUG, "Parsing...");
 
 	*protocol = RTMP_PROTOCOL_RTMP;
+	*port = 0;
 	playpath->av_len = 0;
 	playpath->av_val = NULL;
 	app->av_len = 0;

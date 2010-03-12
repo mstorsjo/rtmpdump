@@ -45,9 +45,8 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #define GetSockError()	errno
-#ifndef closesocket
+#undef closesocket
 #define closesocket(s)	close(s)
-#endif
 #define msleep(n)	usleep(n*1000)
 #define SET_RCVTIMEO(tv,s)	struct timeval tv = {s,0}
 #endif

@@ -75,8 +75,6 @@ void stopStreaming(STREAMING_SERVER * server);
 
 typedef struct
 {
-  uint32_t dSeek;		// seek position in resume mode, 0 otherwise
-
   char *hostname;
   int rtmpport;
   int protocol;
@@ -331,16 +329,19 @@ void processTCPrequest(STREAMING_SERVER * server,	// server socket and state (ou
   char *filename = NULL;	// GET request: file name //512 not enuf
   char *buffer = NULL;		// stream buffer
   char *ptr = NULL;		// header pointer
+  int len;
 
   size_t nRead = 0;
 
-  char srvhead[] =
-    "\r\nServer:HTTP-RTMP Stream Server \r\nContent-Type: Video/MPEG \r\n\r\n";
+  char srvhead[] = "\r\nServer:HTTP-RTMP Stream Server \r\n";
+
+  char *status = "404 File not found";
 
   server->state = STREAMING_IN_PROGRESS;
 
   RTMP rtmp = { 0 };
   uint32_t dSeek = 0;		// can be used to start from a later point in the stream
+  int32_t dLength = -1;
 
   // reset RTMP options to defaults specified upon invokation of streams
   RTMP_REQUEST req;
@@ -374,9 +375,9 @@ void processTCPrequest(STREAMING_SERVER * server,	// server socket and state (ou
 	{
 	  // TODO check range starts from 0 and asking till the end.
 	  LogPrintf("%s, Range request not supported\n", __FUNCTION__);
-	  sprintf(buf, "HTTP/1.0 416 Requested Range Not Satisfiable%s",
+	  len = sprintf(buf, "HTTP/1.0 416 Requested Range Not Satisfiable%s\r\n",
 		  srvhead);
-	  send(sockfd, buf, (int) strlen(buf), 0);
+	  send(sockfd, buf, len, 0);
 	  goto quit;
 	}
 
@@ -465,18 +466,21 @@ void processTCPrequest(STREAMING_SERVER * server,	// server socket and state (ou
     {
       Log(LOGERROR,
 	  "You must specify a hostname (--host) or url (-r \"rtmp://host[:port]/app/playpath\") containing a hostname");
+      status = "400 Missing Hostname";
       goto filenotfound;
     }
   if (req.playpath.av_len == 0)
     {
       Log(LOGERROR,
 	  "You must specify a playpath (--playpath) or url (-r \"rtmp://host[:port]/app/playpath\") containing a playpath");
+      status = "400 Missing Playpath";
       goto filenotfound;
     }
   if (req.app.av_len == 0)
     {
       Log(LOGERROR,
 	  "You must specify an app (--app) or url (-r \"rtmp://host[:port]/app/playpath\") containing an app");
+      status = "400 Missing App";
       goto filenotfound;
     }
 
@@ -505,9 +509,9 @@ void processTCPrequest(STREAMING_SERVER * server,	// server socket and state (ou
   if (req.tcUrl.av_len == 0 && req.app.av_len != 0)
     {
       char str[512] = { 0 };
-      snprintf(str, 511, "%s://%s:%d/%s", RTMPProtocolStringsLower[req.protocol],
-	       req.hostname, req.rtmpport, req.app.av_val);
-      req.tcUrl.av_len = strlen(str);
+      req.tcUrl.av_len = snprintf(str, 511, "%s://%s:%d/%.*s",
+	RTMPProtocolStringsLower[req.protocol],
+	req.hostname, req.rtmpport, req.app.av_len, req.app.av_val);
       req.tcUrl.av_val = (char *) malloc(req.tcUrl.av_len + 1);
       strcpy(req.tcUrl.av_val, str);
     }
@@ -522,8 +526,8 @@ void processTCPrequest(STREAMING_SERVER * server,	// server socket and state (ou
     }
 
   // after validation of the http request send response header
-  sprintf(buf, "HTTP/1.0 200 OK%s", srvhead);
-  send(sockfd, buf, (int) strlen(buf), 0);
+  len = sprintf(buf, "HTTP/1.0 200 OK%sContent-Type: video/flv\r\n\r\n", srvhead);
+  send(sockfd, buf, len, 0);
 
   // send the packets
   buffer = (char *) calloc(PACKET_SIZE, 1);
@@ -543,11 +547,16 @@ void processTCPrequest(STREAMING_SERVER * server,	// server socket and state (ou
       LogPrintf("Starting at TS: %d ms\n", dSeek);
     }
 
+  if (req.dStopOffset > 0)
+    {
+	  dLength = req.dStopOffset - dSeek;
+	}
+
   Log(LOGDEBUG, "Setting buffer time to: %dms", req.bufferTime);
   RTMP_Init(&rtmp);
   RTMP_SetBufferMS(&rtmp, req.bufferTime);
   RTMP_SetupStream(&rtmp, req.protocol, req.hostname, req.rtmpport, req.sockshost,
-		   &req.playpath, &req.tcUrl, &req.swfUrl, &req.pageUrl, &req.app, &req.auth, &req.swfHash, req.swfSize, &req.flashVer, &req.subscribepath, dSeek, -1,	// length
+		   &req.playpath, &req.tcUrl, &req.swfUrl, &req.pageUrl, &req.app, &req.auth, &req.swfHash, req.swfSize, &req.flashVer, &req.subscribepath, dSeek, dLength,
 		   req.bLiveStream, req.timeout);
   /* backward compatibility, we always sent this as true before */
   if (req.auth.av_len)
@@ -612,16 +621,6 @@ void processTCPrequest(STREAMING_SERVER * server,	// server socket and state (ou
 	      Log(LOGDEBUG, "zero read!");
 	    }
 #endif
-
-	  // Force clean close if a specified stop offset is reached
-	  if (req.dStopOffset && rtmp.m_read.timestamp >= req.dStopOffset)
-	    {
-	      LogPrintf("\nStop offset has been reached at %.2f seconds\n",
-			(double) req.dStopOffset / 1000.0);
-	      nRead = 0;
-	      RTMP_Close(&rtmp);
-	    }
-
 	}
       while (server->state == STREAMING_IN_PROGRESS && nRead > -1
 	     && RTMP_IsConnected(&rtmp) && nWritten >= 0);
@@ -647,9 +646,9 @@ quit:
   return;
 
 filenotfound:
-  LogPrintf("%s, File not found, %s\n", __FUNCTION__, filename);
-  sprintf(buf, "HTTP/1.0 404 File Not Found%s", srvhead);
-  send(sockfd, buf, (int) strlen(buf), 0);
+  LogPrintf("%s, %s, %s\n", __FUNCTION__, status, filename);
+  len = sprintf(buf, "HTTP/1.0 %s%s\r\n", status, srvhead);
+  send(sockfd, buf, len, 0);
   goto quit;
 }
 

@@ -333,9 +333,9 @@ void processTCPrequest(STREAMING_SERVER * server,	// server socket and state (ou
 
   size_t nRead = 0;
 
-  char srvhead[] = "\r\nServer:HTTP-RTMP Stream Server \r\n";
+  char srvhead[] = "\r\nServer: HTTP-RTMP Stream Server " RTMPDUMP_VERSION "\r\n";
 
-  char *status = "404 File not found";
+  char *status = "404 Not Found";
 
   server->state = STREAMING_IN_PROGRESS;
 
@@ -549,8 +549,8 @@ void processTCPrequest(STREAMING_SERVER * server,	// server socket and state (ou
 
   if (req.dStopOffset > 0)
     {
-	  dLength = req.dStopOffset - dSeek;
-	}
+      dLength = req.dStopOffset - dSeek;
+    }
 
   Log(LOGDEBUG, "Setting buffer time to: %dms", req.bufferTime);
   RTMP_Init(&rtmp);

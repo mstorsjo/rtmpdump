@@ -28,7 +28,7 @@
 
 #include <assert.h>
 
-#include "librtmp/rtmp.h"
+#include "librtmp/rtmp_sys.h"
 #include "librtmp/log.h"
 
 #include "thread.h"

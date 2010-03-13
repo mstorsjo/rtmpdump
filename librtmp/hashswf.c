@@ -24,7 +24,7 @@
 #include <ctype.h>
 #include <time.h>
 
-#include "rtmp.h"
+#include "rtmp_sys.h"
 #include "log.h"
 #include "http.h"
 

@@ -26,7 +26,7 @@
 #include <assert.h>
 #include <ctype.h>
 
-#include "rtmp.h"
+#include "rtmp_sys.h"
 #include "log.h"
 
 bool RTMP_ParseURL(const char *url, int *protocol, char **host, unsigned int *port,

@@ -26,31 +26,6 @@
 
 #define CRYPTO
 
-#ifdef WIN32
-#include <winsock.h>
-#define GetSockError()	WSAGetLastError()
-#define setsockopt(a,b,c,d,e)	(setsockopt)(a,b,c,(const char *)d,(int)e)
-#define EWOULDBLOCK	WSAETIMEDOUT	/* we don't use nonblocking, but we do use timeouts */
-#define sleep(n)	Sleep(n*1000)
-#define msleep(n)	Sleep(n)
-#define socklen_t	int
-#define SET_RCVTIMEO(tv,s)	int tv = s*1000
-#else
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/times.h>
-#include <netdb.h>
-#include <arpa/inet.h>
-#include <unistd.h>
-#include <netinet/in.h>
-#include <netinet/tcp.h>
-#define GetSockError()	errno
-#undef closesocket
-#define closesocket(s)	close(s)
-#define msleep(n)	usleep(n*1000)
-#define SET_RCVTIMEO(tv,s)	struct timeval tv = {s,0}
-#endif
-
 #include <errno.h>
 #include <stdint.h>
 
@@ -304,7 +279,7 @@ extern "C"
   bool RTMP_FindFirstMatchingProperty(AMFObject *obj, const AVal *name,
 				      AMFObjectProperty * p);
 
-  bool RTMPSockBuf_Fill(RTMPSockBuf *sb);
+  int RTMPSockBuf_Fill(RTMPSockBuf *sb);
   int RTMPSockBuf_Send(RTMPSockBuf *sb, const char *buf, int len);
   int RTMPSockBuf_Close(RTMPSockBuf *sb);
 

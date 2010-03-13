@@ -29,7 +29,7 @@
 #include <signal.h>		// to catch Ctrl-C
 #include <getopt.h>
 
-#include "librtmp/rtmp.h"
+#include "librtmp/rtmp_sys.h"
 #include "librtmp/log.h"
 
 #ifdef WIN32

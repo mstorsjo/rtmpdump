@@ -25,6 +25,7 @@
  */
 
 #include <stdint.h>
+#include <stdbool.h>
 
 #ifdef __cplusplus
 extern "C"
@@ -55,15 +56,6 @@ extern "C"
   } AVal;
 #define AVC(str)	{str,sizeof(str)-1}
 #define AVMATCH(a1,a2)	((a1)->av_len == (a2)->av_len && !memcmp((a1)->av_val,(a2)->av_val,(a1)->av_len))
-
-#ifndef __cplusplus
-#undef bool
-#undef true
-#undef false
-#define	bool	int
-#define true	1
-#define	false	0
-#endif
 
   struct AMFObjectProperty;
 

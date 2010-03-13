@@ -329,7 +329,7 @@ AMFProp_GetNumber(AMFObjectProperty * prop)
   return prop->p_vu.p_number;
 }
 
-int
+bool
 AMFProp_GetBoolean(AMFObjectProperty * prop)
 {
   return prop->p_vu.p_number != 0;
@@ -347,7 +347,7 @@ AMFProp_GetObject(AMFObjectProperty * prop, AMFObject * obj)
   *obj = prop->p_vu.p_object;
 }
 
-int
+bool
 AMFProp_IsValid(AMFObjectProperty * prop)
 {
   return prop->p_type != AMF_INVALID;
@@ -476,7 +476,7 @@ AMF3ReadString(const char *data, AVal * str)
 
 int
 AMF3Prop_Decode(AMFObjectProperty * prop, const char *pBuffer, int nSize,
-		int bDecodeName)
+		bool bDecodeName)
 {
   int nOriginalSize = nSize;
   AMF3DataType type;
@@ -593,7 +593,7 @@ AMF3Prop_Decode(AMFObjectProperty * prop, const char *pBuffer, int nSize,
 
 int
 AMFProp_Decode(AMFObjectProperty * prop, const char *pBuffer, int nSize,
-	       int bDecodeName)
+	       bool bDecodeName)
 {
   int nOriginalSize = nSize;
 

@@ -27,7 +27,7 @@
 #include <string.h>
 #include <assert.h>
 
-#include "rtmp.h"
+#include "rtmp_sys.h"
 #include "log.h"
 
 #include <openssl/ssl.h>

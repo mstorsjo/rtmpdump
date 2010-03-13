@@ -30,7 +30,7 @@
 
 #define MAX_PRINT_LEN	2048
 
-AMF_LogLevel debuglevel = LOGERROR;
+AMF_LogLevel AMF_debuglevel = LOGERROR;
 
 static int neednl;
 
@@ -55,7 +55,7 @@ void LogPrintf(const char *format, ...)
 	len = vsnprintf(str, MAX_PRINT_LEN-1, format, args);
 	va_end(args);
 
-	if ( debuglevel==LOGCRIT )
+	if ( AMF_debuglevel==LOGCRIT )
 		return;
 
 	if ( !fmsg ) fmsg = stderr;
@@ -80,7 +80,7 @@ void LogStatus(const char *format, ...)
 	vsnprintf(str, MAX_PRINT_LEN-1, format, args);
 	va_end(args);
 
-	if ( debuglevel==LOGCRIT )
+	if ( AMF_debuglevel==LOGCRIT )
 		return;
 
 	if ( !fmsg ) fmsg = stderr;
@@ -99,12 +99,12 @@ void Log(int level, const char *format, ...)
 	va_end(args);
 
 	// Filter out 'no-name'
-	if ( debuglevel<LOGALL && strstr(str, "no-name" ) != NULL )
+	if ( AMF_debuglevel<LOGALL && strstr(str, "no-name" ) != NULL )
 		return;
 
 	if ( !fmsg ) fmsg = stderr;
 
-	if ( level <= debuglevel ) {
+	if ( level <= AMF_debuglevel ) {
 		if (neednl) {
 			putc('\n', fmsg);
 			neednl = 0;
@@ -119,7 +119,7 @@ void Log(int level, const char *format, ...)
 void LogHex(int level, const char *data, unsigned long len)
 {
 	unsigned long i;
-	if ( level > debuglevel )
+	if ( level > AMF_debuglevel )
 		return;
 	for(i=0; i<len; i++) {
 		LogPrintf("%02X ", (unsigned char)data[i]);
@@ -136,7 +136,7 @@ void LogHexString(int level, const char *data, unsigned long len)
 	char	line[BP_LEN];
 	unsigned long i;
 
-	if ( !data || level > debuglevel )
+	if ( !data || level > AMF_debuglevel )
 		return;
 
 	/* in case len is zero */

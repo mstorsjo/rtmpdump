@@ -46,9 +46,8 @@ typedef enum
 #define LogPrintf	AMF_LogPrintf
 #define LogSetOutput	AMF_LogSetOutput
 #define LogStatus	AMF_LogStatus
-#define debuglevel	AMF_debuglevel
 
-extern AMF_LogLevel debuglevel;
+extern AMF_LogLevel AMF_debuglevel;
 
 void LogSetOutput(FILE *file);
 void LogPrintf(const char *format, ...);

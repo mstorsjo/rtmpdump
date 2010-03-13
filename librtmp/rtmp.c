@@ -1283,6 +1283,9 @@ RTMP_SendSeek(RTMP *r, double dTime)
 
   packet.m_nBodySize = enc - packet.m_body;
 
+  r->m_read.flags |= RTMP_READ_SEEKING;
+  r->m_read.nResumeTS = (int)dTime;
+
   return RTMP_SendPacket(r, &packet, true);
 }
 
@@ -1595,6 +1598,8 @@ AVC("NetConnection.Connect.InvalidApp");
 static const AVal av_NetStream_Play_Start = AVC("NetStream.Play.Start");
 static const AVal av_NetStream_Play_Complete = AVC("NetStream.Play.Complete");
 static const AVal av_NetStream_Play_Stop = AVC("NetStream.Play.Stop");
+static const AVal av_NetStream_Seek_Notify = AVC("NetStream.Seek.Notify");
+static const AVal av_NetStream_Pause_Notify = AVC("NetStream.Pause.Notify");
 
 // Returns 0 for OK/Failed/error, 1 for 'Stop or Complete'
 static int
@@ -1720,7 +1725,7 @@ HandleInvoke(RTMP *r, const char *body, unsigned int nBodySize)
 	  Log(LOGERROR, "Closing connection: %s", code.av_val);
 	}
 
-      if (AVMATCH(&code, &av_NetStream_Play_Start))
+      else if (AVMATCH(&code, &av_NetStream_Play_Start))
 	{
 	  int i;
 	  r->m_bPlaying = true;
@@ -1735,11 +1740,25 @@ HandleInvoke(RTMP *r, const char *body, unsigned int nBodySize)
 	}
 
       // Return 1 if this is a Play.Complete or Play.Stop
-      if (AVMATCH(&code, &av_NetStream_Play_Complete)
+      else if (AVMATCH(&code, &av_NetStream_Play_Complete)
 	  || AVMATCH(&code, &av_NetStream_Play_Stop))
 	{
 	  RTMP_Close(r);
 	  ret = 1;
+	}
+
+      else if (AVMATCH(&code, &av_NetStream_Seek_Notify))
+        {
+	  r->m_read.flags &= ~RTMP_READ_SEEKING;
+	}
+
+      else if (AVMATCH(&code, &av_NetStream_Pause_Notify))
+        {
+	  if (r->m_pausing == 1 || r->m_pausing == 2)
+	  {
+	    RTMP_SendPause(r, false, r->m_pauseStamp);
+	    r->m_pausing = 3;
+	  }
 	}
     }
   else
@@ -2880,6 +2899,12 @@ Read_1_Packet(RTMP *r, char *buf, int buflen)
 	  ret = RTMP_READ_IGNORE;
 	  break;
 	}
+
+      if (r->m_read.flags & RTMP_READ_SEEKING)
+        {
+	  ret = RTMP_READ_IGNORE;
+	  break;
+	}
 #if 1				/* _DEBUG */
       Log(LOGDEBUG, "type: %02X, size: %d, TS: %d ms, abs TS: %d",
 	  packet.m_packetType, nPacketLen, packet.m_nTimeStamp,
@@ -3333,6 +3358,15 @@ RTMP_Read(RTMP *r, char *buf, int size)
 	  r->m_read.bufpos = mybuf;
 	}
       r->m_read.flags |= RTMP_READ_HEADER;
+    }
+
+  if ((r->m_read.flags & RTMP_READ_SEEKING) && r->m_read.buf)
+    {
+      /* drop whatever's here */
+      free(r->m_read.buf);
+      r->m_read.buf = NULL;
+      r->m_read.bufpos = NULL;
+      r->m_read.buflen = 0;
     }
 
   /* If there's leftover data buffered, use it up */

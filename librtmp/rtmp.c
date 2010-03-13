@@ -2905,7 +2905,7 @@ Read_1_Packet(RTMP *r, char *buf, int buflen)
 	  ret = RTMP_READ_IGNORE;
 	  break;
 	}
-#if 1				/* _DEBUG */
+#ifdef _DEBUG
       Log(LOGDEBUG, "type: %02X, size: %d, TS: %d ms, abs TS: %d",
 	  packet.m_packetType, nPacketLen, packet.m_nTimeStamp,
 	  packet.m_hasAbsTimestamp);

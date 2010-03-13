@@ -788,7 +788,7 @@ main(int argc, char **argv)
     {
       if (strcmp(argv[index], "--quiet") == 0
 	  || strcmp(argv[index], "-q") == 0)
-	debuglevel = LOGCRIT;
+	AMF_debuglevel = LOGCRIT;
       index++;
     }
 
@@ -1109,13 +1109,13 @@ main(int argc, char **argv)
 	  bHashes = true;
 	  break;
 	case 'q':
-	  debuglevel = LOGCRIT;
+	  AMF_debuglevel = LOGCRIT;
 	  break;
 	case 'V':
-	  debuglevel = LOGDEBUG;
+	  AMF_debuglevel = LOGDEBUG;
 	  break;
 	case 'z':
-	  debuglevel = LOGALL;
+	  AMF_debuglevel = LOGALL;
 	  break;
 	case 'S':
 	  sockshost = optarg;

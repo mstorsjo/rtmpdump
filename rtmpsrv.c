@@ -1020,10 +1020,10 @@ main(int argc, char **argv)
   LogPrintf("RTMP Server %s\n", RTMPDUMP_VERSION);
   LogPrintf("(c) 2010 Andrej Stepanchuk, Howard Chu; license: GPL\n\n");
 
-  debuglevel = LOGINFO;
+  AMF_debuglevel = LOGINFO;
 
   if (argc > 1 && !strcmp(argv[1], "-z"))
-    debuglevel = LOGALL;
+    AMF_debuglevel = LOGALL;
 
   // init request
   memset(&defaultRTMPRequest, 0, sizeof(RTMP_REQUEST));

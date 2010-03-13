@@ -945,13 +945,13 @@ ParseOption(char opt, char *arg, RTMP_REQUEST * req)
     case 'S':
 	  req->sockshost = arg;
     case 'q':
-      debuglevel = LOGCRIT;
+      AMF_debuglevel = LOGCRIT;
       break;
     case 'V':
-      debuglevel = LOGDEBUG;
+      AMF_debuglevel = LOGDEBUG;
       break;
     case 'z':
-      debuglevel = LOGALL;
+      AMF_debuglevel = LOGALL;
       break;
     default:
       LogPrintf("unknown option: %c, arg: %s\n", opt, arg);

@@ -1119,10 +1119,10 @@ main(int argc, char **argv)
   LogPrintf("RTMP Proxy Server %s\n", RTMPDUMP_VERSION);
   LogPrintf("(c) 2010 Andrej Stepanchuk, Howard Chu; license: GPL\n\n");
 
-  debuglevel = LOGINFO;
+  AMF_debuglevel = LOGINFO;
 
   if (argc > 1 && !strcmp(argv[1], "-z"))
-    debuglevel = LOGALL;
+    AMF_debuglevel = LOGALL;
 
   signal(SIGINT, sigIntHandler);
 #ifndef WIN32

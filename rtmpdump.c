@@ -487,7 +487,8 @@ Download(RTMP * rtmp,		// connected RTMP object
   if (dLength > 0)
     LogPrintf("For duration: %.3f sec\n", (double) dLength / 1000.0);
 
-  rtmp->m_read.bResume = bResume && nInitialFrameSize > 0;
+  if (bResume && nInitialFrameSize > 0)
+    rtmp->m_read.flags |= RTMP_READ_RESUME;
   rtmp->m_read.initialFrameType = initialFrameType;
   rtmp->m_read.nResumeTS = dSeek;
   rtmp->m_read.metaHeader = metaHeader;

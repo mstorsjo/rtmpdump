@@ -2569,11 +2569,8 @@ RTMP_Close(RTMP *r)
 
   r->m_read.buf = NULL;
   r->m_read.dataType = 0;
-  r->m_read.bResume = 0;
+  r->m_read.flags = 0;
   r->m_read.status = 0;
-  r->m_read.bStopIgnoring = false;
-  r->m_read.bFoundKeyframe = false;
-  r->m_read.bFoundFlvKeyframe = false;
   r->m_read.nResumeTS = 0;
   r->m_read.nIgnoredFrameCounter = 0;
   r->m_read.nIgnoredFlvFrameCounter = 0;
@@ -2891,7 +2888,7 @@ Read_1_Packet(RTMP *r, char *buf, int buflen)
 	Log(LOGDEBUG, "frametype: %02X", (*packetBody & 0xf0));
 #endif
 
-      if (r->m_read.bResume)
+      if (r->m_read.flags & RTMP_READ_RESUME)
 	{
 	  /* check the header if we get one */
 	  if (packet.m_nTimeStamp == 0)
@@ -2944,7 +2941,7 @@ Read_1_Packet(RTMP *r, char *buf, int buflen)
 			   r->m_read.nInitialFrameSize) == 0)
 			{
 			  Log(LOGDEBUG, "Checked keyframe successfully!");
-			  r->m_read.bFoundKeyframe = true;
+			  r->m_read.flags |= RTMP_READ_GOTKF;
 			  /* ignore it! (what about audio data after it? it is
 			   * handled by ignoring all 0ms frames, see below)
 			   */
@@ -3001,7 +2998,7 @@ Read_1_Packet(RTMP *r, char *buf, int buflen)
 				      ret = RTMP_READ_ERROR;
 				      break;
 				    }
-				  r->m_read.bFoundFlvKeyframe = true;
+				  r->m_read.flags |= RTMP_READ_GOTFLVK;
 
 				  /* skip this packet?
 				   * check whether skippable:
@@ -3038,7 +3035,7 @@ Read_1_Packet(RTMP *r, char *buf, int buflen)
 			}
 		    stopKeyframeSearch:
 		      ;
-		      if (!r->m_read.bFoundFlvKeyframe)
+		      if (!(r->m_read.flags & RTMP_READ_GOTFLVK))
 			{
 			  Log(LOGERROR,
 			      "Couldn't find the seeked keyframe in this chunk!");
@@ -3050,7 +3047,7 @@ Read_1_Packet(RTMP *r, char *buf, int buflen)
 	    }
 
 	  if (packet.m_nTimeStamp > 0
-	      && (r->m_read.bFoundFlvKeyframe || r->m_read.bFoundKeyframe))
+	      && (r->m_read.flags & (RTMP_READ_GOTKF|RTMP_READ_GOTFLVK)))
 	    {
 	      /* another problem is that the server can actually change from
 	       * 09/08 video/audio packets to an FLV stream or vice versa and
@@ -3063,14 +3060,14 @@ Read_1_Packet(RTMP *r, char *buf, int buflen)
 	       * which means we can accept all forthcoming data including the
 	       * change between 08/09 <-> FLV packets
 	       */
-	      r->m_read.bFoundFlvKeyframe = true;
-	      r->m_read.bFoundKeyframe = true;
+	      r->m_read.flags |= (RTMP_READ_GOTKF|RTMP_READ_GOTFLVK);
 	    }
 
 	  /* skip till we find our keyframe
 	   * (seeking might put us somewhere before it)
 	   */
-	  if (!r->m_read.bFoundKeyframe && packet.m_packetType != 0x16)
+	  if (!(r->m_read.flags & RTMP_READ_GOTKF) &&
+	  	packet.m_packetType != 0x16)
 	    {
 	      Log(LOGWARNING,
 		  "Stream does not start with requested frame, ignoring data... ");
@@ -3082,7 +3079,8 @@ Read_1_Packet(RTMP *r, char *buf, int buflen)
 	      break;
 	    }
 	  /* ok, do the same for FLV streams */
-	  if (!r->m_read.bFoundFlvKeyframe && packet.m_packetType == 0x16)
+	  if (!(r->m_read.flags & RTMP_READ_GOTFLVK) &&
+	  	packet.m_packetType == 0x16)
 	    {
 	      Log(LOGWARNING,
 		  "Stream does not start with requested FLV frame, ignoring data... ");
@@ -3100,7 +3098,8 @@ Read_1_Packet(RTMP *r, char *buf, int buflen)
 	   * later position there is only one copy and it will be ignored by
 	   * the preceding if clause)
 	   */
-	  if (!r->m_read.bStopIgnoring && packet.m_packetType != 0x16)
+	  if (!(r->m_read.flags & RTMP_READ_NO_IGNORE) &&
+	  	packet.m_packetType != 0x16)
 	    {			/* exclude type 0x16 (FLV) since it can
 				 * contain several FLV packets */
 	      if (packet.m_nTimeStamp == 0)
@@ -3110,7 +3109,8 @@ Read_1_Packet(RTMP *r, char *buf, int buflen)
 		}
 	      else
 		{
-		  r->m_read.bStopIgnoring = true;	/* stop ignoring packets */
+		  /* stop ignoring packets */
+		  r->m_read.flags |= RTMP_READ_NO_IGNORE;
 		}
 	    }
 	}
@@ -3301,9 +3301,9 @@ RTMP_Read(RTMP *r, char *buf, int size)
     return -1;
 
   /* first time thru */
-  if (!r->m_read.bDidHeader)
+  if (!(r->m_read.flags & RTMP_READ_HEADER))
     {
-      if (!r->m_read.bResume)
+      if (!(r->m_read.flags & RTMP_READ_RESUME))
 	{
 	  char *mybuf = malloc(HEADERBUF);
 	  r->m_read.buf = mybuf;
@@ -3332,7 +3332,7 @@ RTMP_Read(RTMP *r, char *buf, int size)
 	  r->m_read.buf = mybuf;
 	  r->m_read.bufpos = mybuf;
 	}
-      r->m_read.bDidHeader = true;
+      r->m_read.flags |= RTMP_READ_HEADER;
     }
 
   /* If there's leftover data buffered, use it up */

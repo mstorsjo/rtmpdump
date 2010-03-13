@@ -161,8 +161,13 @@ extern "C"
     unsigned int buflen;
     uint32_t timestamp;
     uint8_t dataType;
-    uint8_t bResume;
-    uint8_t bDidHeader;
+    uint8_t flags;
+#define RTMP_READ_HEADER	0x01
+#define RTMP_READ_RESUME	0x02
+#define RTMP_READ_NO_IGNORE	0x04
+#define RTMP_READ_GOTKF		0x08
+#define RTMP_READ_GOTFLVK	0x10
+#define RTMP_READ_SEEKING	0x20
     int8_t status;
 #define RTMP_READ_COMPLETE	-3
 #define RTMP_READ_ERROR	-2
@@ -171,9 +176,6 @@ extern "C"
 
     /* if bResume == TRUE */
     uint8_t initialFrameType;
-    uint8_t bStopIgnoring;
-    uint8_t bFoundKeyframe;
-    uint8_t bFoundFlvKeyframe;
     uint32_t nResumeTS;
     char *metaHeader;
     char *initialFrame;

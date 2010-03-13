@@ -21,8 +21,6 @@
  *  http://www.gnu.org/copyleft/lgpl.html
  */
 
-#define CRYPTO
-
 #ifdef WIN32
 #include <winsock.h>
 #define GetSockError()	WSAGetLastError()

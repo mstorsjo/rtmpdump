@@ -1129,13 +1129,19 @@ main(int argc, char **argv)
   if (hostname == 0)
     {
       Log(LOGERROR,
-	  "You must specify a hostname (--host) or url (-r \"rtmp://host[:port]/playpath\") containing a hostname");
+	  "You must specify a hostname (--host) or url (-r \"rtmp://host[:port]/app/playpath\") containing a hostname");
       return RD_FAILED;
     }
   if (playpath.av_len == 0)
     {
       Log(LOGERROR,
-	  "You must specify a playpath (--playpath) or url (-r \"rtmp://host[:port]/playpath\") containing a playpath");
+	  "You must specify a playpath (--playpath) or url (-r \"rtmp://host[:port]/app/playpath\") containing a playpath");
+      return RD_FAILED;
+    }
+  if (app.av_len == 0)
+    {
+      Log(LOGERROR,
+	  "You must specify an app (--app) or url (-r \"rtmp://host[:port]/app/playpath\") containing an app");
       return RD_FAILED;
     }
 
@@ -1207,7 +1213,7 @@ main(int argc, char **argv)
     }
 #endif
 
-  if (tcUrl.av_len == 0 && app.av_len != 0)
+  if (tcUrl.av_len == 0)
     {
       char str[512] = { 0 };
 

@@ -2901,7 +2901,7 @@ Read_1_Packet(RTMP *r, char *buf, int buflen)
 	}
 
       if (r->m_read.flags & RTMP_READ_SEEKING)
-        {
+	{
 	  ret = RTMP_READ_IGNORE;
 	  break;
 	}

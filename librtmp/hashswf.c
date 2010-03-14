@@ -396,6 +396,12 @@ strtime(time_t * t, char *s)
 
 #define HEX2BIN(a)      (((a)&0x40)?((a)&0xf)+9:((a)&0xf))
 
+#ifdef WIN32
+#define	ENV_HOME	"HOMEPATH"
+#else
+#define ENV_HOME	"HOME"
+#endif
+
 int
 RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash,
 	     int age)
@@ -413,7 +419,7 @@ RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash,
   HMAC_CTX ctx;
 
   date[0] = '\0';
-  home = getenv("HOME");
+  home = getenv(ENV_HOME);
   if (!home)
     home = ".";
 

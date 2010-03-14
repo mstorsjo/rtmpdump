@@ -55,11 +55,11 @@
 
 #ifdef WIN32
 #define InitSockets()	{\
-        WORD version;			\
-        WSADATA wsaData;		\
+	WORD version;			\
+	WSADATA wsaData;		\
 					\
-        version = MAKEWORD(1,1);	\
-        WSAStartup(version, &wsaData);	}
+	version = MAKEWORD(1,1);	\
+	WSAStartup(version, &wsaData);	}
 
 #define	CleanupSockets()	WSACleanup()
 #else
@@ -364,30 +364,30 @@ countAMF(AMFObject *obj, int *argc)
       len += 4;
       (*argc)+= 2;
       if (p->p_name.av_val)
-        len += 1;
+	len += 1;
       len += 2;
       if (p->p_name.av_val)
-        len += p->p_name.av_len + 1;
+	len += p->p_name.av_len + 1;
       switch(p->p_type)
-        {
-        case AMF_BOOLEAN:
-          len += 1;
-          break;
-        case AMF_STRING:
-          len += p->p_vu.p_aval.av_len;
-          break;
-        case AMF_NUMBER:
-          len += 40;
-          break;
-        case AMF_OBJECT:
-          len += 9;
-          len += countAMF(&p->p_vu.p_object, argc);
-          (*argc) += 2;
-          break;
-        case AMF_NULL:
-        default:
-          break;
-        }
+	{
+	case AMF_BOOLEAN:
+	  len += 1;
+	  break;
+	case AMF_STRING:
+	  len += p->p_vu.p_aval.av_len;
+	  break;
+	case AMF_NUMBER:
+	  len += 40;
+	  break;
+	case AMF_OBJECT:
+	  len += 9;
+	  len += countAMF(&p->p_vu.p_object, argc);
+	  (*argc) += 2;
+	  break;
+	case AMF_NULL:
+	default:
+	  break;
+	}
     }
   return len;
 }
@@ -406,44 +406,44 @@ dumpAMF(AMFObject *obj, char *ptr, AVal *argv, int *argc)
       ptr += sprintf(ptr, " -C ");
       argv[ac].av_val = ptr;
       if (p->p_name.av_val)
-        *ptr++ = 'N';
+	*ptr++ = 'N';
       *ptr++ = opt[p->p_type];
       *ptr++ = ':';
       if (p->p_name.av_val)
-        ptr += sprintf(ptr, "%.*s:", p->p_name.av_len, p->p_name.av_val);
+	ptr += sprintf(ptr, "%.*s:", p->p_name.av_len, p->p_name.av_val);
       switch(p->p_type)
-        {
-        case AMF_BOOLEAN:
-          *ptr++ = p->p_vu.p_number != 0 ? '1' : '0';
-          argv[ac].av_len = ptr - argv[ac].av_val;
-          break;
-        case AMF_STRING:
-          memcpy(ptr, p->p_vu.p_aval.av_val, p->p_vu.p_aval.av_len);
-          ptr += p->p_vu.p_aval.av_len;
-          argv[ac].av_len = ptr - argv[ac].av_val;
-          break;
-        case AMF_NUMBER:
-          ptr += sprintf(ptr, "%f", p->p_vu.p_number);
-          argv[ac].av_len = ptr - argv[ac].av_val;
-          break;
-        case AMF_OBJECT:
-          *ptr++ = '1';
-          argv[ac].av_len = ptr - argv[ac].av_val;
-          ac++;
-          *argc = ac;
-          ptr = dumpAMF(&p->p_vu.p_object, ptr, argv, argc);
-          ac = *argc;
-          argv[ac].av_val = ptr+1;
-          argv[ac++].av_len = 2;
-          argv[ac].av_val = ptr+4;
-          argv[ac].av_len = 3;
-          ptr += sprintf(ptr, " -C O:0");
-          break;
-        case AMF_NULL:
-        default:
-          argv[ac].av_len = ptr - argv[ac].av_val;
-          break;
-        }
+	{
+	case AMF_BOOLEAN:
+	  *ptr++ = p->p_vu.p_number != 0 ? '1' : '0';
+	  argv[ac].av_len = ptr - argv[ac].av_val;
+	  break;
+	case AMF_STRING:
+	  memcpy(ptr, p->p_vu.p_aval.av_val, p->p_vu.p_aval.av_len);
+	  ptr += p->p_vu.p_aval.av_len;
+	  argv[ac].av_len = ptr - argv[ac].av_val;
+	  break;
+	case AMF_NUMBER:
+	  ptr += sprintf(ptr, "%f", p->p_vu.p_number);
+	  argv[ac].av_len = ptr - argv[ac].av_val;
+	  break;
+	case AMF_OBJECT:
+	  *ptr++ = '1';
+	  argv[ac].av_len = ptr - argv[ac].av_val;
+	  ac++;
+	  *argc = ac;
+	  ptr = dumpAMF(&p->p_vu.p_object, ptr, argv, argc);
+	  ac = *argc;
+	  argv[ac].av_val = ptr+1;
+	  argv[ac++].av_len = 2;
+	  argv[ac].av_val = ptr+4;
+	  argv[ac].av_len = 3;
+	  ptr += sprintf(ptr, " -C O:0");
+	  break;
+	case AMF_NULL:
+	default:
+	  argv[ac].av_len = ptr - argv[ac].av_val;
+	  break;
+	}
       ac++;
     }
   *argc = ac;
@@ -493,70 +493,72 @@ ServeInvoke(STREAMING_SERVER *server, RTMP * r, RTMPPacket *packet, unsigned int
 
       AMFProp_GetObject(AMF_GetProp(&obj, NULL, 2), &cobj);
       for (i=0; i<cobj.o_num; i++)
-        {
-          pname = cobj.o_props[i].p_name;
-          pval.av_val = NULL;
-          pval.av_len = 0;
-          if (cobj.o_props[i].p_type == AMF_STRING)
-            pval = cobj.o_props[i].p_vu.p_aval;
-          if (AVMATCH(&pname, &av_app))
-            {
-              r->Link.app = pval;
-              pval.av_val = NULL;
+	{
+	  pname = cobj.o_props[i].p_name;
+	  pval.av_val = NULL;
+	  pval.av_len = 0;
+	  if (cobj.o_props[i].p_type == AMF_STRING)
+	    pval = cobj.o_props[i].p_vu.p_aval;
+	  if (AVMATCH(&pname, &av_app))
+	    {
+	      r->Link.app = pval;
+	      pval.av_val = NULL;
+	      if (!r->Link.app.av_val)
+	        r->Link.app.av_val = "";
 	      server->arglen += 6 + pval.av_len;
 	      server->argc += 2;
-            }
-          else if (AVMATCH(&pname, &av_flashVer))
-            {
-              r->Link.flashVer = pval;
-              pval.av_val = NULL;
+	    }
+	  else if (AVMATCH(&pname, &av_flashVer))
+	    {
+	      r->Link.flashVer = pval;
+	      pval.av_val = NULL;
 	      server->arglen += 6 + pval.av_len;
 	      server->argc += 2;
-            }
-          else if (AVMATCH(&pname, &av_swfUrl))
-            {
-              r->Link.swfUrl = pval;
-              pval.av_val = NULL;
+	    }
+	  else if (AVMATCH(&pname, &av_swfUrl))
+	    {
+	      r->Link.swfUrl = pval;
+	      pval.av_val = NULL;
 	      server->arglen += 6 + pval.av_len;
 	      server->argc += 2;
-            }
-          else if (AVMATCH(&pname, &av_tcUrl))
-            {
-              r->Link.tcUrl = pval;
-              pval.av_val = NULL;
+	    }
+	  else if (AVMATCH(&pname, &av_tcUrl))
+	    {
+	      r->Link.tcUrl = pval;
+	      pval.av_val = NULL;
 	      server->arglen += 6 + pval.av_len;
 	      server->argc += 2;
-            }
-          else if (AVMATCH(&pname, &av_pageUrl))
-            {
-              r->Link.pageUrl = pval;
-              pval.av_val = NULL;
+	    }
+	  else if (AVMATCH(&pname, &av_pageUrl))
+	    {
+	      r->Link.pageUrl = pval;
+	      pval.av_val = NULL;
 	      server->arglen += 6 + pval.av_len;
 	      server->argc += 2;
-            }
-          else if (AVMATCH(&pname, &av_audioCodecs))
-            {
-              r->m_fAudioCodecs = cobj.o_props[i].p_vu.p_number;
-            }
-          else if (AVMATCH(&pname, &av_videoCodecs))
-            {
-              r->m_fVideoCodecs = cobj.o_props[i].p_vu.p_number;
-            }
-          else if (AVMATCH(&pname, &av_objectEncoding))
-            {
-              r->m_fEncoding = cobj.o_props[i].p_vu.p_number;
-            }
-        }
+	    }
+	  else if (AVMATCH(&pname, &av_audioCodecs))
+	    {
+	      r->m_fAudioCodecs = cobj.o_props[i].p_vu.p_number;
+	    }
+	  else if (AVMATCH(&pname, &av_videoCodecs))
+	    {
+	      r->m_fVideoCodecs = cobj.o_props[i].p_vu.p_number;
+	    }
+	  else if (AVMATCH(&pname, &av_objectEncoding))
+	    {
+	      r->m_fEncoding = cobj.o_props[i].p_vu.p_number;
+	    }
+	}
       /* Still have more parameters? Copy them */
       if (obj.o_num > 3)
-        {
-          int i = obj.o_num - 3;
-          r->Link.extras.o_num = i;
-          r->Link.extras.o_props = malloc(i*sizeof(AMFObjectProperty));
-          memcpy(r->Link.extras.o_props, obj.o_props+3, i*sizeof(AMFObjectProperty));
-          obj.o_num = 3;
-          server->arglen += countAMF(&r->Link.extras, &server->argc);
-        }
+	{
+	  int i = obj.o_num - 3;
+	  r->Link.extras.o_num = i;
+	  r->Link.extras.o_props = malloc(i*sizeof(AMFObjectProperty));
+	  memcpy(r->Link.extras.o_props, obj.o_props+3, i*sizeof(AMFObjectProperty));
+	  obj.o_num = 3;
+	  server->arglen += countAMF(&r->Link.extras, &server->argc);
+	}
       SendConnectResult(r, txn);
     }
   else if (AVMATCH(&method, &av_createStream))
@@ -577,98 +579,98 @@ ServeInvoke(STREAMING_SERVER *server, RTMP * r, RTMPPacket *packet, unsigned int
       /*
       r->Link.seekTime = AMFProp_GetNumber(AMF_GetProp(&obj, NULL, 4));
       if (obj.o_num > 5)
-        r->Link.length = AMFProp_GetNumber(AMF_GetProp(&obj, NULL, 5));
+	r->Link.length = AMFProp_GetNumber(AMF_GetProp(&obj, NULL, 5));
       */
       if (r->Link.tcUrl.av_len)
-        {
-          len = server->arglen + r->Link.playpath.av_len + 4 +
-            sizeof("rtmpdump") + r->Link.playpath.av_len + 12;
-          server->argc += 5;
+	{
+	  len = server->arglen + r->Link.playpath.av_len + 4 +
+	    sizeof("rtmpdump") + r->Link.playpath.av_len + 12;
+	  server->argc += 7;
 
-          cmd = malloc(len + server->argc * sizeof(AVal));
-          ptr = cmd;
-          argv = (AVal *)(cmd + len);
-          argv[0].av_val = cmd;
-          argv[0].av_len = sizeof("rtmpdump")-1;
-          ptr += sprintf(ptr, "rtmpdump");
-          argc = 1;
+	  cmd = malloc(len + server->argc * sizeof(AVal));
+	  ptr = cmd;
+	  argv = (AVal *)(cmd + len);
+	  argv[0].av_val = cmd;
+	  argv[0].av_len = sizeof("rtmpdump")-1;
+	  ptr += sprintf(ptr, "rtmpdump");
+	  argc = 1;
 
-          argv[argc].av_val = ptr + 1;
-          argv[argc++].av_len = 2;
-          argv[argc].av_val = ptr + 5;
-          ptr += sprintf(ptr," -r \"%s\"", r->Link.tcUrl.av_val);
-          argv[argc++].av_len = r->Link.tcUrl.av_len;
+	  argv[argc].av_val = ptr + 1;
+	  argv[argc++].av_len = 2;
+	  argv[argc].av_val = ptr + 5;
+	  ptr += sprintf(ptr," -r \"%s\"", r->Link.tcUrl.av_val);
+	  argv[argc++].av_len = r->Link.tcUrl.av_len;
 
-          if (r->Link.app.av_val)
-            {
-              argv[argc].av_val = ptr + 1;
-              argv[argc++].av_len = 2;
-              argv[argc].av_val = ptr + 5;
-              ptr += sprintf(ptr, " -a \"%s\"", r->Link.app.av_val);
-              argv[argc++].av_len = r->Link.app.av_len;
-            }
-          if (r->Link.flashVer.av_val)
-            {
-              argv[argc].av_val = ptr + 1;
-              argv[argc++].av_len = 2;
-              argv[argc].av_val = ptr + 5;
-              ptr += sprintf(ptr, " -f \"%s\"", r->Link.flashVer.av_val);
-              argv[argc++].av_len = r->Link.flashVer.av_len;
-            }
-          if (r->Link.swfUrl.av_val)
-            {
-              argv[argc].av_val = ptr + 1;
-              argv[argc++].av_len = 2;
-              argv[argc].av_val = ptr + 5;
-              ptr += sprintf(ptr, " -W \"%s\"", r->Link.swfUrl.av_val);
-              argv[argc++].av_len = r->Link.swfUrl.av_len;
-            }
-          if (r->Link.pageUrl.av_val)
-            {
-              argv[argc].av_val = ptr + 1;
-              argv[argc++].av_len = 2;
-              argv[argc].av_val = ptr + 5;
-              ptr += sprintf(ptr, " -p \"%s\"", r->Link.pageUrl.av_val);
-              argv[argc++].av_len = r->Link.pageUrl.av_len;
-            }
-          if (r->Link.extras.o_num) {
-            ptr = dumpAMF(&r->Link.extras, ptr, argv, &argc);
-            AMF_Reset(&r->Link.extras);
-          }
-          argv[argc].av_val = ptr + 1;
-          argv[argc++].av_len = 2;
-          argv[argc].av_val = ptr + 5;
-          ptr += sprintf(ptr, " -y \"%.*s\"",
-            r->Link.playpath.av_len, r->Link.playpath.av_val);
-          argv[argc++].av_len = r->Link.playpath.av_len;
+	  if (r->Link.app.av_val)
+	    {
+	      argv[argc].av_val = ptr + 1;
+	      argv[argc++].av_len = 2;
+	      argv[argc].av_val = ptr + 5;
+	      ptr += sprintf(ptr, " -a \"%s\"", r->Link.app.av_val);
+	      argv[argc++].av_len = r->Link.app.av_len;
+	    }
+	  if (r->Link.flashVer.av_val)
+	    {
+	      argv[argc].av_val = ptr + 1;
+	      argv[argc++].av_len = 2;
+	      argv[argc].av_val = ptr + 5;
+	      ptr += sprintf(ptr, " -f \"%s\"", r->Link.flashVer.av_val);
+	      argv[argc++].av_len = r->Link.flashVer.av_len;
+	    }
+	  if (r->Link.swfUrl.av_val)
+	    {
+	      argv[argc].av_val = ptr + 1;
+	      argv[argc++].av_len = 2;
+	      argv[argc].av_val = ptr + 5;
+	      ptr += sprintf(ptr, " -W \"%s\"", r->Link.swfUrl.av_val);
+	      argv[argc++].av_len = r->Link.swfUrl.av_len;
+	    }
+	  if (r->Link.pageUrl.av_val)
+	    {
+	      argv[argc].av_val = ptr + 1;
+	      argv[argc++].av_len = 2;
+	      argv[argc].av_val = ptr + 5;
+	      ptr += sprintf(ptr, " -p \"%s\"", r->Link.pageUrl.av_val);
+	      argv[argc++].av_len = r->Link.pageUrl.av_len;
+	    }
+	  if (r->Link.extras.o_num) {
+	    ptr = dumpAMF(&r->Link.extras, ptr, argv, &argc);
+	    AMF_Reset(&r->Link.extras);
+	  }
+	  argv[argc].av_val = ptr + 1;
+	  argv[argc++].av_len = 2;
+	  argv[argc].av_val = ptr + 5;
+	  ptr += sprintf(ptr, " -y \"%.*s\"",
+	    r->Link.playpath.av_len, r->Link.playpath.av_val);
+	  argv[argc++].av_len = r->Link.playpath.av_len;
 
-          av = r->Link.playpath;
-          /* strip trailing URL parameters */
-          q = memchr(av.av_val, '?', av.av_len);
-          if (q)
-            av.av_len = q - av.av_val;
-          /* strip leading slash components */
-          for (p=av.av_val+av.av_len-1; p>=av.av_val; p--)
-            if (*p == '/')
-              {
-                p++;
-                av.av_len -= p - av.av_val;
-                av.av_val = p;
-                break;
-              }
-          /* skip leading dot */
-          if (av.av_val[0] == '.')
-            {
-              av.av_val++;
-              av.av_len--;
-            }
-          file = malloc(av.av_len+5);
+	  av = r->Link.playpath;
+	  /* strip trailing URL parameters */
+	  q = memchr(av.av_val, '?', av.av_len);
+	  if (q)
+	    av.av_len = q - av.av_val;
+	  /* strip leading slash components */
+	  for (p=av.av_val+av.av_len-1; p>=av.av_val; p--)
+	    if (*p == '/')
+	      {
+		p++;
+		av.av_len -= p - av.av_val;
+		av.av_val = p;
+		break;
+	      }
+	  /* skip leading dot */
+	  if (av.av_val[0] == '.')
+	    {
+	      av.av_val++;
+	      av.av_len--;
+	    }
+	  file = malloc(av.av_len+5);
 
-          memcpy(file, av.av_val, av.av_len);
-          file[av.av_len] = '\0';
-          for (p=file; *p; p++)
-            if (*p == ':')
-              *p = '_';
+	  memcpy(file, av.av_val, av.av_len);
+	  file[av.av_len] = '\0';
+	  for (p=file; *p; p++)
+	    if (*p == ':')
+	      *p = '_';
 
 	  /* Add extension if none present */
 	  if (file[av.av_len - 4] != '.')
@@ -676,18 +678,18 @@ ServeInvoke(STREAMING_SERVER *server, RTMP * r, RTMPPacket *packet, unsigned int
 	      strcpy(file+av.av_len, ".flv");
 	      av.av_len += 4;
 	    }
-          argv[argc].av_val = ptr + 1;
-          argv[argc++].av_len = 2;
-          argv[argc].av_val = file;
-          argv[argc++].av_len = av.av_len;
-          ptr += sprintf(ptr, " -o %s", file);
+	  argv[argc].av_val = ptr + 1;
+	  argv[argc++].av_len = 2;
+	  argv[argc].av_val = file;
+	  argv[argc++].av_len = av.av_len;
+	  ptr += sprintf(ptr, " -o %s", file);
 
-          printf("\n%s\n\n", cmd);
-          fflush(stdout);
-          spawn_dumper(argc, argv, cmd);
-          free(file);
-          free(cmd);
-        }
+	  printf("\n%s\n\n", cmd);
+	  fflush(stdout);
+	  spawn_dumper(argc, argv, cmd);
+	  free(file);
+	  free(cmd);
+	}
       pc.m_body = server->connect;
       server->connect = NULL;
       RTMPPacket_Free(&pc);
@@ -786,7 +788,7 @@ ServePacket(STREAMING_SERVER *server, RTMP *r, RTMPPacket *packet)
       //LogHex(packet.m_body, packet.m_nBodySize);
 
       if (ServeInvoke(server, r, packet, 0))
-        RTMP_Close(r);
+	RTMP_Close(r);
       break;
 
     case 0x16:
@@ -853,16 +855,16 @@ void doServe(STREAMING_SERVER * server,	// server socket and state (our listenin
       RTMP_Init(&rtmp);
       rtmp.m_sb.sb_socket = sockfd;
       if (!RTMP_Serve(&rtmp))
-        {
-          Log(LOGERROR, "Handshake failed");
-          goto cleanup;
-        }
+	{
+	  Log(LOGERROR, "Handshake failed");
+	  goto cleanup;
+	}
     }
   server->arglen = 0;
   while (RTMP_IsConnected(&rtmp) && RTMP_ReadPacket(&rtmp, &packet))
     {
       if (!RTMPPacket_IsReady(&packet))
-        continue;
+	continue;
       ServePacket(server, &rtmp, &packet);
       RTMPPacket_Free(&packet);
     }
@@ -902,11 +904,11 @@ serverThread(void *arg)
       if (sockfd > 0)
 	{
 #ifdef linux
-          struct sockaddr_in dest;
+	  struct sockaddr_in dest;
 	  char destch[16];
-          socklen_t destlen = sizeof(struct sockaddr_in);
+	  socklen_t destlen = sizeof(struct sockaddr_in);
 	  getsockopt(sockfd, SOL_IP, SO_ORIGINAL_DST, &dest, &destlen);
-          strcpy(destch, inet_ntoa(dest.sin_addr));
+	  strcpy(destch, inet_ntoa(dest.sin_addr));
 	  Log(LOGDEBUG, "%s: accepted connection from %s to %s\n", __FUNCTION__,
 	      inet_ntoa(addr.sin_addr), destch);
 #else

@@ -499,7 +499,7 @@ void processTCPrequest(STREAMING_SERVER * server,	// server socket and state (ou
 	req.rtmpport = 1935;
     }
 
-  if (req.tcUrl.av_len == 0 && req.app.av_len != 0)
+  if (req.tcUrl.av_len == 0)
     {
       char str[512] = { 0 };
       req.tcUrl.av_len = snprintf(str, 511, "%s://%s:%d/%.*s",

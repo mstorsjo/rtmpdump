@@ -1207,13 +1207,12 @@ main(int argc, char **argv)
     }
 #endif
 
-  if (tcUrl.av_len == 0 && app.av_len != 0)
+  if (tcUrl.av_len == 0)
     {
       char str[512] = { 0 };
 
-      snprintf(str, 511, "%s://%s:%d/%s", RTMPProtocolStringsLower[protocol],
-	       hostname, port, app.av_val);
-      tcUrl.av_len = strlen(str);
+      tcUrl.av_len = snprintf(str, 511, "%s://%s:%d/%.*s",
+	  	   RTMPProtocolStringsLower[protocol], hostname, port, app.av_len, app.av_val);
       tcUrl.av_val = (char *) malloc(tcUrl.av_len + 1);
       strcpy(tcUrl.av_val, str);
     }

@@ -465,23 +465,16 @@ void processTCPrequest(STREAMING_SERVER * server,	// server socket and state (ou
   if (req.hostname == 0)
     {
       Log(LOGERROR,
-	  "You must specify a hostname (--host) or url (-r \"rtmp://host[:port]/app/playpath\") containing a hostname");
+	  "You must specify a hostname (--host) or url (-r \"rtmp://host[:port]/playpath\") containing a hostname");
       status = "400 Missing Hostname";
       goto filenotfound;
     }
   if (req.playpath.av_len == 0)
     {
       Log(LOGERROR,
-	  "You must specify a playpath (--playpath) or url (-r \"rtmp://host[:port]/app/playpath\") containing a playpath");
+	  "You must specify a playpath (--playpath) or url (-r \"rtmp://host[:port]/playpath\") containing a playpath");
       status = "400 Missing Playpath";
-      goto filenotfound;
-    }
-  if (req.app.av_len == 0)
-    {
-      Log(LOGERROR,
-	  "You must specify an app (--app) or url (-r \"rtmp://host[:port]/app/playpath\") containing an app");
-      status = "400 Missing App";
-      goto filenotfound;
+      goto filenotfound;;
     }
 
   if (req.protocol == RTMP_PROTOCOL_UNDEFINED)

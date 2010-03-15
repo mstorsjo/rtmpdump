@@ -1284,7 +1284,7 @@ RTMP_SendSeek(RTMP *r, double dTime)
   packet.m_nBodySize = enc - packet.m_body;
 
   r->m_read.flags |= RTMP_READ_SEEKING;
-  r->m_read.nResumeTS = (int)dTime;
+  r->m_read.nResumeTS = 0;
 
   return RTMP_SendPacket(r, &packet, true);
 }

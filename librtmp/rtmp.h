@@ -253,6 +253,7 @@ extern "C"
 			uint32_t dLength, bool bLiveStream, long int timeout);
 
   bool RTMP_Connect(RTMP *r, RTMPPacket *cp);
+  struct sockaddr;
   bool RTMP_Connect0(RTMP *r, struct sockaddr *svc);
   bool RTMP_Connect1(RTMP *r, RTMPPacket *cp);
   bool RTMP_Serve(RTMP *r);

@@ -1782,7 +1782,8 @@ HandleInvoke(RTMP *r, const char *body, unsigned int nBodySize)
 	      RTMP_SendCtrl(r, 3, r->m_stream_id, r->m_nBufferMS);
 	    }
 	}
-      else if (AVMATCH(&methodInvoked, &av_play))
+      else if (AVMATCH(&methodInvoked, &av_play) ||
+      	AVMATCH(&methodInvoked, &av_publish))
 	{
 	  r->m_bPlaying = true;
 	}
@@ -3538,7 +3539,7 @@ RTMP_Write(RTMP *r, char *buf, int size)
   int s2 = size, ret, num;
 
   pkt->m_nChannel = 0x04;	// source channel
-  pkt->m_nInfoField2 = 0;
+  pkt->m_nInfoField2 = r->m_stream_id;
 
   while (s2)
     {

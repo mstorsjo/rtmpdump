@@ -295,6 +295,7 @@ extern "C"
   bool RTMP_SendServerBW(RTMP *r);
   void RTMP_DropRequest(RTMP *r, int i, bool freeit);
   int RTMP_Read(RTMP *r, char *buf, int size);
+  int RTMP_Write(RTMP *r, char *buf, int size);
 
 #ifdef CRYPTO
 /* hashswf.c */

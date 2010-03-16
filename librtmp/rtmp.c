@@ -198,6 +198,7 @@ RTMP_Init(RTMP *r)
       r->m_vecChannelsOut[i] = NULL;
     }
   r->m_sb.sb_socket = -1;
+  r->m_write.m_body = NULL;
   RTMP_Close(r);
   r->m_nBufferMS = 300;
   r->m_fDuration = 0;
@@ -2710,6 +2711,9 @@ RTMP_Close(RTMP *r)
   r->m_read.nResumeTS = 0;
   r->m_read.nIgnoredFrameCounter = 0;
   r->m_read.nIgnoredFlvFrameCounter = 0;
+
+  r->m_write.m_nBytesRead = 0;
+  RTMPPacket_Free(&r->m_write);
 
   for (i = 0; i < RTMP_CHANNELS; i++)
     {

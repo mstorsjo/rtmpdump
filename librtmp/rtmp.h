@@ -39,7 +39,9 @@ extern "C"
 #define RTMP_FEATURE_HTTP	0x01
 #define RTMP_FEATURE_ENC	0x02
 #define RTMP_FEATURE_SSL	0x04
-#define RTMP_FEATURE_MFP	0x08	// not yet supported
+#define RTMP_FEATURE_MFP	0x08	/* not yet supported */
+#define RTMP_FEATURE_WRITE	0x10	/* publish, not play */
+#define RTMP_FEATURE_HTTP2	0x20	/* server-side rtmpt */
 
 #define RTMP_PROTOCOL_UNDEFINED	-1
 #define RTMP_PROTOCOL_RTMP      0
@@ -205,8 +207,9 @@ extern "C"
     uint8_t m_bSendEncoding;
     uint8_t m_bSendCounter;
 
-    AVal *m_methodCalls;	/* remote method calls queue */
+    int m_numInvokes;
     int m_numCalls;
+    AVal *m_methodCalls;	/* remote method calls queue */
 
     RTMP_LNK Link;
     RTMPPacket *m_vecChannelsIn[RTMP_CHANNELS];
@@ -286,7 +289,7 @@ extern "C"
   int RTMPSockBuf_Send(RTMPSockBuf *sb, const char *buf, int len);
   int RTMPSockBuf_Close(RTMPSockBuf *sb);
 
-  bool RTMP_SendCreateStream(RTMP *r, double dCmdID);
+  bool RTMP_SendCreateStream(RTMP *r);
   bool RTMP_SendSeek(RTMP *r, double dTime);
   bool RTMP_SendServerBW(RTMP *r);
   void RTMP_DropRequest(RTMP *r, int i, bool freeit);

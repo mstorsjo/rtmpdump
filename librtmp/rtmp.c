@@ -1600,6 +1600,8 @@ static const AVal av_NetStream_Play_Complete = AVC("NetStream.Play.Complete");
 static const AVal av_NetStream_Play_Stop = AVC("NetStream.Play.Stop");
 static const AVal av_NetStream_Seek_Notify = AVC("NetStream.Seek.Notify");
 static const AVal av_NetStream_Pause_Notify = AVC("NetStream.Pause.Notify");
+static const AVal av_NetStream_Play_UnpublishNotify =
+AVC("NetStream.Play.UnpublishNotify");
 
 // Returns 0 for OK/Failed/error, 1 for 'Stop or Complete'
 static int
@@ -1741,7 +1743,8 @@ HandleInvoke(RTMP *r, const char *body, unsigned int nBodySize)
 
       // Return 1 if this is a Play.Complete or Play.Stop
       else if (AVMATCH(&code, &av_NetStream_Play_Complete)
-	  || AVMATCH(&code, &av_NetStream_Play_Stop))
+	  || AVMATCH(&code, &av_NetStream_Play_Stop)
+	  || AVMATCH(&code, &av_NetStream_Play_UnpublishNotify))
 	{
 	  RTMP_Close(r);
 	  ret = 1;

@@ -229,6 +229,7 @@ extern "C"
     AVal m_clientID;
 
     RTMP_READ m_read;
+	RTMPPacket m_write;
     RTMPSockBuf m_sb;
   } RTMP;
 

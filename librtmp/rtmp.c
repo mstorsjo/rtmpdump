@@ -3599,6 +3599,7 @@ RTMP_Write(RTMP *r, char *buf, int size)
       memcpy(enc, buf, num);
       pkt->m_nBytesRead += num;
       s2 -= num;
+      buf += num;
       if (pkt->m_nBytesRead == pkt->m_nBodySize)
 	{
 	  ret = RTMP_SendPacket(r, pkt, false);
@@ -3608,7 +3609,9 @@ RTMP_Write(RTMP *r, char *buf, int size)
 	    return -1;
 	  buf += 4;
 	  s2 -= 4;
+	  if (s2 < 0)
+	    break;
 	}
     }
-  return size;
+  return size+s2;
 }

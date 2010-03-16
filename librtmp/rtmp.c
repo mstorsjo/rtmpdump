@@ -1298,7 +1298,7 @@ SendFCUnpublish(RTMP *r)
 
 SAVC(publish);
 SAVC(live);
-/* SAVC(record); */
+SAVC(record);
 
 static bool
 SendPublish(RTMP *r)
@@ -1322,7 +1322,8 @@ SendPublish(RTMP *r)
   if (!enc)
     return false;
 
-  enc = AMF_EncodeString(enc, pend, &av_live); /* av_record */
+  /* FIXME: should we choose live based on Link.bLiveStream? */
+  enc = AMF_EncodeString(enc, pend, &av_live);
   if (!enc)
     return false;
 
@@ -2535,16 +2536,19 @@ bool
 RTMP_SendPacket(RTMP *r, RTMPPacket *packet, bool queue)
 {
   const RTMPPacket *prevPacket = r->m_vecChannelsOut[packet->m_nChannel];
+  uint32_t last = 0;
   if (prevPacket && packet->m_headerType != RTMP_PACKET_SIZE_LARGE)
     {
       // compress a bit by using the prev packet's attributes
       if (prevPacket->m_nBodySize == packet->m_nBodySize
+	  && prevPacket->m_packetType == packet->m_packetType
 	  && packet->m_headerType == RTMP_PACKET_SIZE_MEDIUM)
 	packet->m_headerType = RTMP_PACKET_SIZE_SMALL;
 
-      if (prevPacket->m_nInfoField2 == packet->m_nInfoField2
+      if (prevPacket->m_nInfoField1 == packet->m_nInfoField1
 	  && packet->m_headerType == RTMP_PACKET_SIZE_SMALL)
 	packet->m_headerType = RTMP_PACKET_SIZE_MINIMUM;
+      last = prevPacket->m_nInfoField1;
     }
 
   if (packet->m_headerType > 3)	// sanity
@@ -2557,6 +2561,7 @@ RTMP_SendPacket(RTMP *r, RTMPPacket *packet, bool queue)
   int nSize = packetSize[packet->m_headerType];
   int hSize = nSize, cSize = 0;
   char *header, *hptr, *hend, hbuf[RTMP_MAX_HEADER_SIZE], c;
+  uint32_t t = packet->m_nInfoField1 - last;
 
   if (packet->m_body)
     {
@@ -2579,7 +2584,7 @@ RTMP_SendPacket(RTMP *r, RTMPPacket *packet, bool queue)
       hSize += cSize;
     }
 
-  if (nSize > 1 && packet->m_nInfoField1 >= 0xffffff)
+  if (nSize > 1 && t >= 0xffffff)
     {
       header -= 4;
       hSize += 4;
@@ -2609,10 +2614,7 @@ RTMP_SendPacket(RTMP *r, RTMPPacket *packet, bool queue)
 
   if (nSize > 1)
     {
-      uint32_t t = packet->m_nInfoField1;
-      if (t > 0xffffff)
-	t = 0xffffff;
-      hptr = AMF_EncodeInt24(hptr, hend, t);
+      hptr = AMF_EncodeInt24(hptr, hend, t > 0xffffff ? 0xffffff : t);
     }
 
   if (nSize > 4)
@@ -2624,8 +2626,8 @@ RTMP_SendPacket(RTMP *r, RTMPPacket *packet, bool queue)
   if (nSize > 8)
     hptr += EncodeInt32LE(hptr, packet->m_nInfoField2);
 
-  if (nSize > 1 && packet->m_nInfoField1 >= 0xffffff)
-    hptr = AMF_EncodeInt32(hptr, hend, packet->m_nInfoField1);
+  if (nSize > 1 && t >= 0xffffff)
+    hptr = AMF_EncodeInt32(hptr, hend, t);
 
   nSize = packet->m_nBodySize;
   char *buffer = packet->m_body, *tbuf = NULL, *toff = NULL;

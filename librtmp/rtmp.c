@@ -1267,8 +1267,38 @@ SendFCPublish(RTMP *r)
   return RTMP_SendPacket(r, &packet, true);
 }
 
+SAVC(FCUnpublish);
+
+static bool
+SendFCUnpublish(RTMP *r)
+{
+  RTMPPacket packet;
+  char pbuf[1024], *pend = pbuf + sizeof(pbuf);
+
+  packet.m_nChannel = 0x03;	// control channel (invoke)
+  packet.m_headerType = RTMP_PACKET_SIZE_MEDIUM;
+  packet.m_packetType = 0x14;	// INVOKE
+  packet.m_nInfoField1 = 0;
+  packet.m_nInfoField2 = 0;
+  packet.m_hasAbsTimestamp = 0;
+  packet.m_body = pbuf + RTMP_MAX_HEADER_SIZE;
+
+  char *enc = packet.m_body;
+  enc = AMF_EncodeString(enc, pend, &av_FCUnpublish);
+  enc = AMF_EncodeNumber(enc, pend, ++r->m_numInvokes);
+  *enc++ = AMF_NULL;
+  enc = AMF_EncodeString(enc, pend, &r->Link.playpath);
+  if (!enc)
+    return false;
+
+  packet.m_nBodySize = enc - packet.m_body;
+
+  return RTMP_SendPacket(r, &packet, true);
+}
+
 SAVC(publish);
 SAVC(live);
+/* SAVC(record); */
 
 static bool
 SendPublish(RTMP *r)
@@ -1277,10 +1307,10 @@ SendPublish(RTMP *r)
   char pbuf[1024], *pend = pbuf + sizeof(pbuf);
 
   packet.m_nChannel = 0x04;	// source channel (invoke)
-  packet.m_headerType = RTMP_PACKET_SIZE_MEDIUM;
+  packet.m_headerType = RTMP_PACKET_SIZE_LARGE;
   packet.m_packetType = 0x14;	// INVOKE
   packet.m_nInfoField1 = 0;
-  packet.m_nInfoField2 = 0;
+  packet.m_nInfoField2 = r->m_stream_id;
   packet.m_hasAbsTimestamp = 0;
   packet.m_body = pbuf + RTMP_MAX_HEADER_SIZE;
 
@@ -1292,7 +1322,7 @@ SendPublish(RTMP *r)
   if (!enc)
     return false;
 
-  enc = AMF_EncodeString(enc, pend, &av_live);
+  enc = AMF_EncodeString(enc, pend, &av_live); /* av_record */
   if (!enc)
     return false;
 
@@ -1701,6 +1731,7 @@ static const AVal av_NetStream_Seek_Notify = AVC("NetStream.Seek.Notify");
 static const AVal av_NetStream_Pause_Notify = AVC("NetStream.Pause.Notify");
 static const AVal av_NetStream_Play_UnpublishNotify =
 AVC("NetStream.Play.UnpublishNotify");
+static const AVal av_NetStream_Publish_Start = AVC("NetStream.Publish.Start");
 
 // Returns 0 for OK/Failed/error, 1 for 'Stop or Complete'
 static int
@@ -1851,6 +1882,20 @@ HandleInvoke(RTMP *r, const char *body, unsigned int nBodySize)
 	  for (i = 0; i < r->m_numCalls; i++)
 	    {
 	      if (AVMATCH(&r->m_methodCalls[i], &av_play))
+		{
+		  AV_erase(r->m_methodCalls, &r->m_numCalls, i, true);
+		  break;
+		}
+	    }
+	}
+
+      else if (AVMATCH(&code, &av_NetStream_Publish_Start))
+	{
+	  int i;
+	  r->m_bPlaying = true;
+	  for (i = 0; i < r->m_numCalls; i++)
+	    {
+	      if (AVMATCH(&r->m_methodCalls[i], &av_publish))
 		{
 		  AV_erase(r->m_methodCalls, &r->m_numCalls, i, true);
 		  break;
@@ -2684,6 +2729,12 @@ RTMP_Close(RTMP *r)
 
   if (RTMP_IsConnected(r))
     {
+	  if (r->m_stream_id > 0)
+	    {
+	      if ((r->Link.protocol & RTMP_FEATURE_WRITE))
+		    SendFCUnpublish(r);
+		  SendDeleteStream(r, r->m_stream_id);
+		}
 	  if (r->m_clientID.av_val)
 	    {
 		  HTTP_Post(r, RTMPT_CLOSE, "", 1);

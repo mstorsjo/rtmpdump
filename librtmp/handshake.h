@@ -23,8 +23,6 @@
 
 /* This file is #included in rtmp.c, it is not meant to be compiled alone */
 
-#define USE_GNUTLS
-
 #ifdef USE_GNUTLS
 #include <gcrypt.h>
 #ifndef SHA256_DIGEST_LENGTH

@@ -6,6 +6,7 @@ OPT=-O2
 CFLAGS=-Wall $(XCFLAGS) $(INC) $(DEF) $(OPT)
 LDFLAGS=-Wall $(XLDFLAGS)
 LIBS=-lssl -lcrypto -lz
+#LIBS=-lgnutls -lz
 THREADLIB=-lpthread
 LIBRTMP=librtmp/librtmp.a
 SLIBS=$(THREADLIB) $(LIBS)

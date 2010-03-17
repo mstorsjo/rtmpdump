@@ -28,22 +28,40 @@
 #include "log.h"
 #include "http.h"
 
+#ifdef USE_GNUTLS
+#include <gnutls/gnutls.h>
+#include <gcrypt.h>
+#ifndef SHA256_DIGEST_LENGTH
+#define SHA256_DIGEST_LENGTH	32
+#endif
+#define HMAC_CTX	gcry_md_hd_t
+#define HMAC_setup(ctx, key, len)	gcry_md_open(&ctx, GCRY_MD_SHA256, GCRY_MD_FLAG_HMAC); gcry_md_setkey(ctx, key, len)
+#define HMAC_crunch(ctx, buf, len)	gcry_md_write(ctx, buf, len)
+#define HMAC_finish(ctx, dig, dlen)	dlen = SHA256_DIGEST_LENGTH; memcpy(dig, gcry_md_read(ctx, 0), dlen)
+#define HMAC_close(ctx)	gcry_md_close(ctx)
+#else
 #include <openssl/ssl.h>
 #include <openssl/sha.h>
 #include <openssl/hmac.h>
+#include <openssl/rc4.h>
+#define HMAC_setup(ctx, key, len)	HMAC_CTX_init(&ctx); HMAC_Init_ex(&ctx, (unsigned char *)key, len, EVP_sha256(), 0)
+#define HMAC_crunch(ctx, buf, len)	HMAC_Update(&ctx, (unsigned char *)buf, len)
+#define HMAC_finish(ctx, dig, dlen)	HMAC_Final(&ctx, (unsigned char *)dig, &dlen);
+#define HMAC_close(ctx)	HMAC_CTX_cleanup(&ctx)
+#endif
 #include <zlib.h>
 
 struct info
 {
-  HMAC_CTX *ctx;
   z_stream *zs;
+  HMAC_CTX ctx;
   int first;
   int zlib;
   int size;
 };
 
-extern void RTMP_SSL_Init();
-extern SSL_CTX *RTMP_ssl_ctx;
+extern void RTMP_TLS_Init();
+extern TLS_CTX RTMP_TLS_ctx;
 
 #define CHUNK	16384
 
@@ -63,7 +81,7 @@ swfcrunch(void *ptr, size_t size, size_t nmemb, void *stream)
 	  *p = 'F';
 	  i->zlib = 1;
 	}
-      HMAC_Update(i->ctx, (unsigned char *)p, 8);
+      HMAC_crunch(i->ctx, (unsigned char *)p, 8);
       p += 8;
       len -= 8;
       i->size = 8;
@@ -81,14 +99,14 @@ swfcrunch(void *ptr, size_t size, size_t nmemb, void *stream)
 	  inflate(i->zs, Z_NO_FLUSH);
 	  len = CHUNK - i->zs->avail_out;
 	  i->size += len;
-	  HMAC_Update(i->ctx, out, len);
+	  HMAC_crunch(i->ctx, out, len);
 	}
       while (i->zs->avail_out == 0);
     }
   else
     {
       i->size += len;
-      HMAC_Update(i->ctx, (unsigned char *)p, len);
+      HMAC_crunch(i->ctx, (unsigned char *)p, len);
     }
   return size * nmemb;
 }
@@ -123,8 +141,8 @@ HTTP_get(struct HTTP_ctx *http, const char *url, HTTP_read_callback *cb)
     {
       ssl = 1;
       port = 443;
-      if (!RTMP_ssl_ctx)
-	RTMP_SSL_Init();
+      if (!RTMP_TLS_ctx)
+	RTMP_TLS_Init();
     }
 
   p1 = strchr(url + 4, ':');
@@ -172,11 +190,11 @@ HTTP_get(struct HTTP_ctx *http, const char *url, HTTP_read_callback *cb)
     }
   if (ssl)
     {
-      sb.sb_ssl = SSL_new(RTMP_ssl_ctx);
-      SSL_set_fd(sb.sb_ssl, sb.sb_socket);
-      if (SSL_connect(sb.sb_ssl) < 0)
+      TLS_client(RTMP_TLS_ctx, sb.sb_ssl);
+      TLS_setfd(sb.sb_ssl, sb.sb_socket);
+      if ((i = TLS_connect(sb.sb_ssl)) < 0)
 	{
-	  Log(LOGERROR, "%s, SSL_Connect failed", __FUNCTION__);
+	  Log(LOGERROR, "%s, TLS_Connect failed", __FUNCTION__);
 	  ret = HTTPRES_LOST_CONNECTION;
 	  goto leave;
 	}
@@ -416,7 +434,6 @@ RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash,
   struct HTTP_ctx http = { 0 };
   HTTPResult httpres;
   z_stream zs = { 0 };
-  HMAC_CTX ctx;
 
   date[0] = '\0';
   home = getenv(ENV_HOME);
@@ -519,11 +536,8 @@ RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash,
     }
 
   in.first = 1;
-  HMAC_CTX_init(&ctx);
-  HMAC_Init_ex(&ctx, "Genuine Adobe Flash Player 001", 30, EVP_sha256(),
-	       NULL);
+  HMAC_setup(in.ctx, "Genuine Adobe Flash Player 001", 30);
   inflateInit(&zs);
-  in.ctx = &ctx;
   in.zs = &zs;
 
   http.date = date;
@@ -577,7 +591,7 @@ RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash,
 
       if (!in.first)
 	{
-	  HMAC_Final(&ctx, (unsigned char *)hash, &hlen);
+	  HMAC_finish(in.ctx, hash, hlen);
 	  *size = in.size;
 
 	  fprintf(f, "date: %s\n", date);
@@ -588,7 +602,7 @@ RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash,
 	  fprintf(f, "\n");
 	}
     }
-  HMAC_CTX_cleanup(&ctx);
+  HMAC_close(in.ctx);
 out:
   free(path);
   if (f)

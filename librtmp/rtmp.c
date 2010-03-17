@@ -42,7 +42,7 @@
 #define RTMP_SIG_SIZE 1536
 #define RTMP_LARGE_HEADER_SIZE 12
 
-SSL_CTX *RTMP_ssl_ctx;
+TLS_CTX RTMP_TLS_ctx;
 static const int packetSize[] = { 12, 8, 4, 1 };
 
 bool RTMP_ctrlC;
@@ -181,17 +181,22 @@ RTMPPacket_Dump(RTMPPacket *p)
 }
 
 void
-RTMP_SSL_Init()
+RTMP_TLS_Init()
 {
 #ifdef USE_GNUTLS
   gnutls_global_init();
+  RTMP_TLS_ctx = malloc(sizeof(struct tls_ctx));
+  gnutls_certificate_allocate_credentials(&RTMP_TLS_ctx->cred);
+  gnutls_priority_init(&RTMP_TLS_ctx->prios, "NORMAL", NULL);
+  gnutls_certificate_set_x509_trust_file(RTMP_TLS_ctx->cred,
+  	"ca.pem", GNUTLS_X509_FMT_PEM);
 #else
   SSL_load_error_strings();
   SSL_library_init();
   OpenSSL_add_all_digests();
-  RTMP_ssl_ctx = SSL_CTX_new(SSLv23_method());
-  SSL_CTX_set_options(RTMP_ssl_ctx, SSL_OP_ALL);
-  SSL_CTX_set_default_verify_paths(RTMP_ssl_ctx);
+  RTMP_TLS_ctx = SSL_CTX_new(SSLv23_method());
+  SSL_CTX_set_options(RTMP_TLS_ctx, SSL_OP_ALL);
+  SSL_CTX_set_default_verify_paths(RTMP_TLS_ctx);
 #endif
 }
 
@@ -200,8 +205,8 @@ RTMP_Init(RTMP *r)
 {
   int i;
 
-  if (!RTMP_ssl_ctx)
-    RTMP_SSL_Init();
+  if (!RTMP_TLS_ctx)
+    RTMP_TLS_Init();
 
   for (i = 0; i < RTMP_CHANNELS; i++)
     {
@@ -466,11 +471,11 @@ RTMP_Connect1(RTMP *r, RTMPPacket *cp)
 {
   if (r->Link.protocol & RTMP_FEATURE_SSL)
     {
-      r->m_sb.sb_ssl = SSL_new(RTMP_ssl_ctx);
-      SSL_set_fd(r->m_sb.sb_ssl, r->m_sb.sb_socket);
-      if (SSL_connect(r->m_sb.sb_ssl) < 0)
+      TLS_client(RTMP_TLS_ctx, r->m_sb.sb_ssl);
+      TLS_setfd(r->m_sb.sb_ssl, r->m_sb.sb_socket);
+      if (TLS_connect(r->m_sb.sb_ssl) < 0)
 	{
-	  Log(LOGERROR, "%s, SSL_Connect failed", __FUNCTION__);
+	  Log(LOGERROR, "%s, TLS_Connect failed", __FUNCTION__);
 	  RTMP_Close(r);
 	  return false;
 	}
@@ -2836,7 +2841,7 @@ RTMPSockBuf_Fill(RTMPSockBuf *sb)
       nBytes = sizeof(sb->sb_buf) - sb->sb_size - (sb->sb_start - sb->sb_buf);
       if (sb->sb_ssl)
 	{
-	  nBytes = SSL_read(sb->sb_ssl, sb->sb_start + sb->sb_size, nBytes);
+	  nBytes = TLS_read(sb->sb_ssl, sb->sb_start + sb->sb_size, nBytes);
 	}
       else
 	{
@@ -2877,7 +2882,7 @@ RTMPSockBuf_Send(RTMPSockBuf *sb, const char *buf, int len)
 
   if (sb->sb_ssl)
     {
-      rc = SSL_write(sb->sb_ssl, buf, len);
+      rc = TLS_write(sb->sb_ssl, buf, len);
     }
   else
     {
@@ -2891,8 +2896,8 @@ RTMPSockBuf_Close(RTMPSockBuf *sb)
 {
   if (sb->sb_ssl)
     {
-      SSL_shutdown(sb->sb_ssl);
-      SSL_free(sb->sb_ssl);
+      TLS_shutdown(sb->sb_ssl);
+      TLS_close(sb->sb_ssl);
       sb->sb_ssl = NULL;
     }
   return closesocket(sb->sb_socket);

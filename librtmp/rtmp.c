@@ -30,10 +30,13 @@
 #include "rtmp_sys.h"
 #include "log.h"
 
-#include <openssl/ssl.h>
-
 #ifdef CRYPTO
+#ifdef USE_GNUTLS
+#include <gnutls/gnutls.h>
+#else
+#include <openssl/ssl.h>
 #include <openssl/rc4.h>
+#endif
 #endif
 
 #define RTMP_SIG_SIZE 1536
@@ -176,12 +179,16 @@ RTMPPacket_Dump(RTMPPacket *p)
 void
 RTMP_SSL_Init()
 {
+#ifdef USE_GNUTLS
+  gnutls_global_init();
+#else
   SSL_load_error_strings();
   SSL_library_init();
   OpenSSL_add_all_digests();
   RTMP_ssl_ctx = SSL_CTX_new(SSLv23_method());
   SSL_CTX_set_options(RTMP_ssl_ctx, SSL_OP_ALL);
   SSL_CTX_set_default_verify_paths(RTMP_ssl_ctx);
+#endif
 }
 
 void
@@ -2798,7 +2805,7 @@ RTMP_Close(RTMP *r)
 #ifdef CRYPTO
   if (r->Link.dh)
     {
-      DH_free(r->Link.dh);
+      MDH_free(r->Link.dh);
       r->Link.dh = NULL;
     }
   if (r->Link.rc4keyIn)

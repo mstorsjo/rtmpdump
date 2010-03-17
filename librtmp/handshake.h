@@ -23,9 +23,38 @@
 
 /* This file is #included in rtmp.c, it is not meant to be compiled alone */
 
+#define USE_GNUTLS
+
+#ifdef USE_GNUTLS
+#include <gcrypt.h>
+#ifndef SHA256_DIGEST_LENGTH
+#define SHA256_DIGEST_LENGTH	32
+#endif
+#define HMAC_CTX	gcry_md_hd_t
+#define HMAC_setup(ctx, key, len)	gcry_md_open(&ctx, GCRY_MD_SHA256, GCRY_MD_FLAG_HMAC); gcry_md_setkey(ctx, key, len)
+#define HMAC_crunch(ctx, buf, len)	gcry_md_write(ctx, buf, len)
+#define HMAC_finish(ctx, dig, dlen)	dlen = SHA256_DIGEST_LENGTH; memcpy(dig, gcry_md_read(ctx, 0), dlen); gcry_md_close(ctx)
+
+typedef gcry_cipher_hd_t	RC4_handle;
+#define	RC4_setup(h)	gcry_cipher_open(h, GCRY_CIPHER_ARCFOUR, GCRY_CIPHER_MODE_STREAM, 0)
+#define RC4_setkey(h,l,k)	gcry_cipher_setkey(h,k,l)
+#define RC4_encrypt(h,l,d)	gcry_cipher_encrypt(h,(void *)d,l,NULL,0)
+#define RC4_encrypt2(h,l,s,d)	gcry_cipher_encrypt(h,(void *)d,l,(void *)s,l)
+
+#else
 #include <openssl/sha.h>
 #include <openssl/hmac.h>
 #include <openssl/rc4.h>
+#define HMAC_setup(ctx, key, len)	HMAC_CTX_init(&ctx); HMAC_Init_ex(&ctx, (unsigned char *)key, len, EVP_sha256(), 0)
+#define HMAC_crunch(ctx, buf, len)	HMAC_Update(&ctx, (unsigned char *)buf, len)
+#define HMAC_finish(ctx, dig, dlen)	HMAC_Final(&ctx, (unsigned char *)dig, &dlen); HMAC_CTX_cleanup(&ctx)
+
+typedef RC4_KEY *	RC4_handle;
+#define RC4_setup(h)	*h = malloc(sizeof(RC4_KEY))
+#define RC4_setkey(h,l,k)	RC4_set_key(h,l,k)
+#define RC4_encrypt(h,l,d)	RC4(h,l,(uint8_t *)d,(uint8_t *)d)
+#define RC4_encrypt2(h,l,s,d)	RC4(h,l,(uint8_t *)s,(uint8_t *)d)
+#endif
 
 #define FP10
 
@@ -59,36 +88,32 @@ static const char GenuineFPKey[] = {
 static void InitRC4Encryption
   (uint8_t * secretKey,
    uint8_t * pubKeyIn,
-   uint8_t * pubKeyOut, RC4_KEY ** rc4keyIn, RC4_KEY ** rc4keyOut)
+   uint8_t * pubKeyOut, RC4_handle *rc4keyIn, RC4_handle *rc4keyOut)
 {
   uint8_t digest[SHA256_DIGEST_LENGTH];
   unsigned int digestLen = 0;
-
-  *rc4keyIn = malloc(sizeof(RC4_KEY));
-  *rc4keyOut = malloc(sizeof(RC4_KEY));
-
   HMAC_CTX ctx;
-  HMAC_CTX_init(&ctx);
-  HMAC_Init_ex(&ctx, secretKey, 128, EVP_sha256(), 0);
-  HMAC_Update(&ctx, pubKeyIn, 128);
-  HMAC_Final(&ctx, digest, &digestLen);
-  HMAC_CTX_cleanup(&ctx);
+
+  RC4_setup(rc4keyIn);
+  RC4_setup(rc4keyOut);
+
+  HMAC_setup(ctx, secretKey, 128);
+  HMAC_crunch(ctx, pubKeyIn, 128);
+  HMAC_finish(ctx, digest, digestLen);
 
   Log(LOGDEBUG, "RC4 Out Key: ");
   LogHex(LOGDEBUG, (char *) digest, 16);
 
-  RC4_set_key(*rc4keyOut, 16, digest);
+  RC4_setkey(*rc4keyOut, 16, digest);
 
-  HMAC_CTX_init(&ctx);
-  HMAC_Init_ex(&ctx, secretKey, 128, EVP_sha256(), 0);
-  HMAC_Update(&ctx, pubKeyOut, 128);
-  HMAC_Final(&ctx, digest, &digestLen);
-  HMAC_CTX_cleanup(&ctx);
+  HMAC_setup(ctx, secretKey, 128);
+  HMAC_crunch(ctx, pubKeyOut, 128);
+  HMAC_finish(ctx, digest, digestLen);
 
   Log(LOGDEBUG, "RC4 In Key: ");
   LogHex(LOGDEBUG, (char *) digest, 16);
 
-  RC4_set_key(*rc4keyIn, 16, digest);
+  RC4_setkey(*rc4keyIn, 16, digest);
 }
 
 typedef unsigned int (getoff)(char *buf, unsigned int len);
@@ -209,13 +234,11 @@ HMACsha256(const char *message, size_t messageLen, const char *key,
 	   size_t keylen, char *digest)
 {
   unsigned int digestLen;
-
   HMAC_CTX ctx;
-  HMAC_CTX_init(&ctx);
-  HMAC_Init_ex(&ctx, (unsigned char *) key, keylen, EVP_sha256(), NULL);
-  HMAC_Update(&ctx, (unsigned char *) message, messageLen);
-  HMAC_Final(&ctx, (unsigned char *) digest, &digestLen);
-  HMAC_CTX_cleanup(&ctx);
+
+  HMAC_setup(ctx, key, keylen);
+  HMAC_crunch(ctx, message, messageLen);
+  HMAC_finish(ctx, digest, digestLen);
 
   assert(digestLen == 32);
 }
@@ -314,8 +337,8 @@ HandShake(RTMP * r, bool FP9HandShake)
   int digestPosClient = 0;
   bool encrypted = r->Link.protocol & RTMP_FEATURE_ENC;
 
-  RC4_KEY *keyIn = 0;
-  RC4_KEY *keyOut = 0;
+  RC4_handle keyIn = 0;
+  RC4_handle keyOut = 0;
 
   int32_t *ip;
   uint32_t uptime;
@@ -660,14 +683,12 @@ HandShake(RTMP * r, bool FP9HandShake)
 	  /* update the keystreams */
 	  if (r->Link.rc4keyIn)
 	    {
-	      RC4(r->Link.rc4keyIn, RTMP_SIG_SIZE, (uint8_t *) buff,
-		  (uint8_t *) buff);
+	      RC4_encrypt(r->Link.rc4keyIn, RTMP_SIG_SIZE, (uint8_t *) buff);
 	    }
 
 	  if (r->Link.rc4keyOut)
 	    {
-	      RC4(r->Link.rc4keyOut, RTMP_SIG_SIZE, (uint8_t *) buff,
-		  (uint8_t *) buff);
+	      RC4_encrypt(r->Link.rc4keyOut, RTMP_SIG_SIZE, (uint8_t *) buff);
 	    }
 	}
     }
@@ -691,8 +712,8 @@ SHandShake(RTMP * r)
   int dhposClient = 0;
   int dhposServer = 0;
   int digestPosServer = 0;
-  RC4_KEY *keyIn = 0;
-  RC4_KEY *keyOut = 0;
+  RC4_handle keyIn = 0;
+  RC4_handle keyOut = 0;
   bool FP9HandShake = false;
   bool encrypted;
   int32_t *ip;
@@ -971,14 +992,12 @@ SHandShake(RTMP * r)
 	  /* update the keystreams */
 	  if (r->Link.rc4keyIn)
 	    {
-	      RC4(r->Link.rc4keyIn, RTMP_SIG_SIZE, (uint8_t *) buff,
-		  (uint8_t *) buff);
+	      RC4_encrypt(r->Link.rc4keyIn, RTMP_SIG_SIZE, (uint8_t *) buff);
 	    }
 
 	  if (r->Link.rc4keyOut)
 	    {
-	      RC4(r->Link.rc4keyOut, RTMP_SIG_SIZE, (uint8_t *) buff,
-		  (uint8_t *) buff);
+	      RC4_encrypt(r->Link.rc4keyOut, RTMP_SIG_SIZE, (uint8_t *) buff);
 	    }
 	}
     }

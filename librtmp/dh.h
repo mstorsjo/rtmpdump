@@ -75,10 +75,6 @@ static int MDH_compute_key(uint8_t *secret, size_t len, MP_t pub, MDH *dh)
 #include <openssl/bn.h>
 #include <openssl/dh.h>
 
-#include <openssl/sha.h>
-#include <openssl/hmac.h>
-#include <openssl/rc4.h>
-
 typedef BIGNUM * MP_t;
 #define MP_new()	BN_new()
 #define MP_set_w(mpi, w)	BN_set_word(mpi, w)

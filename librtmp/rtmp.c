@@ -119,6 +119,10 @@ static int HTTP_read(RTMP *r, int fill);
 static int clk_tck;
 #endif
 
+#ifdef CRYPTO
+#include "handshake.h"
+#endif
+
 uint32_t
 RTMP_GetTime()
 {
@@ -930,7 +934,7 @@ ReadN(RTMP *r, char *buffer, int n)
 #ifdef CRYPTO
       if (r->Link.rc4keyIn)
 	{
-	  RC4(r->Link.rc4keyIn, nBytes, (uint8_t *) ptr, (uint8_t *) ptr);
+	  RC4_encrypt(r->Link.rc4keyIn, nBytes, ptr);
 	}
 #endif
 
@@ -956,7 +960,7 @@ WriteN(RTMP *r, const char *buffer, int n)
       else
 	encrypted = (char *)buf;
       ptr = encrypted;
-      RC4(r->Link.rc4keyOut, n, (uint8_t *) buffer, (uint8_t *) ptr);
+      RC4_encrypt2(r->Link.rc4keyOut, n, buffer, ptr);
     }
 #endif
 
@@ -2386,9 +2390,7 @@ RTMP_ReadPacket(RTMP *r, RTMPPacket *packet)
   return true;
 }
 
-#ifdef CRYPTO
-#include "handshake.h"
-#else
+#ifndef CRYPTO
 static bool
 HandShake(RTMP *r, bool FP9HandShake)
 {

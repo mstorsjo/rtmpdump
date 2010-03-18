@@ -1,5 +1,5 @@
-#ifndef __HTTP_H__
-#define __HTTP_H__
+#ifndef __RTMP_HTTP_H__
+#define __RTMP_HTTP_H__
 /*
  *      Copyright (C) 2010 Howard Chu
  *      Copyright (C) 2010 Antti Ajanki

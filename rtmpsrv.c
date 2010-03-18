@@ -463,7 +463,7 @@ ServeInvoke(STREAMING_SERVER *server, RTMP * r, RTMPPacket *packet, unsigned int
 
   if (body[0] != 0x02)		// make sure it is a string method name we start with
     {
-      Log(LOGWARNING, "%s, Sanity failed. no string method in invoke packet",
+      RTMP_Log(RTMP_LOGWARNING, "%s, Sanity failed. no string method in invoke packet",
 	  __FUNCTION__);
       return 0;
     }
@@ -472,7 +472,7 @@ ServeInvoke(STREAMING_SERVER *server, RTMP * r, RTMPPacket *packet, unsigned int
   nRes = AMF_Decode(&obj, body, nBodySize, false);
   if (nRes < 0)
     {
-      Log(LOGERROR, "%s, error decoding invoke packet", __FUNCTION__);
+      RTMP_Log(RTMP_LOGERROR, "%s, error decoding invoke packet", __FUNCTION__);
       return 0;
     }
 
@@ -480,7 +480,7 @@ ServeInvoke(STREAMING_SERVER *server, RTMP * r, RTMPPacket *packet, unsigned int
   AVal method;
   AMFProp_GetString(AMF_GetProp(&obj, NULL, 0), &method);
   double txn = AMFProp_GetNumber(AMF_GetProp(&obj, NULL, 1));
-  Log(LOGDEBUG, "%s, client invoking <%s>", __FUNCTION__, method.av_val);
+  RTMP_Log(RTMP_LOGDEBUG, "%s, client invoking <%s>", __FUNCTION__, method.av_val);
 
   if (AVMATCH(&method, &av_connect))
     {
@@ -708,7 +708,7 @@ ServePacket(STREAMING_SERVER *server, RTMP *r, RTMPPacket *packet)
 {
   int ret = 0;
 
-  Log(LOGDEBUG, "%s, received packet type %02X, size %lu bytes", __FUNCTION__,
+  RTMP_Log(RTMP_LOGDEBUG, "%s, received packet type %02X, size %lu bytes", __FUNCTION__,
     packet->m_packetType, packet->m_nBodySize);
 
   switch (packet->m_packetType)
@@ -739,12 +739,12 @@ ServePacket(STREAMING_SERVER *server, RTMP *r, RTMPPacket *packet)
 
     case 0x08:
       // audio data
-      //Log(LOGDEBUG, "%s, received: audio %lu bytes", __FUNCTION__, packet.m_nBodySize);
+      //RTMP_Log(RTMP_LOGDEBUG, "%s, received: audio %lu bytes", __FUNCTION__, packet.m_nBodySize);
       break;
 
     case 0x09:
       // video data
-      //Log(LOGDEBUG, "%s, received: video %lu bytes", __FUNCTION__, packet.m_nBodySize);
+      //RTMP_Log(RTMP_LOGDEBUG, "%s, received: video %lu bytes", __FUNCTION__, packet.m_nBodySize);
       break;
 
     case 0x0F:			// flex stream send
@@ -755,15 +755,15 @@ ServePacket(STREAMING_SERVER *server, RTMP *r, RTMPPacket *packet)
 
     case 0x11:			// flex message
       {
-	Log(LOGDEBUG, "%s, flex message, size %lu bytes, not fully supported",
+	RTMP_Log(RTMP_LOGDEBUG, "%s, flex message, size %lu bytes, not fully supported",
 	    __FUNCTION__, packet->m_nBodySize);
-	//LogHex(packet.m_body, packet.m_nBodySize);
+	//RTMP_LogHex(packet.m_body, packet.m_nBodySize);
 
 	// some DEBUG code
 	/*RTMP_LIB_AMFObject obj;
 	   int nRes = obj.Decode(packet.m_body+1, packet.m_nBodySize-1);
 	   if(nRes < 0) {
-	   Log(LOGERROR, "%s, error decoding AMF3 packet", __FUNCTION__);
+	   RTMP_Log(RTMP_LOGERROR, "%s, error decoding AMF3 packet", __FUNCTION__);
 	   //return;
 	   }
 
@@ -783,9 +783,9 @@ ServePacket(STREAMING_SERVER *server, RTMP *r, RTMPPacket *packet)
 
     case 0x14:
       // invoke
-      Log(LOGDEBUG, "%s, received: invoke %lu bytes", __FUNCTION__,
+      RTMP_Log(RTMP_LOGDEBUG, "%s, received: invoke %lu bytes", __FUNCTION__,
 	  packet->m_nBodySize);
-      //LogHex(packet.m_body, packet.m_nBodySize);
+      //RTMP_LogHex(packet.m_body, packet.m_nBodySize);
 
       if (ServeInvoke(server, r, packet, 0))
 	RTMP_Close(r);
@@ -795,10 +795,10 @@ ServePacket(STREAMING_SERVER *server, RTMP *r, RTMPPacket *packet)
       /* flv */
 	break;
     default:
-      Log(LOGDEBUG, "%s, unknown packet type received: 0x%02x", __FUNCTION__,
+      RTMP_Log(RTMP_LOGDEBUG, "%s, unknown packet type received: 0x%02x", __FUNCTION__,
 	  packet->m_packetType);
 #ifdef _DEBUG
-      LogHex(LOGDEBUG, packet->m_body, packet->m_nBodySize);
+      RTMP_LogHex(RTMP_LOGDEBUG, packet->m_body, packet->m_nBodySize);
 #endif
     }
   return ret;
@@ -814,12 +814,12 @@ controlServerThread(void *unused)
       switch (ich)
 	{
 	case 'q':
-	  LogPrintf("Exiting\n");
+	  RTMP_LogPrintf("Exiting\n");
 	  stopStreaming(rtmpServer);
 	  exit(0);
 	  break;
 	default:
-	  LogPrintf("Unknown command \'%c\', ignoring\n", ich);
+	  RTMP_LogPrintf("Unknown command \'%c\', ignoring\n", ich);
 	}
     }
   TFRET();
@@ -847,7 +847,7 @@ void doServe(STREAMING_SERVER * server,	// server socket and state (our listenin
 
   if (select(sockfd + 1, &fds, NULL, NULL, &tv) <= 0)
     {
-      Log(LOGERROR, "Request timeout/select failed, ignoring request");
+      RTMP_Log(RTMP_LOGERROR, "Request timeout/select failed, ignoring request");
       goto quit;
     }
   else
@@ -856,7 +856,7 @@ void doServe(STREAMING_SERVER * server,	// server socket and state (our listenin
       rtmp.m_sb.sb_socket = sockfd;
       if (!RTMP_Serve(&rtmp))
 	{
-	  Log(LOGERROR, "Handshake failed");
+	  RTMP_Log(RTMP_LOGERROR, "Handshake failed");
 	  goto cleanup;
 	}
     }
@@ -870,7 +870,7 @@ void doServe(STREAMING_SERVER * server,	// server socket and state (our listenin
     }
 
 cleanup:
-  LogPrintf("Closing connection... ");
+  RTMP_LogPrintf("Closing connection... ");
   RTMP_Close(&rtmp);
   /* Should probably be done by RTMP_Close() ... */
   rtmp.Link.playpath.av_val = NULL;
@@ -879,7 +879,7 @@ cleanup:
   rtmp.Link.pageUrl.av_val = NULL;
   rtmp.Link.app.av_val = NULL;
   rtmp.Link.flashVer.av_val = NULL;
-  LogPrintf("done!\n\n");
+  RTMP_LogPrintf("done!\n\n");
 
 quit:
   if (server->state == STREAMING_IN_PROGRESS)
@@ -909,19 +909,19 @@ serverThread(void *arg)
 	  socklen_t destlen = sizeof(struct sockaddr_in);
 	  getsockopt(sockfd, SOL_IP, SO_ORIGINAL_DST, &dest, &destlen);
 	  strcpy(destch, inet_ntoa(dest.sin_addr));
-	  Log(LOGDEBUG, "%s: accepted connection from %s to %s\n", __FUNCTION__,
+	  RTMP_Log(RTMP_LOGDEBUG, "%s: accepted connection from %s to %s\n", __FUNCTION__,
 	      inet_ntoa(addr.sin_addr), destch);
 #else
-	  Log(LOGDEBUG, "%s: accepted connection from %s\n", __FUNCTION__,
+	  RTMP_Log(RTMP_LOGDEBUG, "%s: accepted connection from %s\n", __FUNCTION__,
 	      inet_ntoa(addr.sin_addr));
 #endif
 	  /* Create a new thread and transfer the control to that */
 	  doServe(server, sockfd);
-	  Log(LOGDEBUG, "%s: processed request\n", __FUNCTION__);
+	  RTMP_Log(RTMP_LOGDEBUG, "%s: processed request\n", __FUNCTION__);
 	}
       else
 	{
-	  Log(LOGERROR, "%s: accept failed", __FUNCTION__);
+	  RTMP_Log(RTMP_LOGERROR, "%s: accept failed", __FUNCTION__);
 	}
     }
   server->state = STREAMING_STOPPED;
@@ -938,7 +938,7 @@ startStreaming(const char *address, int port)
   sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
   if (sockfd == -1)
     {
-      Log(LOGERROR, "%s, couldn't create socket", __FUNCTION__);
+      RTMP_Log(RTMP_LOGERROR, "%s, couldn't create socket", __FUNCTION__);
       return 0;
     }
 
@@ -953,14 +953,14 @@ startStreaming(const char *address, int port)
   if (bind(sockfd, (struct sockaddr *) &addr, sizeof(struct sockaddr_in)) ==
       -1)
     {
-      Log(LOGERROR, "%s, TCP bind failed for port number: %d", __FUNCTION__,
+      RTMP_Log(RTMP_LOGERROR, "%s, TCP bind failed for port number: %d", __FUNCTION__,
 	  port);
       return 0;
     }
 
   if (listen(sockfd, 10) == -1)
     {
-      Log(LOGERROR, "%s, listen failed", __FUNCTION__);
+      RTMP_Log(RTMP_LOGERROR, "%s, listen failed", __FUNCTION__);
       closesocket(sockfd);
       return 0;
     }
@@ -990,7 +990,7 @@ stopStreaming(STREAMING_SERVER * server)
 	}
 
       if (closesocket(server->socket))
-	Log(LOGERROR, "%s: Failed to close listening socket, error %d",
+	RTMP_Log(RTMP_LOGERROR, "%s: Failed to close listening socket, error %d",
 	    GetSockError());
 
       server->state = STREAMING_STOPPED;
@@ -1002,7 +1002,7 @@ void
 sigIntHandler(int sig)
 {
   RTMP_ctrlC = true;
-  LogPrintf("Caught signal: %d, cleaning up, just a second...\n", sig);
+  RTMP_LogPrintf("Caught signal: %d, cleaning up, just a second...\n", sig);
   if (rtmpServer)
     stopStreaming(rtmpServer);
   signal(SIGINT, SIG_DFL);
@@ -1019,13 +1019,13 @@ main(int argc, char **argv)
   char *rtmpStreamingDevice = DEFAULT_HTTP_STREAMING_DEVICE;	// streaming device, default 0.0.0.0
   int nRtmpStreamingPort = 1935;	// port
 
-  LogPrintf("RTMP Server %s\n", RTMPDUMP_VERSION);
-  LogPrintf("(c) 2010 Andrej Stepanchuk, Howard Chu; license: GPL\n\n");
+  RTMP_LogPrintf("RTMP Server %s\n", RTMPDUMP_VERSION);
+  RTMP_LogPrintf("(c) 2010 Andrej Stepanchuk, Howard Chu; license: GPL\n\n");
 
-  AMF_debuglevel = LOGINFO;
+  RTMP_debuglevel = RTMP_LOGINFO;
 
   if (argc > 1 && !strcmp(argv[1], "-z"))
-    AMF_debuglevel = LOGALL;
+    RTMP_debuglevel = RTMP_LOGALL;
 
   // init request
   memset(&defaultRTMPRequest, 0, sizeof(RTMP_REQUEST));
@@ -1057,17 +1057,17 @@ main(int argc, char **argv)
   if ((rtmpServer =
        startStreaming(rtmpStreamingDevice, nRtmpStreamingPort)) == 0)
     {
-      Log(LOGERROR, "Failed to start RTMP server, exiting!");
+      RTMP_Log(RTMP_LOGERROR, "Failed to start RTMP server, exiting!");
       return RD_FAILED;
     }
-  LogPrintf("Streaming on rtmp://%s:%d\n", rtmpStreamingDevice,
+  RTMP_LogPrintf("Streaming on rtmp://%s:%d\n", rtmpStreamingDevice,
 	    nRtmpStreamingPort);
 
   while (rtmpServer->state != STREAMING_STOPPED)
     {
       sleep(1);
     }
-  Log(LOGDEBUG, "Done, exiting...");
+  RTMP_Log(RTMP_LOGDEBUG, "Done, exiting...");
 
   CleanupSockets();
 

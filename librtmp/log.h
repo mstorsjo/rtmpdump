@@ -1,6 +1,6 @@
 /*
  *  Copyright (C) 2008-2009 Andrej Stepanchuk
- *  Copyright (C) 2009 Howard Chu
+ *  Copyright (C) 2009-2010 Howard Chu
  *
  *  This file is part of librtmp.
  *
@@ -20,8 +20,8 @@
  *  http://www.gnu.org/copyleft/lgpl.html
  */
 
-#ifndef __LOG_H__
-#define __LOG_H__
+#ifndef __RTMP_LOG_H__
+#define __RTMP_LOG_H__
 
 #include <stdio.h>
 
@@ -36,25 +36,18 @@ extern "C" {
 #endif
 
 typedef enum
-{ LOGCRIT=0, LOGERROR, LOGWARNING, LOGINFO,
-  LOGDEBUG, LOGDEBUG2, LOGALL
-} AMF_LogLevel;
+{ RTMP_LOGCRIT=0, RTMP_LOGERROR, RTMP_LOGWARNING, RTMP_LOGINFO,
+  RTMP_LOGDEBUG, RTMP_LOGDEBUG2, RTMP_LOGALL
+} RTMP_LogLevel;
 
-#define Log	AMF_Log
-#define LogHex	AMF_LogHex
-#define LogHexString	AMF_LogHexString
-#define LogPrintf	AMF_LogPrintf
-#define LogSetOutput	AMF_LogSetOutput
-#define LogStatus	AMF_LogStatus
+extern RTMP_LogLevel RTMP_debuglevel;
 
-extern AMF_LogLevel AMF_debuglevel;
-
-void LogSetOutput(FILE *file);
-void LogPrintf(const char *format, ...);
-void LogStatus(const char *format, ...);
-void Log(int level, const char *format, ...);
-void LogHex(int level, const char *data, unsigned long len);
-void LogHexString(int level, const char *data, unsigned long len);
+void RTMP_LogSetOutput(FILE *file);
+void RTMP_LogPrintf(const char *format, ...);
+void RTMP_LogStatus(const char *format, ...);
+void RTMP_Log(int level, const char *format, ...);
+void RTMP_LogHex(int level, const char *data, unsigned long len);
+void RTMP_LogHexString(int level, const char *data, unsigned long len);
 
 #ifdef __cplusplus
 }

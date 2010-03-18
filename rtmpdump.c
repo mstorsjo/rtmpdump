@@ -87,7 +87,7 @@ void
 sigIntHandler(int sig)
 {
   RTMP_ctrlC = true;
-  LogPrintf("Caught signal: %d, cleaning up, just a second...\n", sig);
+  RTMP_LogPrintf("Caught signal: %d, cleaning up, just a second...\n", sig);
   // ignore all these signals now and let the connection close
   signal(SIGINT, SIG_IGN);
   signal(SIGTERM, SIG_IGN);
@@ -150,19 +150,19 @@ OpenResumeFile(const char *flvFile,	// file name [in]
       // check we've got a valid FLV file to continue!
       if (fread(hbuf, 1, 13, *file) != 13)
 	{
-	  Log(LOGERROR, "Couldn't read FLV file header!");
+	  RTMP_Log(RTMP_LOGERROR, "Couldn't read FLV file header!");
 	  return RD_FAILED;
 	}
       if (hbuf[0] != 'F' || hbuf[1] != 'L' || hbuf[2] != 'V'
 	  || hbuf[3] != 0x01)
 	{
-	  Log(LOGERROR, "Invalid FLV file!");
+	  RTMP_Log(RTMP_LOGERROR, "Invalid FLV file!");
 	  return RD_FAILED;
 	}
 
       if ((hbuf[4] & 0x05) == 0)
 	{
-	  Log(LOGERROR,
+	  RTMP_Log(RTMP_LOGERROR,
 	      "FLV file contains neither video nor audio, aborting!");
 	  return RD_FAILED;
 	}
@@ -172,13 +172,13 @@ OpenResumeFile(const char *flvFile,	// file name [in]
 
       if (fread(hbuf, 1, 4, *file) != 4)
 	{
-	  Log(LOGERROR, "Invalid FLV file: missing first prevTagSize!");
+	  RTMP_Log(RTMP_LOGERROR, "Invalid FLV file: missing first prevTagSize!");
 	  return RD_FAILED;
 	}
       prevTagSize = AMF_DecodeInt32(hbuf);
       if (prevTagSize != 0)
 	{
-	  Log(LOGWARNING,
+	  RTMP_Log(RTMP_LOGWARNING,
 	      "First prevTagSize is not zero: prevTagSize = 0x%08X",
 	      prevTagSize);
 	}
@@ -216,7 +216,7 @@ OpenResumeFile(const char *flvFile,	// file name [in]
 	      int nRes = AMF_Decode(&metaObj, buffer, dataSize, false);
 	      if (nRes < 0)
 		{
-		  Log(LOGERROR, "%s, error decoding meta data packet",
+		  RTMP_Log(RTMP_LOGERROR, "%s, error decoding meta data packet",
 		      __FUNCTION__);
 		  break;
 		}
@@ -240,7 +240,7 @@ OpenResumeFile(const char *flvFile,	// file name [in]
 		      (&metaObj, &av_duration, &prop))
 		    {
 		      *duration = AMFProp_GetNumber(&prop);
-		      Log(LOGDEBUG, "File has duration: %f", *duration);
+		      RTMP_Log(RTMP_LOGDEBUG, "File has duration: %f", *duration);
 		    }
 
 		  bFoundMetaHeader = true;
@@ -254,7 +254,7 @@ OpenResumeFile(const char *flvFile,	// file name [in]
 
       free(buffer);
       if (!bFoundMetaHeader)
-	Log(LOGWARNING, "Couldn't locate meta data!");
+	RTMP_Log(RTMP_LOGWARNING, "Couldn't locate meta data!");
     }
 
   return RD_SUCCESS;
@@ -283,7 +283,7 @@ GetLastKeyframe(FILE * file,	// output file [in]
 
   bAudioOnly = (dataType & 0x4) && !(dataType & 0x1);
 
-  Log(LOGDEBUG, "bAudioOnly: %d, size: %llu", bAudioOnly,
+  RTMP_Log(RTMP_LOGDEBUG, "bAudioOnly: %d, size: %llu", bAudioOnly,
       (unsigned long long) size);
 
   // ok, we have to get the timestamp of the last keyframe (only keyframes are seekable) / last audio frame (audio only streams)
@@ -301,7 +301,7 @@ GetLastKeyframe(FILE * file,	// output file [in]
     skipkeyframe:
       if (size - tsize < 13)
 	{
-	  Log(LOGERROR,
+	  RTMP_Log(RTMP_LOGERROR,
 	      "Unexpected start of file, error in tag sizes, couldn't arrive at prevTagSize=0");
 	  return RD_FAILED;
 	}
@@ -309,22 +309,22 @@ GetLastKeyframe(FILE * file,	// output file [in]
       xread = fread(buffer, 1, 4, file);
       if (xread != 4)
 	{
-	  Log(LOGERROR, "Couldn't read prevTagSize from file!");
+	  RTMP_Log(RTMP_LOGERROR, "Couldn't read prevTagSize from file!");
 	  return RD_FAILED;
 	}
 
       prevTagSize = AMF_DecodeInt32(buffer);
-      //Log(LOGDEBUG, "Last packet: prevTagSize: %d", prevTagSize);
+      //RTMP_Log(RTMP_LOGDEBUG, "Last packet: prevTagSize: %d", prevTagSize);
 
       if (prevTagSize == 0)
 	{
-	  Log(LOGERROR, "Couldn't find keyframe to resume from!");
+	  RTMP_Log(RTMP_LOGERROR, "Couldn't find keyframe to resume from!");
 	  return RD_FAILED;
 	}
 
       if (prevTagSize < 0 || prevTagSize > size - 4 - 13)
 	{
-	  Log(LOGERROR,
+	  RTMP_Log(RTMP_LOGERROR,
 	      "Last tag size must be greater/equal zero (prevTagSize=%d) and smaller then filesize, corrupt file!",
 	      prevTagSize);
 	  return RD_FAILED;
@@ -335,14 +335,14 @@ GetLastKeyframe(FILE * file,	// output file [in]
       fseeko(file, size - tsize, SEEK_SET);
       if (fread(buffer, 1, 12, file) != 12)
 	{
-	  Log(LOGERROR, "Couldn't read header!");
+	  RTMP_Log(RTMP_LOGERROR, "Couldn't read header!");
 	  return RD_FAILED;
 	}
       //*
 #ifdef _DEBUG
       uint32_t ts = AMF_DecodeInt24(buffer + 4);
       ts |= (buffer[7] << 24);
-      Log(LOGDEBUG, "%02X: TS: %d ms", buffer[0], ts);
+      RTMP_Log(RTMP_LOGDEBUG, "%02X: TS: %d ms", buffer[0], ts);
 #endif //*/
 
       // this just continues the loop whenever the number of skipped frames is > 0,
@@ -356,7 +356,7 @@ GetLastKeyframe(FILE * file,	// output file [in]
 	       && (buffer[0] != 0x09 || (buffer[11] & 0xf0) != 0x10)))
 	{
 #ifdef _DEBUG
-	  Log(LOGDEBUG,
+	  RTMP_Log(RTMP_LOGDEBUG,
 	      "xxxxxxxxxxxxxxxxxxxxxxxx Well, lets go one more back!");
 #endif
 	  nSkipKeyFrames--;
@@ -374,7 +374,7 @@ GetLastKeyframe(FILE * file,	// output file [in]
   fseeko(file, size - tsize + 11, SEEK_SET);
   if (fread(*initialFrame, 1, *nInitialFrameSize, file) != *nInitialFrameSize)
     {
-      Log(LOGERROR, "Couldn't read last keyframe, aborting!");
+      RTMP_Log(RTMP_LOGERROR, "Couldn't read last keyframe, aborting!");
       return RD_FAILED;
     }
 
@@ -387,30 +387,30 @@ GetLastKeyframe(FILE * file,	// output file [in]
 
   if (*dSeek < 0)
     {
-      Log(LOGERROR,
+      RTMP_Log(RTMP_LOGERROR,
 	  "Last keyframe timestamp is negative, aborting, your file is corrupt!");
       return RD_FAILED;
     }
-  Log(LOGDEBUG, "Last keyframe found at: %d ms, size: %d, type: %02X", *dSeek,
+  RTMP_Log(RTMP_LOGDEBUG, "Last keyframe found at: %d ms, size: %d, type: %02X", *dSeek,
       *nInitialFrameSize, *initialFrameType);
 
   /*
      // now read the timestamp of the frame before the seekable keyframe:
      fseeko(file, size-tsize-4, SEEK_SET);
      if(fread(buffer, 1, 4, file) != 4) {
-     Log(LOGERROR, "Couldn't read prevTagSize from file!");
+     RTMP_Log(RTMP_LOGERROR, "Couldn't read prevTagSize from file!");
      goto start;
      }
      uint32_t prevTagSize = RTMP_LIB::AMF_DecodeInt32(buffer);
      fseeko(file, size-tsize-4-prevTagSize+4, SEEK_SET);
      if(fread(buffer, 1, 4, file) != 4) {
-     Log(LOGERROR, "Couldn't read previous timestamp!");
+     RTMP_Log(RTMP_LOGERROR, "Couldn't read previous timestamp!");
      goto start;
      }
      uint32_t timestamp = RTMP_LIB::AMF_DecodeInt24(buffer);
      timestamp |= (buffer[3]<<24);
 
-     Log(LOGDEBUG, "Previous timestamp: %d ms", timestamp);
+     RTMP_Log(RTMP_LOGDEBUG, "Previous timestamp: %d ms", timestamp);
    */
 
   if (*dSeek != 0)
@@ -446,12 +446,12 @@ Download(RTMP * rtmp,		// connected RTMP object
 
   if (rtmp->m_read.timestamp)
     {
-      Log(LOGDEBUG, "Continuing at TS: %d ms\n", rtmp->m_read.timestamp);
+      RTMP_Log(RTMP_LOGDEBUG, "Continuing at TS: %d ms\n", rtmp->m_read.timestamp);
     }
 
   if (bLiveStream)
     {
-      LogPrintf("Starting Live Stream\n");
+      RTMP_LogPrintf("Starting Live Stream\n");
     }
   else
     {
@@ -461,7 +461,7 @@ Download(RTMP * rtmp,		// connected RTMP object
 	{
 	  if ((double) rtmp->m_read.timestamp >= (double) duration * 999.0)
 	    {
-	      LogPrintf("Already Completed at: %.3f sec Duration=%.3f sec\n",
+	      RTMP_LogPrintf("Already Completed at: %.3f sec Duration=%.3f sec\n",
 			(double) rtmp->m_read.timestamp / 1000.0,
 			(double) duration / 1000.0);
 	      return RD_SUCCESS;
@@ -470,7 +470,7 @@ Download(RTMP * rtmp,		// connected RTMP object
 	    {
 	      *percent = ((double) rtmp->m_read.timestamp) / (duration * 1000.0) * 100.0;
 	      *percent = ((double) (int) (*percent * 10.0)) / 10.0;
-	      LogPrintf("%s download at: %.3f kB / %.3f sec (%.1f%%)\n",
+	      RTMP_LogPrintf("%s download at: %.3f kB / %.3f sec (%.1f%%)\n",
 			bResume ? "Resuming" : "Starting",
 			(double) size / 1024.0, (double) rtmp->m_read.timestamp / 1000.0,
 			*percent);
@@ -478,14 +478,14 @@ Download(RTMP * rtmp,		// connected RTMP object
 	}
       else
 	{
-	  LogPrintf("%s download at: %.3f kB\n",
+	  RTMP_LogPrintf("%s download at: %.3f kB\n",
 		    bResume ? "Resuming" : "Starting",
 		    (double) size / 1024.0);
 	}
     }
 
   if (dLength > 0)
-    LogPrintf("For duration: %.3f sec\n", (double) dLength / 1000.0);
+    RTMP_LogPrintf("For duration: %.3f sec\n", (double) dLength / 1000.0);
 
   if (bResume && nInitialFrameSize > 0)
     rtmp->m_read.flags |= RTMP_READ_RESUME;
@@ -501,19 +501,19 @@ Download(RTMP * rtmp,		// connected RTMP object
   do
     {
       nRead = RTMP_Read(rtmp, buffer, bufferSize);
-      //LogPrintf("nRead: %d\n", nRead);
+      //RTMP_LogPrintf("nRead: %d\n", nRead);
       if (nRead > 0)
 	{
 	  if (fwrite(buffer, sizeof(unsigned char), nRead, file) !=
 	      (size_t) nRead)
 	    {
-	      Log(LOGERROR, "%s: Failed writing, exiting!", __FUNCTION__);
+	      RTMP_Log(RTMP_LOGERROR, "%s: Failed writing, exiting!", __FUNCTION__);
 	      free(buffer);
 	      return RD_FAILED;
 	    }
 	  size += nRead;
 
-	  //LogPrintf("write %dbytes (%.1f kB)\n", nRead, nRead/1024.0);
+	  //RTMP_LogPrintf("write %dbytes (%.1f kB)\n", nRead, nRead/1024.0);
 	  if (duration <= 0)	// if duration unknown try to get it from the stream (onMetaData)
 	    duration = RTMP_GetDuration(rtmp);
 
@@ -524,7 +524,7 @@ Download(RTMP * rtmp,		// connected RTMP object
 		{
 		  bufferTime = (uint32_t) (duration * 1000.0) + 5000;	// extra 5sec to make sure we've got enough
 
-		  Log(LOGDEBUG,
+		  RTMP_Log(RTMP_LOGDEBUG,
 		      "Detected that buffer time is less than duration, resetting to: %dms",
 		      bufferTime);
 		  RTMP_SetBufferMS(rtmp, bufferTime);
@@ -536,7 +536,7 @@ Download(RTMP * rtmp,		// connected RTMP object
 		{
 		  if (lastPercent + 1 <= *percent)
 		    {
-		      LogStatus("#");
+		      RTMP_LogStatus("#");
 		      lastPercent = (unsigned long) *percent;
 		    }
 		}
@@ -545,7 +545,7 @@ Download(RTMP * rtmp,		// connected RTMP object
 		  now = RTMP_GetTime();
 		  if (abs(now - lastUpdate) > 200)
 		    {
-		      LogStatus("\r%.3f kB / %.2f sec (%.1f%%)",
+		      RTMP_LogStatus("\r%.3f kB / %.2f sec (%.1f%%)",
 				(double) size / 1024.0,
 				(double) (rtmp->m_read.timestamp) / 1000.0, *percent);
 		      lastUpdate = now;
@@ -558,9 +558,9 @@ Download(RTMP * rtmp,		// connected RTMP object
 	      if (abs(now - lastUpdate) > 200)
 		{
 		  if (bHashes)
-		    LogStatus("#");
+		    RTMP_LogStatus("#");
 		  else
-		    LogStatus("\r%.3f kB / %.2f sec", (double) size / 1024.0,
+		    RTMP_LogStatus("\r%.3f kB / %.2f sec", (double) size / 1024.0,
 			      (double) (rtmp->m_read.timestamp) / 1000.0);
 		  lastUpdate = now;
 		}
@@ -569,7 +569,7 @@ Download(RTMP * rtmp,		// connected RTMP object
 #ifdef _DEBUG
       else
 	{
-	  Log(LOGDEBUG, "zero read!");
+	  RTMP_Log(RTMP_LOGDEBUG, "zero read!");
 	}
 #endif
 
@@ -586,22 +586,22 @@ Download(RTMP * rtmp,		// connected RTMP object
 	{
 	  *percent = ((double) rtmp->m_read.timestamp) / (duration * 1000.0) * 100.0;
 	  *percent = ((double) (int) (*percent * 10.0)) / 10.0;
-	  LogStatus("\r%.3f kB / %.2f sec (%.1f%%)",
+	  RTMP_LogStatus("\r%.3f kB / %.2f sec (%.1f%%)",
 	    (double) size / 1024.0,
 	    (double) (rtmp->m_read.timestamp) / 1000.0, *percent);
 	}
       else
 	{
-	  LogStatus("\r%.3f kB / %.2f sec", (double) size / 1024.0,
+	  RTMP_LogStatus("\r%.3f kB / %.2f sec", (double) size / 1024.0,
 	    (double) (rtmp->m_read.timestamp) / 1000.0);
 	}
     }
 
-  Log(LOGDEBUG, "RTMP_Read returned: %d", nRead);
+  RTMP_Log(RTMP_LOGDEBUG, "RTMP_Read returned: %d", nRead);
 
   if (bResume && nRead == -2)
     {
-      LogPrintf("Couldn't resume FLV file, try --skip %d\n\n",
+      RTMP_LogPrintf("Couldn't resume FLV file, try --skip %d\n\n",
 		nSkipKeyFrames + 1);
       return RD_FAILED;
     }
@@ -788,17 +788,17 @@ main(int argc, char **argv)
     {
       if (strcmp(argv[index], "--quiet") == 0
 	  || strcmp(argv[index], "-q") == 0)
-	AMF_debuglevel = LOGCRIT;
+	RTMP_debuglevel = RTMP_LOGCRIT;
       index++;
     }
 
-  LogPrintf("RTMPDump %s\n", RTMPDUMP_VERSION);
-  LogPrintf
+  RTMP_LogPrintf("RTMPDump %s\n", RTMPDUMP_VERSION);
+  RTMP_LogPrintf
     ("(c) 2010 Andrej Stepanchuk, Howard Chu, The Flvstreamer Team; license: GPL\n");
 
   if (!InitSockets())
     {
-      Log(LOGERROR,
+      RTMP_Log(RTMP_LOGERROR,
 	  "Couldn't load sockets support on your platform, exiting!");
       return RD_FAILED;
     }
@@ -852,79 +852,79 @@ main(int argc, char **argv)
       switch (opt)
 	{
 	case 'h':
-	  LogPrintf
+	  RTMP_LogPrintf
 	    ("\nThis program dumps the media content streamed over RTMP.\n\n");
-	  LogPrintf("--help|-h               Prints this help screen.\n");
-	  LogPrintf
+	  RTMP_LogPrintf("--help|-h               Prints this help screen.\n");
+	  RTMP_LogPrintf
 	    ("--rtmp|-r url           URL (e.g. rtmp//host[:port]/path)\n");
-	  LogPrintf
+	  RTMP_LogPrintf
 	    ("--host|-n hostname      Overrides the hostname in the rtmp url\n");
-	  LogPrintf
+	  RTMP_LogPrintf
 	    ("--port|-c port          Overrides the port in the rtmp url\n");
-	  LogPrintf
+	  RTMP_LogPrintf
 	    ("--socks|-S host:port    Use the specified SOCKS proxy\n");
-	  LogPrintf
+	  RTMP_LogPrintf
 	    ("--protocol|-l           Overrides the protocol in the rtmp url (0 - RTMP, 2 - RTMPE)\n");
-	  LogPrintf
+	  RTMP_LogPrintf
 	    ("--playpath|-y           Overrides the playpath parsed from rtmp url\n");
-	  LogPrintf("--swfUrl|-s url         URL to player swf file\n");
-	  LogPrintf
+	  RTMP_LogPrintf("--swfUrl|-s url         URL to player swf file\n");
+	  RTMP_LogPrintf
 	    ("--tcUrl|-t url          URL to played stream (default: \"rtmp://host[:port]/app\")\n");
-	  LogPrintf("--pageUrl|-p url        Web URL of played programme\n");
-	  LogPrintf("--app|-a app            Name of target app on server\n");
+	  RTMP_LogPrintf("--pageUrl|-p url        Web URL of played programme\n");
+	  RTMP_LogPrintf("--app|-a app            Name of target app on server\n");
 #ifdef CRYPTO
-	  LogPrintf
+	  RTMP_LogPrintf
 	    ("--swfhash|-w hexstring  SHA256 hash of the decompressed SWF file (32 bytes)\n");
-	  LogPrintf
+	  RTMP_LogPrintf
 	    ("--swfsize|-x num        Size of the decompressed SWF file, required for SWFVerification\n");
-	  LogPrintf
+	  RTMP_LogPrintf
 	    ("--swfVfy|-W url         URL to player swf file, compute hash/size automatically\n");
-	  LogPrintf
+	  RTMP_LogPrintf
 	    ("--swfAge|-X days        Number of days to use cached SWF hash before refreshing\n");
 #endif
-	  LogPrintf
+	  RTMP_LogPrintf
 	    ("--auth|-u string        Authentication string to be appended to the connect string\n");
-	  LogPrintf
+	  RTMP_LogPrintf
 	    ("--conn|-C type:data     Arbitrary AMF data to be appended to the connect string\n");
-	  LogPrintf
+	  RTMP_LogPrintf
 	    ("                        B:boolean(0|1), S:string, N:number, O:object-flag(0|1),\n");
-	  LogPrintf
+	  RTMP_LogPrintf
 	    ("                        Z:(null), NB:name:boolean, NS:name:string, NN:name:number\n");
-	  LogPrintf
+	  RTMP_LogPrintf
 	    ("--flashVer|-f string    Flash version string (default: \"%s\")\n",
 	     RTMP_DefaultFlashVer.av_val);
-	  LogPrintf
+	  RTMP_LogPrintf
 	    ("--live|-v               Save a live stream, no --resume (seeking) of live streams possible\n");
-	  LogPrintf
+	  RTMP_LogPrintf
 	    ("--subscribe|-d string   Stream name to subscribe to (otherwise defaults to playpath if live is specifed)\n");
-	  LogPrintf
+	  RTMP_LogPrintf
 	    ("--flv|-o string         FLV output file name, if the file name is - print stream to stdout\n");
-	  LogPrintf
+	  RTMP_LogPrintf
 	    ("--resume|-e             Resume a partial RTMP download\n");
-	  LogPrintf
+	  RTMP_LogPrintf
 	    ("--timeout|-m num        Timeout connection num seconds (default: %lu)\n",
 	     timeout);
-	  LogPrintf
+	  RTMP_LogPrintf
 	    ("--start|-A num          Start at num seconds into stream (not valid when using --live)\n");
-	  LogPrintf
+	  RTMP_LogPrintf
 	    ("--stop|-B num           Stop at num seconds into stream\n");
-	  LogPrintf
+	  RTMP_LogPrintf
 	    ("--token|-T key          Key for SecureToken response\n");
-	  LogPrintf
+	  RTMP_LogPrintf
 	    ("--hashes|-#             Display progress with hashes, not with the byte counter\n");
-	  LogPrintf
+	  RTMP_LogPrintf
 	    ("--buffer|-b             Buffer time in milliseconds (default: %lu), this option makes only sense in stdout mode (-o -)\n",
 	     bufferTime);
-	  LogPrintf
+	  RTMP_LogPrintf
 	    ("--skip|-k num           Skip num keyframes when looking for last keyframe to resume from. Useful if resume fails (default: %d)\n\n",
 	     nSkipKeyFrames);
-	  LogPrintf
+	  RTMP_LogPrintf
 	    ("--quiet|-q              Suppresses all command output.\n");
-	  LogPrintf("--verbose|-V            Verbose command output.\n");
-	  LogPrintf("--debug|-z              Debug level command output.\n");
-	  LogPrintf
+	  RTMP_LogPrintf("--verbose|-V            Verbose command output.\n");
+	  RTMP_LogPrintf("--debug|-z              Debug level command output.\n");
+	  RTMP_LogPrintf
 	    ("If you don't pass parameters for swfUrl, pageUrl, or auth these properties will not be included in the connect ");
-	  LogPrintf("packet.\n\n");
+	  RTMP_LogPrintf("packet.\n\n");
 	  return RD_SUCCESS;
 #ifdef CRYPTO
 	case 'w':
@@ -933,7 +933,7 @@ main(int argc, char **argv)
 	    if (res != HASHLEN)
 	      {
 		swfHash.av_val = NULL;
-		Log(LOGWARNING,
+		RTMP_Log(RTMP_LOGWARNING,
 		    "Couldn't parse swf hash hex string, not hexstring or not %d bytes, ignoring!", HASHLEN);
 	      }
 	    swfHash.av_len = HASHLEN;
@@ -944,7 +944,7 @@ main(int argc, char **argv)
 	    int size = atoi(optarg);
 	    if (size <= 0)
 	      {
-		Log(LOGERROR, "SWF Size must be at least 1, ignoring\n");
+		RTMP_Log(RTMP_LOGERROR, "SWF Size must be at least 1, ignoring\n");
 	      }
 	    else
 	      {
@@ -961,7 +961,7 @@ main(int argc, char **argv)
 	    int num = atoi(optarg);
 	    if (num < 0)
 	      {
-		Log(LOGERROR, "SWF Age must be non-negative, ignoring\n");
+		RTMP_Log(RTMP_LOGERROR, "SWF Age must be non-negative, ignoring\n");
 	      }
 	    else
 	      {
@@ -974,13 +974,13 @@ main(int argc, char **argv)
 	  nSkipKeyFrames = atoi(optarg);
 	  if (nSkipKeyFrames < 0)
 	    {
-	      Log(LOGERROR,
+	      RTMP_Log(RTMP_LOGERROR,
 		  "Number of keyframes skipped must be greater or equal zero, using zero!");
 	      nSkipKeyFrames = 0;
 	    }
 	  else
 	    {
-	      Log(LOGDEBUG, "Number of skipped key frames for resume: %d",
+	      RTMP_Log(RTMP_LOGDEBUG, "Number of skipped key frames for resume: %d",
 		  nSkipKeyFrames);
 	    }
 	  break;
@@ -989,7 +989,7 @@ main(int argc, char **argv)
 	    int32_t bt = atol(optarg);
 	    if (bt < 0)
 	      {
-		Log(LOGERROR,
+		RTMP_Log(RTMP_LOGERROR,
 		    "Buffer time must be greater than zero, ignoring the specified value %d!",
 		    bt);
 	      }
@@ -1017,7 +1017,7 @@ main(int argc, char **argv)
 	  if (protocol != RTMP_PROTOCOL_RTMP
 	      && protocol != RTMP_PROTOCOL_RTMPE)
 	    {
-	      Log(LOGERROR, "Unknown protocol specified: %d", protocol);
+	      RTMP_Log(RTMP_LOGERROR, "Unknown protocol specified: %d", protocol);
 	      return RD_FAILED;
 	    }
 	  break;
@@ -1037,7 +1037,7 @@ main(int argc, char **argv)
 		(rtmpurl, &parsedProtocol, &parsedHost, &parsedPort,
 		 &parsedPlaypath, &parsedApp))
 	      {
-		Log(LOGWARNING, "Couldn't parse the specified url (%s)!",
+		RTMP_Log(RTMP_LOGWARNING, "Couldn't parse the specified url (%s)!",
 		    optarg);
 	      }
 	    else
@@ -1089,7 +1089,7 @@ main(int argc, char **argv)
         case 'C':
           if (parseAMF(&extras, optarg, &edepth))
             {
-              Log(LOGERROR, "Invalid AMF parameter: %s", optarg);
+              RTMP_Log(RTMP_LOGERROR, "Invalid AMF parameter: %s", optarg);
               return RD_FAILED;
             }
           break;
@@ -1109,45 +1109,45 @@ main(int argc, char **argv)
 	  bHashes = true;
 	  break;
 	case 'q':
-	  AMF_debuglevel = LOGCRIT;
+	  RTMP_debuglevel = RTMP_LOGCRIT;
 	  break;
 	case 'V':
-	  AMF_debuglevel = LOGDEBUG;
+	  RTMP_debuglevel = RTMP_LOGDEBUG;
 	  break;
 	case 'z':
-	  AMF_debuglevel = LOGALL;
+	  RTMP_debuglevel = RTMP_LOGALL;
 	  break;
 	case 'S':
 	  sockshost = optarg;
 	  break;
 	default:
-	  LogPrintf("unknown option: %c\n", opt);
+	  RTMP_LogPrintf("unknown option: %c\n", opt);
 	  break;
 	}
     }
 
   if (hostname == 0)
     {
-      Log(LOGERROR,
+      RTMP_Log(RTMP_LOGERROR,
 	  "You must specify a hostname (--host) or url (-r \"rtmp://host[:port]/playpath\") containing a hostname");
       return RD_FAILED;
     }
   if (playpath.av_len == 0)
     {
-      Log(LOGERROR,
+      RTMP_Log(RTMP_LOGERROR,
 	  "You must specify a playpath (--playpath) or url (-r \"rtmp://host[:port]/playpath\") containing a playpath");
       return RD_FAILED;
     }
 
   if (protocol == RTMP_PROTOCOL_UNDEFINED)
     {
-      Log(LOGWARNING,
+      RTMP_Log(RTMP_LOGWARNING,
 	  "You haven't specified a protocol (--protocol) or rtmp url (-r), using default protocol RTMP");
       protocol = RTMP_PROTOCOL_RTMP;
     }
   if (port == -1)
     {
-      Log(LOGWARNING,
+      RTMP_Log(RTMP_LOGWARNING,
 	  "You haven't specified a port (--port) or rtmp url (-r), using default port 1935");
       port = 0;
     }
@@ -1163,21 +1163,21 @@ main(int argc, char **argv)
 
   if (flvFile == 0)
     {
-      Log(LOGWARNING,
+      RTMP_Log(RTMP_LOGWARNING,
 	  "You haven't specified an output file (-o filename), using stdout");
       bStdoutMode = true;
     }
 
   if (bStdoutMode && bResume)
     {
-      Log(LOGWARNING,
+      RTMP_Log(RTMP_LOGWARNING,
 	  "Can't resume in stdout mode, ignoring --resume option");
       bResume = false;
     }
 
   if (bLiveStream && bResume)
     {
-      Log(LOGWARNING, "Can't resume live stream, ignoring --resume option");
+      RTMP_Log(RTMP_LOGWARNING, "Can't resume live stream, ignoring --resume option");
       bResume = false;
     }
 
@@ -1193,14 +1193,14 @@ main(int argc, char **argv)
 
   if (swfHash.av_len == 0 && swfSize > 0)
     {
-      Log(LOGWARNING,
+      RTMP_Log(RTMP_LOGWARNING,
 	  "Ignoring SWF size, supply also the hash with --swfhash");
       swfSize = 0;
     }
 
   if (swfHash.av_len != 0 && swfSize == 0)
     {
-      Log(LOGWARNING,
+      RTMP_Log(RTMP_LOGWARNING,
 	  "Ignoring SWF hash, supply also the swf size  with --swfsize");
       swfHash.av_len = 0;
       swfHash.av_val = NULL;
@@ -1225,7 +1225,7 @@ main(int argc, char **argv)
       // Live stream
       if (bLiveStream)
 	{
-	  Log(LOGWARNING,
+	  RTMP_Log(RTMP_LOGWARNING,
 	      "Can't seek in a live stream, ignoring --start option");
 	  dStartOffset = 0;
 	}
@@ -1266,13 +1266,13 @@ main(int argc, char **argv)
 				    &initialFrameType, &nInitialFrameSize);
 	  if (nStatus == RD_FAILED)
 	    {
-	      Log(LOGDEBUG, "Failed to get last keyframe.");
+	      RTMP_Log(RTMP_LOGDEBUG, "Failed to get last keyframe.");
 	      goto clean;
 	    }
 
 	  if (dSeek == 0)
 	    {
-	      Log(LOGDEBUG,
+	      RTMP_Log(RTMP_LOGDEBUG,
 		  "Last keyframe is first frame in stream, switching from resume to normal mode!");
 	      bResume = false;
 	    }
@@ -1291,7 +1291,7 @@ main(int argc, char **argv)
 	  file = fopen(flvFile, "w+b");
 	  if (file == 0)
 	    {
-	      LogPrintf("Failed to open file! %s\n", flvFile);
+	      RTMP_LogPrintf("Failed to open file! %s\n", flvFile);
 	      return RD_FAILED;
 	    }
 	}
@@ -1304,13 +1304,13 @@ main(int argc, char **argv)
 
   while (!RTMP_ctrlC)
     {
-      Log(LOGDEBUG, "Setting buffer time to: %dms", bufferTime);
+      RTMP_Log(RTMP_LOGDEBUG, "Setting buffer time to: %dms", bufferTime);
       RTMP_SetBufferMS(&rtmp, bufferTime);
 
       if (first)
 	{
 	  first = 0;
-	  LogPrintf("Connecting ...\n");
+	  RTMP_LogPrintf("Connecting ...\n");
 
 	  if (!RTMP_Connect(&rtmp, NULL))
 	    {
@@ -1318,7 +1318,7 @@ main(int argc, char **argv)
 	      break;
 	    }
 
-	  Log(LOGINFO, "Connected...");
+	  RTMP_Log(RTMP_LOGINFO, "Connected...");
 
 	  // User defined seek offset
 	  if (dStartOffset > 0)
@@ -1326,7 +1326,7 @@ main(int argc, char **argv)
 	      // Don't need the start offset if resuming an existing file
 	      if (bResume)
 		{
-		  Log(LOGWARNING,
+		  RTMP_Log(RTMP_LOGWARNING,
 		      "Can't seek a resumed stream, ignoring --start option");
 		  dStartOffset = 0;
 		}
@@ -1344,7 +1344,7 @@ main(int argc, char **argv)
 	      // Quit if start seek is past required stop offset
 	      if (dLength <= 0)
 		{
-		  LogPrintf("Already Completed\n");
+		  RTMP_LogPrintf("Already Completed\n");
 		  nStatus = RD_SUCCESS;
 		  break;
 		}
@@ -1362,14 +1362,14 @@ main(int argc, char **argv)
 
           if (retries)
             {
-	      Log(LOGERROR, "Failed to resume the stream\n\n");
+	      RTMP_Log(RTMP_LOGERROR, "Failed to resume the stream\n\n");
 	      if (!RTMP_IsTimedout(&rtmp))
 	        nStatus = RD_FAILED;
 	      else
 	        nStatus = RD_INCOMPLETE;
 	      break;
             }
-	  Log(LOGINFO, "Connection timed out, trying to resume.\n\n");
+	  RTMP_Log(RTMP_LOGINFO, "Connection timed out, trying to resume.\n\n");
           /* Did we already try pausing, and it still didn't work? */
           if (rtmp.m_pausing == 3)
             {
@@ -1381,14 +1381,14 @@ main(int argc, char **argv)
                   dLength = dStopOffset - dSeek;
                   if (dLength <= 0)
                     {
-                      LogPrintf("Already Completed\n");
+                      RTMP_LogPrintf("Already Completed\n");
 		      nStatus = RD_SUCCESS;
 		      break;
                     }
                 }
               if (!RTMP_ReconnectStream(&rtmp, bufferTime, dSeek, dLength))
                 {
-	          Log(LOGERROR, "Failed to resume the stream\n\n");
+	          RTMP_Log(RTMP_LOGERROR, "Failed to resume the stream\n\n");
 	          if (!RTMP_IsTimedout(&rtmp))
 		    nStatus = RD_FAILED;
 	          else
@@ -1398,7 +1398,7 @@ main(int argc, char **argv)
             }
 	  else if (!RTMP_ToggleStream(&rtmp))
 	    {
-	      Log(LOGERROR, "Failed to resume the stream\n\n");
+	      RTMP_Log(RTMP_LOGERROR, "Failed to resume the stream\n\n");
 	      if (!RTMP_IsTimedout(&rtmp))
 		nStatus = RD_FAILED;
 	      else
@@ -1424,17 +1424,17 @@ main(int argc, char **argv)
 
   if (nStatus == RD_SUCCESS)
     {
-      LogPrintf("Download complete\n");
+      RTMP_LogPrintf("Download complete\n");
     }
   else if (nStatus == RD_INCOMPLETE)
     {
-      LogPrintf
+      RTMP_LogPrintf
 	("Download may be incomplete (downloaded about %.2f%%), try resuming\n",
 	 percent);
     }
 
 clean:
-  Log(LOGDEBUG, "Closing connection.\n");
+  RTMP_Log(RTMP_LOGDEBUG, "Closing connection.\n");
   RTMP_Close(&rtmp);
 
   if (file != 0)

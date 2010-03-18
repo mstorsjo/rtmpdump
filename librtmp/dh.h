@@ -135,7 +135,7 @@ isValidPublicKey(MP_t y, MP_t p, MP_t q)
   MP_set_w(bn, 1);
   if (MP_cmp(y, bn) < 0)
     {
-      Log(LOGWARNING, "DH public key must be at least 2");
+      RTMP_Log(RTMP_LOGERROR, "DH public key must be at least 2");
       ret = false;
       goto failed;
     }
@@ -145,7 +145,7 @@ isValidPublicKey(MP_t y, MP_t p, MP_t q)
   MP_sub_w(bn, 1);
   if (MP_cmp(y, bn) > 0)
     {
-      Log(LOGWARNING, "DH public key must be at most p-2");
+      RTMP_Log(RTMP_LOGERROR, "DH public key must be at most p-2");
       ret = false;
       goto failed;
     }
@@ -163,7 +163,7 @@ isValidPublicKey(MP_t y, MP_t p, MP_t q)
 
       if (MP_cmp_1(bn) != 0)
 	{
-	  Log(LOGWARNING, "DH public key does not fulfill y^q mod p = 1");
+	  RTMP_Log(RTMP_LOGWARNING, "DH public key does not fulfill y^q mod p = 1");
 	}
     }
 

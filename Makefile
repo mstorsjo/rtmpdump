@@ -9,6 +9,7 @@ LIBS=-lssl -lcrypto -lz
 #LIBS=-lgnutls -lz
 THREADLIB=-lpthread
 LIBRTMP=librtmp/librtmp.a
+INCRTMP=librtmp/rtmp_sys.h librtmp/rtmp.h librtmp/log.h librtmp/amf.h
 SLIBS=$(THREADLIB) $(LIBS)
 
 EXT=
@@ -36,7 +37,9 @@ clean:
 	rm -f *.o rtmpdump$(EXT) rtmpgw$(EXT) rtmpsrv$(EXT) rtmpsuck$(EXT)
 	@$(MAKE) -C librtmp clean
 
-$(LIBRTMP):
+FORCE:
+
+$(LIBRTMP): FORCE
 	@$(MAKE) -C librtmp all CC="$(CC)" CFLAGS="$(CFLAGS)"
 
 rtmpdump: rtmpdump.o $(LIBRTMP)
@@ -51,7 +54,8 @@ rtmpsuck: rtmpsuck.o thread.o $(LIBRTMP)
 rtmpgw: rtmpgw.o thread.o $(LIBRTMP)
 	$(CC) $(LDFLAGS) $^ -o $@$(EXT) $(SLIBS)
 
-rtmpgw.o: rtmpgw.c librtmp/rtmp.h librtmp/log.h librtmp/amf.h Makefile
-rtmpdump.o: rtmpdump.c librtmp/rtmp.h librtmp/log.h librtmp/amf.h Makefile
-rtmpsrv.o: rtmpsrv.c librtmp/rtmp.h librtmp/log.h librtmp/amf.h Makefile
+rtmpgw.o: rtmpgw.c $(INCRTMP) Makefile
+rtmpdump.o: rtmpdump.c $(INCRTMP) Makefile
+rtmpsrv.o: rtmpsrv.c $(INCRTMP) Makefile
+rtmpsuck.o: rtmpsuck.c $(INCRTMP) Makefile
 thread.o: thread.c thread.h

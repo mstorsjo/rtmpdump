@@ -34,7 +34,7 @@ bool RTMP_ParseURL(const char *url, int *protocol, char **host, unsigned int *po
 {
 	char *p, *end, *col, *ques, *slash;
 
-	Log(LOGDEBUG, "Parsing...");
+	RTMP_Log(RTMP_LOGDEBUG, "Parsing...");
 
 	*protocol = RTMP_PROTOCOL_RTMP;
 	*port = 0;
@@ -48,7 +48,7 @@ bool RTMP_ParseURL(const char *url, int *protocol, char **host, unsigned int *po
 	// look for usual :// pattern
 	p = strstr(url, "://");
 	if(!p) {
-		Log(LOGERROR, "RTMP URL: No :// in url!");
+		RTMP_Log(RTMP_LOGERROR, "RTMP URL: No :// in url!");
 		return false;
 	}
 	{
@@ -67,12 +67,12 @@ bool RTMP_ParseURL(const char *url, int *protocol, char **host, unsigned int *po
 	else if(len == 6 && strncasecmp(url, "rtmpte", 6)==0)
 	        *protocol = RTMP_PROTOCOL_RTMPTE;
 	else {
-		Log(LOGWARNING, "Unknown protocol!\n");
+		RTMP_Log(RTMP_LOGWARNING, "Unknown protocol!\n");
 		goto parsehost;
 	}
 	}
 
-	Log(LOGDEBUG, "Parsed protocol: %d", *protocol);
+	RTMP_Log(RTMP_LOGDEBUG, "Parsed protocol: %d", *protocol);
 
 parsehost:
 	// lets get the hostname
@@ -80,7 +80,7 @@ parsehost:
 
 	// check for sudden death
 	if(*p==0) {
-		Log(LOGWARNING, "No hostname in URL!");
+		RTMP_Log(RTMP_LOGWARNING, "No hostname in URL!");
 		return false;
 	}
 
@@ -103,9 +103,9 @@ parsehost:
 		strncpy(*host, p, hostlen);
 		(*host)[hostlen]=0;
 
-		Log(LOGDEBUG, "Parsed host    : %s", *host);
+		RTMP_Log(RTMP_LOGDEBUG, "Parsed host    : %s", *host);
 	} else {
-		Log(LOGWARNING, "Hostname exceeds 255 characters!");
+		RTMP_Log(RTMP_LOGWARNING, "Hostname exceeds 255 characters!");
 	}
 
 	p+=hostlen;
@@ -116,14 +116,14 @@ parsehost:
 		p++;
 		unsigned int p2 = atoi(p);
 		if(p2 > 65535) {
-			Log(LOGWARNING, "Invalid port number!");
+			RTMP_Log(RTMP_LOGWARNING, "Invalid port number!");
 		} else {
 			*port = p2;
 		}
 	}
 
 	if(!slash) {
-		Log(LOGWARNING, "No application or playpath in URL!");
+		RTMP_Log(RTMP_LOGWARNING, "No application or playpath in URL!");
 		return true;
 	}
 	p = slash+1;
@@ -162,7 +162,7 @@ parsehost:
 
 	app->av_val = p;
 	app->av_len = applen;
-	Log(LOGDEBUG, "Parsed app     : %.*s", applen, p);
+	RTMP_Log(RTMP_LOGDEBUG, "Parsed app     : %.*s", applen, p);
 
 	p += appnamelen;
 	}

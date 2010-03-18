@@ -99,8 +99,8 @@ static void InitRC4Encryption
   HMAC_crunch(ctx, pubKeyIn, 128);
   HMAC_finish(ctx, digest, digestLen);
 
-  Log(LOGDEBUG, "RC4 Out Key: ");
-  LogHex(LOGDEBUG, (char *) digest, 16);
+  RTMP_Log(RTMP_LOGDEBUG, "RC4 Out Key: ");
+  RTMP_LogHex(RTMP_LOGDEBUG, (char *) digest, 16);
 
   RC4_setkey(*rc4keyOut, 16, digest);
 
@@ -108,8 +108,8 @@ static void InitRC4Encryption
   HMAC_crunch(ctx, pubKeyOut, 128);
   HMAC_finish(ctx, digest, digestLen);
 
-  Log(LOGDEBUG, "RC4 In Key: ");
-  LogHex(LOGDEBUG, (char *) digest, 16);
+  RTMP_Log(RTMP_LOGDEBUG, "RC4 In Key: ");
+  RTMP_LogHex(RTMP_LOGDEBUG, (char *) digest, 16);
 
   RC4_setkey(*rc4keyIn, 16, digest);
 }
@@ -136,7 +136,7 @@ GetDHOffset2(char *handshake, unsigned int len)
 
   if (res + 128 > 767)
     {
-      Log(LOGERROR,
+      RTMP_Log(RTMP_LOGERROR,
 	  "%s: Couldn't calculate correct DH offset (got %d), exiting!\n",
 	  __FUNCTION__, res);
       exit(1);
@@ -162,7 +162,7 @@ GetDigestOffset2(char *handshake, unsigned int len)
 
   if (res + 32 > 1535)
     {
-      Log(LOGERROR,
+      RTMP_Log(RTMP_LOGERROR,
 	  "%s: Couldn't calculate correct digest offset (got %d), exiting\n",
 	  __FUNCTION__, res);
       exit(1);
@@ -190,7 +190,7 @@ GetDHOffset1(char *handshake, unsigned int len)
 
   if (res + 128 > 1531)
     {
-      Log(LOGERROR, "%s: Couldn't calculate DH offset (got %d), exiting!\n",
+      RTMP_Log(RTMP_LOGERROR, "%s: Couldn't calculate DH offset (got %d), exiting!\n",
 	  __FUNCTION__, res);
       exit(1);
     }
@@ -218,7 +218,7 @@ GetDigestOffset1(char *handshake, unsigned int len)
 
   if (res + 32 > 771)
     {
-      Log(LOGDEBUG,
+      RTMP_Log(RTMP_LOGDEBUG,
 	  "%s: Couldn't calculate digest offset (got %d), exiting!\n",
 	  __FUNCTION__, res);
       exit(1);
@@ -380,7 +380,7 @@ HandShake(RTMP * r, bool FP9HandShake)
       clientsig[5] = 0;
       clientsig[7] = 2;
 
-      Log(LOGDEBUG, "%s: Client type: %02X\n", __FUNCTION__, clientsig[-1]);
+      RTMP_Log(RTMP_LOGDEBUG, "%s: Client type: %02X\n", __FUNCTION__, clientsig[-1]);
     }
   else
     {
@@ -405,17 +405,17 @@ HandShake(RTMP * r, bool FP9HandShake)
 	  r->Link.dh = DHInit(128);	/* 1024 */
 	  if (!r->Link.dh)
 	    {
-	      Log(LOGERROR, "%s: Couldn't initialize Diffie-Hellmann!",
+	      RTMP_Log(RTMP_LOGERROR, "%s: Couldn't initialize Diffie-Hellmann!",
 		  __FUNCTION__);
 	      return false;
 	    }
 
 	  dhposClient = getdh(clientsig, RTMP_SIG_SIZE);
-	  Log(LOGDEBUG, "%s: DH pubkey position: %d", __FUNCTION__, dhposClient);
+	  RTMP_Log(RTMP_LOGDEBUG, "%s: DH pubkey position: %d", __FUNCTION__, dhposClient);
 
 	  if (!DHGenerateKey(r->Link.dh))
 	    {
-	      Log(LOGERROR, "%s: Couldn't generate Diffie-Hellmann public key!",
+	      RTMP_Log(RTMP_LOGERROR, "%s: Couldn't generate Diffie-Hellmann public key!",
 		  __FUNCTION__);
 	      return false;
 	    }
@@ -423,26 +423,26 @@ HandShake(RTMP * r, bool FP9HandShake)
 	  if (!DHGetPublicKey
 	      (r->Link.dh, (uint8_t *) &clientsig[dhposClient], 128))
 	    {
-	      Log(LOGERROR, "%s: Couldn't write public key!", __FUNCTION__);
+	      RTMP_Log(RTMP_LOGERROR, "%s: Couldn't write public key!", __FUNCTION__);
 	      return false;
 	    }
 	}
 
       digestPosClient = getdig(clientsig, RTMP_SIG_SIZE);	/* reuse this value in verification */
-      Log(LOGDEBUG, "%s: Client digest offset: %d", __FUNCTION__,
+      RTMP_Log(RTMP_LOGDEBUG, "%s: Client digest offset: %d", __FUNCTION__,
 	  digestPosClient);
 
       CalculateDigest(digestPosClient, clientsig, GenuineFPKey, 30,
 		      &clientsig[digestPosClient]);
 
-      Log(LOGDEBUG, "%s: Initial client digest: ", __FUNCTION__);
-      LogHex(LOGDEBUG, (char *) clientsig + digestPosClient,
+      RTMP_Log(RTMP_LOGDEBUG, "%s: Initial client digest: ", __FUNCTION__);
+      RTMP_LogHex(RTMP_LOGDEBUG, (char *) clientsig + digestPosClient,
 	     SHA256_DIGEST_LENGTH);
     }
 
 #ifdef _DEBUG
-  Log(LOGDEBUG, "Clientsig: ");
-  LogHex(LOGDEBUG, clientsig, RTMP_SIG_SIZE);
+  RTMP_Log(RTMP_LOGDEBUG, "Clientsig: ");
+  RTMP_LogHex(RTMP_LOGDEBUG, clientsig, RTMP_SIG_SIZE);
 #endif
 
   if (!WriteN(r, clientsig-1, RTMP_SIG_SIZE + 1))
@@ -451,10 +451,10 @@ HandShake(RTMP * r, bool FP9HandShake)
   if (ReadN(r, &type, 1) != 1)	/* 0x03 or 0x06 */
     return false;
 
-  Log(LOGDEBUG, "%s: Type Answer   : %02X", __FUNCTION__, type);
+  RTMP_Log(RTMP_LOGDEBUG, "%s: Type Answer   : %02X", __FUNCTION__, type);
 
   if (type != clientsig[-1])
-    Log(LOGWARNING, "%s: Type mismatch: client sent %d, server answered %d",
+    RTMP_Log(RTMP_LOGWARNING, "%s: Type mismatch: client sent %d, server answered %d",
 	__FUNCTION__, clientsig[-1], type);
 
   if (ReadN(r, serversig, RTMP_SIG_SIZE) != RTMP_SIG_SIZE)
@@ -464,13 +464,13 @@ HandShake(RTMP * r, bool FP9HandShake)
   memcpy(&uptime, serversig, 4);
   uptime = ntohl(uptime);
 
-  Log(LOGDEBUG, "%s: Server Uptime : %d", __FUNCTION__, uptime);
-  Log(LOGDEBUG, "%s: FMS Version   : %d.%d.%d.%d", __FUNCTION__, serversig[4],
+  RTMP_Log(RTMP_LOGDEBUG, "%s: Server Uptime : %d", __FUNCTION__, uptime);
+  RTMP_Log(RTMP_LOGDEBUG, "%s: FMS Version   : %d.%d.%d.%d", __FUNCTION__, serversig[4],
       serversig[5], serversig[6], serversig[7]);
 
 #ifdef _DEBUG
-  Log(LOGDEBUG, "Server signature:");
-  LogHex(LOGDEBUG, serversig, RTMP_SIG_SIZE);
+  RTMP_Log(RTMP_LOGDEBUG, "Server signature:");
+  RTMP_LogHex(RTMP_LOGDEBUG, serversig, RTMP_SIG_SIZE);
 #endif
 
   if (FP9HandShake)
@@ -482,12 +482,12 @@ HandShake(RTMP * r, bool FP9HandShake)
 
       if (!VerifyDigest(digestPosServer, serversig, GenuineFMSKey, 36))
 	{
-	  Log(LOGWARNING, "Trying different position for server digest!\n");
+	  RTMP_Log(RTMP_LOGWARNING, "Trying different position for server digest!\n");
 	  digestPosServer = GetDigestOffset1(serversig, RTMP_SIG_SIZE);
 
 	  if (!VerifyDigest(digestPosServer, serversig, GenuineFMSKey, 36))
 	    {
-	      Log(LOGERROR, "Couldn't verify the server digest\n");	/* continuing anyway will probably fail */
+	      RTMP_Log(RTMP_LOGERROR, "Couldn't verify the server digest\n");	/* continuing anyway will probably fail */
 	      return false;
 	    }
 	  dhposServer = GetDHOffset1(serversig, RTMP_SIG_SIZE);
@@ -497,7 +497,7 @@ HandShake(RTMP * r, bool FP9HandShake)
 	  dhposServer = GetDHOffset2(serversig, RTMP_SIG_SIZE);
         }
 
-      Log(LOGDEBUG, "%s: Server DH public key offset: %d", __FUNCTION__,
+      RTMP_Log(RTMP_LOGDEBUG, "%s: Server DH public key offset: %d", __FUNCTION__,
 	  dhposServer);
 
       /* generate SWFVerification token (SHA256 HMAC hash of decompressed SWF, key are the last 32 bytes of the server handshake) */
@@ -526,12 +526,12 @@ HandShake(RTMP * r, bool FP9HandShake)
 				     secretKey);
 	  if (len < 0)
 	    {
-	      Log(LOGDEBUG, "%s: Wrong secret key position!", __FUNCTION__);
+	      RTMP_Log(RTMP_LOGDEBUG, "%s: Wrong secret key position!", __FUNCTION__);
 	      return false;
 	    }
 
-	  Log(LOGDEBUG, "%s: Secret key: ", __FUNCTION__);
-	  LogHex(LOGDEBUG, (char *) secretKey, 128);
+	  RTMP_Log(RTMP_LOGDEBUG, "%s: Secret key: ", __FUNCTION__);
+	  RTMP_LogHex(RTMP_LOGDEBUG, (char *) secretKey, 128);
 
 	  InitRC4Encryption(secretKey,
 			    (uint8_t *) & serversig[dhposServer],
@@ -558,10 +558,10 @@ HandShake(RTMP * r, bool FP9HandShake)
 		 SHA256_DIGEST_LENGTH, signatureResp);
 
       /* some info output */
-      Log(LOGDEBUG,
+      RTMP_Log(RTMP_LOGDEBUG,
 	  "%s: Calculated digest key from secure key and server digest: ",
 	  __FUNCTION__);
-      LogHex(LOGDEBUG, digestResp, SHA256_DIGEST_LENGTH);
+      RTMP_LogHex(RTMP_LOGDEBUG, digestResp, SHA256_DIGEST_LENGTH);
 
 #ifdef FP10
       if (type == 8 )
@@ -583,8 +583,8 @@ HandShake(RTMP * r, bool FP9HandShake)
         }
 #endif
 #endif
-      Log(LOGDEBUG, "%s: Client signature calculated:", __FUNCTION__);
-      LogHex(LOGDEBUG, signatureResp, SHA256_DIGEST_LENGTH);
+      RTMP_Log(RTMP_LOGDEBUG, "%s: Client signature calculated:", __FUNCTION__);
+      RTMP_LogHex(RTMP_LOGDEBUG, signatureResp, SHA256_DIGEST_LENGTH);
     }
   else
     {
@@ -594,9 +594,9 @@ HandShake(RTMP * r, bool FP9HandShake)
     }
 
 #ifdef _DEBUG
-  Log(LOGDEBUG, "%s: Sending handshake response: ",
+  RTMP_Log(RTMP_LOGDEBUG, "%s: Sending handshake response: ",
     __FUNCTION__);
-  LogHex(LOGDEBUG, reply, RTMP_SIG_SIZE);
+  RTMP_LogHex(RTMP_LOGDEBUG, reply, RTMP_SIG_SIZE);
 #endif
   if (!WriteN(r, reply, RTMP_SIG_SIZE))
     return false;
@@ -606,8 +606,8 @@ HandShake(RTMP * r, bool FP9HandShake)
     return false;
 
 #ifdef _DEBUG
-  Log(LOGDEBUG, "%s: 2nd handshake: ", __FUNCTION__);
-  LogHex(LOGDEBUG, serversig, RTMP_SIG_SIZE);
+  RTMP_Log(RTMP_LOGDEBUG, "%s: 2nd handshake: ", __FUNCTION__);
+  RTMP_LogHex(RTMP_LOGDEBUG, serversig, RTMP_SIG_SIZE);
 #endif
 
   if (FP9HandShake)
@@ -618,12 +618,12 @@ HandShake(RTMP * r, bool FP9HandShake)
       if (serversig[4] == 0 && serversig[5] == 0 && serversig[6] == 0
 	  && serversig[7] == 0)
 	{
-	  Log(LOGDEBUG,
+	  RTMP_Log(RTMP_LOGDEBUG,
 	      "%s: Wait, did the server just refuse signed authentication?",
 	      __FUNCTION__);
 	}
-      Log(LOGDEBUG, "%s: Server sent signature:", __FUNCTION__);
-      LogHex(LOGDEBUG, &serversig[RTMP_SIG_SIZE - SHA256_DIGEST_LENGTH],
+      RTMP_Log(RTMP_LOGDEBUG, "%s: Server sent signature:", __FUNCTION__);
+      RTMP_LogHex(RTMP_LOGDEBUG, &serversig[RTMP_SIG_SIZE - SHA256_DIGEST_LENGTH],
 	     SHA256_DIGEST_LENGTH);
 
       /* verify server response */
@@ -633,8 +633,8 @@ HandShake(RTMP * r, bool FP9HandShake)
 		 SHA256_DIGEST_LENGTH, signature);
 
       /* show some information */
-      Log(LOGDEBUG, "%s: Digest key: ", __FUNCTION__);
-      LogHex(LOGDEBUG, digest, SHA256_DIGEST_LENGTH);
+      RTMP_Log(RTMP_LOGDEBUG, "%s: Digest key: ", __FUNCTION__);
+      RTMP_LogHex(RTMP_LOGDEBUG, digest, SHA256_DIGEST_LENGTH);
 
 #ifdef FP10
       if (type == 8 )
@@ -656,18 +656,18 @@ HandShake(RTMP * r, bool FP9HandShake)
         }
 #endif
 #endif
-      Log(LOGDEBUG, "%s: Signature calculated:", __FUNCTION__);
-      LogHex(LOGDEBUG, signature, SHA256_DIGEST_LENGTH);
+      RTMP_Log(RTMP_LOGDEBUG, "%s: Signature calculated:", __FUNCTION__);
+      RTMP_LogHex(RTMP_LOGDEBUG, signature, SHA256_DIGEST_LENGTH);
       if (memcmp
 	  (signature, &serversig[RTMP_SIG_SIZE - SHA256_DIGEST_LENGTH],
 	   SHA256_DIGEST_LENGTH) != 0)
 	{
-	  Log(LOGWARNING, "%s: Server not genuine Adobe!", __FUNCTION__);
+	  RTMP_Log(RTMP_LOGWARNING, "%s: Server not genuine Adobe!", __FUNCTION__);
 	  return false;
 	}
       else
 	{
-	  Log(LOGDEBUG, "%s: Genuine Adobe Flash Media Server", __FUNCTION__);
+	  RTMP_Log(RTMP_LOGDEBUG, "%s: Genuine Adobe Flash Media Server", __FUNCTION__);
 	}
 
       if (encrypted)
@@ -694,12 +694,12 @@ HandShake(RTMP * r, bool FP9HandShake)
     {
       if (memcmp(serversig, clientsig, RTMP_SIG_SIZE) != 0)
 	{
-	  Log(LOGWARNING, "%s: client signature does not match!",
+	  RTMP_Log(RTMP_LOGWARNING, "%s: client signature does not match!",
 	      __FUNCTION__);
 	}
     }
 
-  Log(LOGDEBUG, "%s: Handshaking finished....", __FUNCTION__);
+  RTMP_Log(RTMP_LOGDEBUG, "%s: Handshaking finished....", __FUNCTION__);
   return true;
 }
 
@@ -724,7 +724,7 @@ SHandShake(RTMP * r)
   if (ReadN(r, &type, 1) != 1)	/* 0x03 or 0x06 */
     return false;
 
-  Log(LOGDEBUG, "%s: Type Requested : %02X", __FUNCTION__, type);
+  RTMP_Log(RTMP_LOGDEBUG, "%s: Type Requested : %02X", __FUNCTION__, type);
 
   if (type == 3)
     {
@@ -738,7 +738,7 @@ SHandShake(RTMP * r)
     }
   else
     {
-      Log(LOGERROR, "%s: Unknown version %02x",
+      RTMP_Log(RTMP_LOGERROR, "%s: Unknown version %02x",
 	  __FUNCTION__, type);
       return false;
     }
@@ -781,17 +781,17 @@ SHandShake(RTMP * r)
 	  r->Link.dh = DHInit(128);
 	  if (!r->Link.dh)
 	    {
-	      Log(LOGERROR, "%s: Couldn't initialize Diffie-Hellmann!",
+	      RTMP_Log(RTMP_LOGERROR, "%s: Couldn't initialize Diffie-Hellmann!",
 		  __FUNCTION__);
 	      return false;
 	    }
 
 	  dhposServer = GetDHOffset2(serversig, RTMP_SIG_SIZE);
-	  Log(LOGDEBUG, "%s: DH pubkey position: %d", __FUNCTION__, dhposServer);
+	  RTMP_Log(RTMP_LOGDEBUG, "%s: DH pubkey position: %d", __FUNCTION__, dhposServer);
 
 	  if (!DHGenerateKey(r->Link.dh))
 	    {
-	      Log(LOGERROR, "%s: Couldn't generate Diffie-Hellmann public key!",
+	      RTMP_Log(RTMP_LOGERROR, "%s: Couldn't generate Diffie-Hellmann public key!",
 		  __FUNCTION__);
 	      return false;
 	    }
@@ -799,26 +799,26 @@ SHandShake(RTMP * r)
 	  if (!DHGetPublicKey
 	      (r->Link.dh, (uint8_t *) &serversig[dhposServer], 128))
 	    {
-	      Log(LOGERROR, "%s: Couldn't write public key!", __FUNCTION__);
+	      RTMP_Log(RTMP_LOGERROR, "%s: Couldn't write public key!", __FUNCTION__);
 	      return false;
 	    }
 	}
 
       digestPosServer = GetDigestOffset2(serversig, RTMP_SIG_SIZE);	/* reuse this value in verification */
-      Log(LOGDEBUG, "%s: Client digest offset: %d", __FUNCTION__,
+      RTMP_Log(RTMP_LOGDEBUG, "%s: Client digest offset: %d", __FUNCTION__,
 	  digestPosServer);
 
       CalculateDigest(digestPosServer, serversig, GenuineFMSKey, 36,
 		      &serversig[digestPosServer]);
 
-      Log(LOGDEBUG, "%s: Initial server digest: ", __FUNCTION__);
-      LogHex(LOGDEBUG, (char *) serversig + digestPosServer,
+      RTMP_Log(RTMP_LOGDEBUG, "%s: Initial server digest: ", __FUNCTION__);
+      RTMP_LogHex(RTMP_LOGDEBUG, (char *) serversig + digestPosServer,
 	     SHA256_DIGEST_LENGTH);
     }
 
 #ifdef _DEBUG
-  Log(LOGDEBUG, "Serversig: ");
-  LogHex(LOGDEBUG, serversig, RTMP_SIG_SIZE);
+  RTMP_Log(RTMP_LOGDEBUG, "Serversig: ");
+  RTMP_LogHex(RTMP_LOGDEBUG, serversig, RTMP_SIG_SIZE);
 #endif
 
   if (!WriteN(r, serversig-1, RTMP_SIG_SIZE + 1))
@@ -831,13 +831,13 @@ SHandShake(RTMP * r)
   memcpy(&uptime, clientsig, 4);
   uptime = ntohl(uptime);
 
-  Log(LOGDEBUG, "%s: Client Uptime : %d", __FUNCTION__, uptime);
-  Log(LOGDEBUG, "%s: Player Version: %d.%d.%d.%d", __FUNCTION__, clientsig[4],
+  RTMP_Log(RTMP_LOGDEBUG, "%s: Client Uptime : %d", __FUNCTION__, uptime);
+  RTMP_Log(RTMP_LOGDEBUG, "%s: Player Version: %d.%d.%d.%d", __FUNCTION__, clientsig[4],
       clientsig[5], clientsig[6], clientsig[7]);
 
 #ifdef _DEBUG
-  Log(LOGDEBUG, "Client signature:");
-  LogHex(LOGDEBUG, clientsig, RTMP_SIG_SIZE);
+  RTMP_Log(RTMP_LOGDEBUG, "Client signature:");
+  RTMP_LogHex(RTMP_LOGDEBUG, clientsig, RTMP_SIG_SIZE);
 #endif
 
   if (FP9HandShake)
@@ -847,12 +847,12 @@ SHandShake(RTMP * r)
 
       if (!VerifyDigest(digestPosClient, clientsig, GenuineFPKey, 30))
 	{
-	  Log(LOGWARNING, "Trying different position for client digest!\n");
+	  RTMP_Log(RTMP_LOGWARNING, "Trying different position for client digest!\n");
 	  digestPosClient = GetDigestOffset2(clientsig, RTMP_SIG_SIZE);
 
 	  if (!VerifyDigest(digestPosClient, clientsig, GenuineFPKey, 30))
 	    {
-	      Log(LOGERROR, "Couldn't verify the client digest\n");	/* continuing anyway will probably fail */
+	      RTMP_Log(RTMP_LOGERROR, "Couldn't verify the client digest\n");	/* continuing anyway will probably fail */
 	      return false;
 	    }
 	  dhposClient = GetDHOffset2(clientsig, RTMP_SIG_SIZE);
@@ -862,7 +862,7 @@ SHandShake(RTMP * r)
 	  dhposClient = GetDHOffset1(clientsig, RTMP_SIG_SIZE);
         }
 
-      Log(LOGDEBUG, "%s: Client DH public key offset: %d", __FUNCTION__,
+      RTMP_Log(RTMP_LOGDEBUG, "%s: Client DH public key offset: %d", __FUNCTION__,
 	  dhposClient);
 
       /* generate SWFVerification token (SHA256 HMAC hash of decompressed SWF, key are the last 32 bytes of the server handshake) */
@@ -891,12 +891,12 @@ SHandShake(RTMP * r)
 				     secretKey);
 	  if (len < 0)
 	    {
-	      Log(LOGDEBUG, "%s: Wrong secret key position!", __FUNCTION__);
+	      RTMP_Log(RTMP_LOGDEBUG, "%s: Wrong secret key position!", __FUNCTION__);
 	      return false;
 	    }
 
-	  Log(LOGDEBUG, "%s: Secret key: ", __FUNCTION__);
-	  LogHex(LOGDEBUG, (char *) secretKey, 128);
+	  RTMP_Log(RTMP_LOGDEBUG, "%s: Secret key: ", __FUNCTION__);
+	  RTMP_LogHex(RTMP_LOGDEBUG, (char *) secretKey, 128);
 
 	  InitRC4Encryption(secretKey,
 			    (uint8_t *) &clientsig[dhposClient],
@@ -915,13 +915,13 @@ SHandShake(RTMP * r)
 		 SHA256_DIGEST_LENGTH, signatureResp);
 
       /* some info output */
-      Log(LOGDEBUG,
+      RTMP_Log(RTMP_LOGDEBUG,
 	  "%s: Calculated digest key from secure key and server digest: ",
 	  __FUNCTION__);
-      LogHex(LOGDEBUG, digestResp, SHA256_DIGEST_LENGTH);
+      RTMP_LogHex(RTMP_LOGDEBUG, digestResp, SHA256_DIGEST_LENGTH);
 
-      Log(LOGDEBUG, "%s: Server signature calculated:", __FUNCTION__);
-      LogHex(LOGDEBUG, signatureResp, SHA256_DIGEST_LENGTH);
+      RTMP_Log(RTMP_LOGDEBUG, "%s: Server signature calculated:", __FUNCTION__);
+      RTMP_LogHex(RTMP_LOGDEBUG, signatureResp, SHA256_DIGEST_LENGTH);
     }
   else
     {
@@ -930,9 +930,9 @@ SHandShake(RTMP * r)
     }
 
 #ifdef _DEBUG
-  Log(LOGDEBUG, "%s: Sending handshake response: ",
+  RTMP_Log(RTMP_LOGDEBUG, "%s: Sending handshake response: ",
     __FUNCTION__);
-  LogHex(LOGDEBUG, clientsig, RTMP_SIG_SIZE);
+  RTMP_LogHex(RTMP_LOGDEBUG, clientsig, RTMP_SIG_SIZE);
 #endif
   if (!WriteN(r, clientsig, RTMP_SIG_SIZE))
     return false;
@@ -942,8 +942,8 @@ SHandShake(RTMP * r)
     return false;
 
 #ifdef _DEBUG
-  Log(LOGDEBUG, "%s: 2nd handshake: ", __FUNCTION__);
-  LogHex(LOGDEBUG, clientsig, RTMP_SIG_SIZE);
+  RTMP_Log(RTMP_LOGDEBUG, "%s: 2nd handshake: ", __FUNCTION__);
+  RTMP_LogHex(RTMP_LOGDEBUG, clientsig, RTMP_SIG_SIZE);
 #endif
 
   if (FP9HandShake)
@@ -951,8 +951,8 @@ SHandShake(RTMP * r)
       char signature[SHA256_DIGEST_LENGTH];
       char digest[SHA256_DIGEST_LENGTH];
 
-      Log(LOGDEBUG, "%s: Client sent signature:", __FUNCTION__);
-      LogHex(LOGDEBUG, &clientsig[RTMP_SIG_SIZE - SHA256_DIGEST_LENGTH],
+      RTMP_Log(RTMP_LOGDEBUG, "%s: Client sent signature:", __FUNCTION__);
+      RTMP_LogHex(RTMP_LOGDEBUG, &clientsig[RTMP_SIG_SIZE - SHA256_DIGEST_LENGTH],
 	     SHA256_DIGEST_LENGTH);
 
       /* verify client response */
@@ -962,21 +962,21 @@ SHandShake(RTMP * r)
 		 SHA256_DIGEST_LENGTH, signature);
 
       /* show some information */
-      Log(LOGDEBUG, "%s: Digest key: ", __FUNCTION__);
-      LogHex(LOGDEBUG, digest, SHA256_DIGEST_LENGTH);
+      RTMP_Log(RTMP_LOGDEBUG, "%s: Digest key: ", __FUNCTION__);
+      RTMP_LogHex(RTMP_LOGDEBUG, digest, SHA256_DIGEST_LENGTH);
 
-      Log(LOGDEBUG, "%s: Signature calculated:", __FUNCTION__);
-      LogHex(LOGDEBUG, signature, SHA256_DIGEST_LENGTH);
+      RTMP_Log(RTMP_LOGDEBUG, "%s: Signature calculated:", __FUNCTION__);
+      RTMP_LogHex(RTMP_LOGDEBUG, signature, SHA256_DIGEST_LENGTH);
       if (memcmp
 	  (signature, &clientsig[RTMP_SIG_SIZE - SHA256_DIGEST_LENGTH],
 	   SHA256_DIGEST_LENGTH) != 0)
 	{
-	  Log(LOGWARNING, "%s: Client not genuine Adobe!", __FUNCTION__);
+	  RTMP_Log(RTMP_LOGWARNING, "%s: Client not genuine Adobe!", __FUNCTION__);
 	  return false;
 	}
       else
 	{
-	  Log(LOGDEBUG, "%s: Genuine Adobe Flash Player", __FUNCTION__);
+	  RTMP_Log(RTMP_LOGDEBUG, "%s: Genuine Adobe Flash Player", __FUNCTION__);
 	}
 
       if (encrypted)
@@ -1003,11 +1003,11 @@ SHandShake(RTMP * r)
     {
       if (memcmp(serversig, clientsig, RTMP_SIG_SIZE) != 0)
 	{
-	  Log(LOGWARNING, "%s: client signature does not match!",
+	  RTMP_Log(RTMP_LOGWARNING, "%s: client signature does not match!",
 	      __FUNCTION__);
 	}
     }
 
-  Log(LOGDEBUG, "%s: Handshaking finished....", __FUNCTION__);
+  RTMP_Log(RTMP_LOGDEBUG, "%s: Handshaking finished....", __FUNCTION__);
   return true;
 }

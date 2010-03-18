@@ -273,12 +273,12 @@ controlServerThread(void *unused)
       switch (ich)
 	{
 	case 'q':
-	  LogPrintf("Exiting\n");
+	  RTMP_LogPrintf("Exiting\n");
 	  stopStreaming(httpServer);
 	  exit(0);
 	  break;
 	default:
-	  LogPrintf("Unknown command \'%c\', ignoring\n", ich);
+	  RTMP_LogPrintf("Unknown command \'%c\', ignoring\n", ich);
 	}
     }
   TFRET();
@@ -361,7 +361,7 @@ void processTCPrequest(STREAMING_SERVER * server,	// server socket and state (ou
 
   if (select(sockfd + 1, &fds, NULL, NULL, &tv) <= 0)
     {
-      Log(LOGERROR, "Request timeout/select failed, ignoring request");
+      RTMP_Log(RTMP_LOGERROR, "Request timeout/select failed, ignoring request");
       goto quit;
     }
   else
@@ -369,12 +369,12 @@ void processTCPrequest(STREAMING_SERVER * server,	// server socket and state (ou
       nRead = recv(sockfd, header, 2047, 0);
       header[2047] = '\0';
 
-      Log(LOGDEBUG, "%s: header: %s", __FUNCTION__, header);
+      RTMP_Log(RTMP_LOGDEBUG, "%s: header: %s", __FUNCTION__, header);
 
       if (strstr(header, "Range: bytes=") != 0)
 	{
 	  // TODO check range starts from 0 and asking till the end.
-	  LogPrintf("%s, Range request not supported\n", __FUNCTION__);
+	  RTMP_LogPrintf("%s, Range request not supported\n", __FUNCTION__);
 	  len = sprintf(buf, "HTTP/1.0 416 Requested Range Not Satisfiable%s\r\n",
 		  srvhead);
 	  send(sockfd, buf, len, 0);
@@ -403,7 +403,7 @@ void processTCPrequest(STREAMING_SERVER * server,	// server socket and state (ou
   // if we got a filename from the GET method
   if (filename != NULL)
     {
-      Log(LOGDEBUG, "%s: Request header: %s", __FUNCTION__, filename);
+      RTMP_Log(RTMP_LOGDEBUG, "%s: Request header: %s", __FUNCTION__, filename);
       if (filename[0] == '/')
 	{			// if its not empty, is it /?
 	  ptr = filename + 1;
@@ -437,10 +437,10 @@ void processTCPrequest(STREAMING_SERVER * server,	// server socket and state (ou
 		  memcpy(arg, ptr, nArgLen * sizeof(char));
 		  arg[nArgLen] = '\0';
 
-		  //Log(LOGDEBUG, "%s: unescaping parameter: %s", __FUNCTION__, arg);
+		  //RTMP_Log(RTMP_LOGDEBUG, "%s: unescaping parameter: %s", __FUNCTION__, arg);
 		  http_unescape(arg);
 
-		  Log(LOGDEBUG, "%s: parameter: %c, arg: %s", __FUNCTION__,
+		  RTMP_Log(RTMP_LOGDEBUG, "%s: parameter: %c, arg: %s", __FUNCTION__,
 		      ich, arg);
 
 		  ptr += nArgLen + 1;
@@ -457,21 +457,21 @@ void processTCPrequest(STREAMING_SERVER * server,	// server socket and state (ou
     }
   else
     {
-      LogPrintf("%s: No request header received/unsupported method\n",
+      RTMP_LogPrintf("%s: No request header received/unsupported method\n",
 		__FUNCTION__);
     }
 
   // do necessary checks right here to make sure the combined request of default values and GET parameters is correct
   if (req.hostname == 0)
     {
-      Log(LOGERROR,
+      RTMP_Log(RTMP_LOGERROR,
 	  "You must specify a hostname (--host) or url (-r \"rtmp://host[:port]/playpath\") containing a hostname");
       status = "400 Missing Hostname";
       goto filenotfound;
     }
   if (req.playpath.av_len == 0)
     {
-      Log(LOGERROR,
+      RTMP_Log(RTMP_LOGERROR,
 	  "You must specify a playpath (--playpath) or url (-r \"rtmp://host[:port]/playpath\") containing a playpath");
       status = "400 Missing Playpath";
       goto filenotfound;;
@@ -479,13 +479,13 @@ void processTCPrequest(STREAMING_SERVER * server,	// server socket and state (ou
 
   if (req.protocol == RTMP_PROTOCOL_UNDEFINED)
     {
-      Log(LOGWARNING,
+      RTMP_Log(RTMP_LOGWARNING,
 	  "You haven't specified a protocol (--protocol) or rtmp url (-r), using default protocol RTMP");
       req.protocol = RTMP_PROTOCOL_RTMP;
     }
   if (req.rtmpport == -1)
     {
-      Log(LOGWARNING,
+      RTMP_Log(RTMP_LOGWARNING,
 	  "You haven't specified a port (--port) or rtmp url (-r), using default port");
       req.rtmpport = 0;
     }
@@ -529,7 +529,7 @@ void processTCPrequest(STREAMING_SERVER * server,	// server socket and state (ou
   if (req.dStartOffset > 0)
     {
       if (req.bLiveStream)
-	Log(LOGWARNING,
+	RTMP_Log(RTMP_LOGWARNING,
 	    "Can't seek in a live stream, ignoring --seek option");
       else
 	dSeek += req.dStartOffset;
@@ -537,7 +537,7 @@ void processTCPrequest(STREAMING_SERVER * server,	// server socket and state (ou
 
   if (dSeek != 0)
     {
-      LogPrintf("Starting at TS: %d ms\n", dSeek);
+      RTMP_LogPrintf("Starting at TS: %d ms\n", dSeek);
     }
 
   if (req.dStopOffset > 0)
@@ -545,7 +545,7 @@ void processTCPrequest(STREAMING_SERVER * server,	// server socket and state (ou
       dLength = req.dStopOffset - dSeek;
     }
 
-  Log(LOGDEBUG, "Setting buffer time to: %dms", req.bufferTime);
+  RTMP_Log(RTMP_LOGDEBUG, "Setting buffer time to: %dms", req.bufferTime);
   RTMP_Init(&rtmp);
   RTMP_SetBufferMS(&rtmp, req.bufferTime);
   RTMP_SetupStream(&rtmp, req.protocol, req.hostname, req.rtmpport, req.sockshost,
@@ -559,10 +559,10 @@ void processTCPrequest(STREAMING_SERVER * server,	// server socket and state (ou
   rtmp.Link.token = req.token;
   rtmp.m_read.timestamp = dSeek;
 
-  LogPrintf("Connecting ... port: %d, app: %s\n", req.rtmpport, req.app);
+  RTMP_LogPrintf("Connecting ... port: %d, app: %s\n", req.rtmpport, req.app);
   if (!RTMP_Connect(&rtmp, NULL))
     {
-      LogPrintf("%s, failed to connect!\n", __FUNCTION__);
+      RTMP_LogPrintf("%s, failed to connect!\n", __FUNCTION__);
     }
   else
     {
@@ -581,14 +581,14 @@ void processTCPrequest(STREAMING_SERVER * server,	// server socket and state (ou
 	    {
 	      if ((nWritten = send(sockfd, buffer, nRead, 0)) < 0)
 		{
-		  Log(LOGERROR, "%s, sending failed, error: %d", __FUNCTION__,
+		  RTMP_Log(RTMP_LOGERROR, "%s, sending failed, error: %d", __FUNCTION__,
 		      GetSockError());
 		  goto cleanup;	// we are in STREAMING_IN_PROGRESS, so we'll go to STREAMING_ACCEPTING
 		}
 
 	      size += nRead;
 
-	      //LogPrintf("write %dbytes (%.1f KB)\n", nRead, nRead/1024.0);
+	      //RTMP_LogPrintf("write %dbytes (%.1f KB)\n", nRead, nRead/1024.0);
 	      if (duration <= 0)	// if duration unknown try to get it from the stream (onMetaData)
 		duration = RTMP_GetDuration(&rtmp);
 
@@ -598,20 +598,20 @@ void processTCPrequest(STREAMING_SERVER * server,	// server socket and state (ou
 		    ((double) (dSeek + rtmp.m_read.timestamp)) / (duration *
 							   1000.0) * 100.0;
 		  percent = ((double) (int) (percent * 10.0)) / 10.0;
-		  LogStatus("\r%.3f KB / %.2f sec (%.1f%%)",
+		  RTMP_LogStatus("\r%.3f KB / %.2f sec (%.1f%%)",
 			    (double) size / 1024.0,
 			    (double) (rtmp.m_read.timestamp) / 1000.0, percent);
 		}
 	      else
 		{
-		  LogStatus("\r%.3f KB / %.2f sec", (double) size / 1024.0,
+		  RTMP_LogStatus("\r%.3f KB / %.2f sec", (double) size / 1024.0,
 			    (double) (rtmp.m_read.timestamp) / 1000.0);
 		}
 	    }
 #ifdef _DEBUG
 	  else
 	    {
-	      Log(LOGDEBUG, "zero read!");
+	      RTMP_Log(RTMP_LOGDEBUG, "zero read!");
 	    }
 #endif
 	}
@@ -619,9 +619,9 @@ void processTCPrequest(STREAMING_SERVER * server,	// server socket and state (ou
 	     && RTMP_IsConnected(&rtmp) && nWritten >= 0);
     }
 cleanup:
-  LogPrintf("Closing connection... ");
+  RTMP_LogPrintf("Closing connection... ");
   RTMP_Close(&rtmp);
-  LogPrintf("done!\n\n");
+  RTMP_LogPrintf("done!\n\n");
 
 quit:
   if (buffer)
@@ -639,7 +639,7 @@ quit:
   return;
 
 filenotfound:
-  LogPrintf("%s, %s, %s\n", __FUNCTION__, status, filename);
+  RTMP_LogPrintf("%s, %s, %s\n", __FUNCTION__, status, filename);
   len = sprintf(buf, "HTTP/1.0 %s%s\r\n", status, srvhead);
   send(sockfd, buf, len, 0);
   goto quit;
@@ -661,14 +661,14 @@ serverThread(void *arg)
       if (sockfd > 0)
 	{
 	  // Create a new process and transfer the control to that
-	  Log(LOGDEBUG, "%s: accepted connection from %s\n", __FUNCTION__,
+	  RTMP_Log(RTMP_LOGDEBUG, "%s: accepted connection from %s\n", __FUNCTION__,
 	      inet_ntoa(addr.sin_addr));
 	  processTCPrequest(server, sockfd);
-	  Log(LOGDEBUG, "%s: processed request\n", __FUNCTION__);
+	  RTMP_Log(RTMP_LOGDEBUG, "%s: processed request\n", __FUNCTION__);
 	}
       else
 	{
-	  Log(LOGERROR, "%s: accept failed", __FUNCTION__);
+	  RTMP_Log(RTMP_LOGERROR, "%s: accept failed", __FUNCTION__);
 	}
     }
   server->state = STREAMING_STOPPED;
@@ -685,7 +685,7 @@ startStreaming(const char *address, int port)
   sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
   if (sockfd == -1)
     {
-      Log(LOGERROR, "%s, couldn't create socket", __FUNCTION__);
+      RTMP_Log(RTMP_LOGERROR, "%s, couldn't create socket", __FUNCTION__);
       return 0;
     }
 
@@ -696,14 +696,14 @@ startStreaming(const char *address, int port)
   if (bind(sockfd, (struct sockaddr *) &addr, sizeof(struct sockaddr_in)) ==
       -1)
     {
-      Log(LOGERROR, "%s, TCP bind failed for port number: %d", __FUNCTION__,
+      RTMP_Log(RTMP_LOGERROR, "%s, TCP bind failed for port number: %d", __FUNCTION__,
 	  port);
       return 0;
     }
 
   if (listen(sockfd, 10) == -1)
     {
-      Log(LOGERROR, "%s, listen failed", __FUNCTION__);
+      RTMP_Log(RTMP_LOGERROR, "%s, listen failed", __FUNCTION__);
       closesocket(sockfd);
       return 0;
     }
@@ -733,7 +733,7 @@ stopStreaming(STREAMING_SERVER * server)
 	}
 
       if (closesocket(server->socket))
-	Log(LOGERROR, "%s: Failed to close listening socket, error %d",
+	RTMP_Log(RTMP_LOGERROR, "%s: Failed to close listening socket, error %d",
 	    GetSockError());
 
       server->state = STREAMING_STOPPED;
@@ -745,7 +745,7 @@ void
 sigIntHandler(int sig)
 {
   RTMP_ctrlC = true;
-  LogPrintf("Caught signal: %d, cleaning up, just a second...\n", sig);
+  RTMP_LogPrintf("Caught signal: %d, cleaning up, just a second...\n", sig);
   if (httpServer)
     stopStreaming(httpServer);
   signal(SIGINT, SIG_DFL);
@@ -787,7 +787,7 @@ ParseOption(char opt, char *arg, RTMP_REQUEST * req)
 	if (!res || res != HASHLEN)
 	  {
 	    req->swfHash.av_val = NULL;
-	    Log(LOGWARNING,
+	    RTMP_Log(RTMP_LOGWARNING,
 		"Couldn't parse swf hash hex string, not hexstring or not %d bytes, ignoring!", HASHLEN);
 	  }
 	req->swfHash.av_len = HASHLEN;
@@ -798,7 +798,7 @@ ParseOption(char opt, char *arg, RTMP_REQUEST * req)
 	int size = atoi(arg);
 	if (size <= 0)
 	  {
-	    Log(LOGERROR, "SWF Size must be at least 1, ignoring\n");
+	    RTMP_Log(RTMP_LOGERROR, "SWF Size must be at least 1, ignoring\n");
 	  }
 	else
 	  {
@@ -817,7 +817,7 @@ ParseOption(char opt, char *arg, RTMP_REQUEST * req)
 	int num = atoi(arg);
 	if (num < 0)
 	  {
-	    Log(LOGERROR, "SWF Age must be non-negative, ignoring\n");
+	    RTMP_Log(RTMP_LOGERROR, "SWF Age must be non-negative, ignoring\n");
 	  }
 	else
 	  {
@@ -831,7 +831,7 @@ ParseOption(char opt, char *arg, RTMP_REQUEST * req)
 	int32_t bt = atol(arg);
 	if (bt < 0)
 	  {
-	    Log(LOGERROR,
+	    RTMP_Log(RTMP_LOGERROR,
 		"Buffer time must be greater than zero, ignoring the specified value %d!",
 		bt);
 	  }
@@ -858,7 +858,7 @@ ParseOption(char opt, char *arg, RTMP_REQUEST * req)
 	int protocol = atoi(arg);
 	if (protocol != RTMP_PROTOCOL_RTMP && protocol != RTMP_PROTOCOL_RTMPE)
 	  {
-	    Log(LOGERROR, "Unknown protocol specified: %d, using default",
+	    RTMP_Log(RTMP_LOGERROR, "Unknown protocol specified: %d, using default",
 		protocol);
 	    return false;
 	  }
@@ -884,7 +884,7 @@ ParseOption(char opt, char *arg, RTMP_REQUEST * req)
 	    (req->rtmpurl, &parsedProtocol, &parsedHost, &parsedPort,
 	     &parsedPlaypath, &parsedApp))
 	  {
-	    Log(LOGWARNING, "Couldn't parse the specified url (%s)!", arg);
+	    RTMP_Log(RTMP_LOGWARNING, "Couldn't parse the specified url (%s)!", arg);
 	  }
 	else
 	  {
@@ -943,16 +943,16 @@ ParseOption(char opt, char *arg, RTMP_REQUEST * req)
     case 'S':
 	  req->sockshost = arg;
     case 'q':
-      AMF_debuglevel = LOGCRIT;
+      RTMP_debuglevel = RTMP_LOGCRIT;
       break;
     case 'V':
-      AMF_debuglevel = LOGDEBUG;
+      RTMP_debuglevel = RTMP_LOGDEBUG;
       break;
     case 'z':
-      AMF_debuglevel = LOGALL;
+      RTMP_debuglevel = RTMP_LOGALL;
       break;
     default:
-      LogPrintf("unknown option: %c, arg: %s\n", opt, arg);
+      RTMP_LogPrintf("unknown option: %c, arg: %s\n", opt, arg);
       break;
     }
   return true;
@@ -969,8 +969,8 @@ main(int argc, char **argv)
   char *httpStreamingDevice = DEFAULT_HTTP_STREAMING_DEVICE;	// streaming device, default 0.0.0.0
   int nHttpStreamingPort = 80;	// port
 
-  LogPrintf("HTTP-RTMP Stream Gateway %s\n", RTMPDUMP_VERSION);
-  LogPrintf("(c) 2010 Andrej Stepanchuk, Howard Chu; license: GPL\n\n");
+  RTMP_LogPrintf("HTTP-RTMP Stream Gateway %s\n", RTMPDUMP_VERSION);
+  RTMP_LogPrintf("(c) 2010 Andrej Stepanchuk, Howard Chu; license: GPL\n\n");
 
   // init request
   memset(&defaultRTMPRequest, 0, sizeof(RTMP_REQUEST));
@@ -1039,84 +1039,84 @@ main(int argc, char **argv)
       switch (opt)
 	{
 	case 'h':
-	  LogPrintf
+	  RTMP_LogPrintf
 	    ("\nThis program serves media content streamed from RTMP onto HTTP.\n\n");
-	  LogPrintf("--help|-h               Prints this help screen.\n");
-	  LogPrintf
+	  RTMP_LogPrintf("--help|-h               Prints this help screen.\n");
+	  RTMP_LogPrintf
 	    ("--rtmp|-r url           URL (e.g. rtmp//host[:port]/path)\n");
-	  LogPrintf
+	  RTMP_LogPrintf
 	    ("--host|-n hostname      Overrides the hostname in the rtmp url\n");
-	  LogPrintf
+	  RTMP_LogPrintf
 	    ("--port|-c port          Overrides the port in the rtmp url\n");
-	  LogPrintf
+	  RTMP_LogPrintf
 	    ("--socks|-S host:port    Use the specified SOCKS proxy\n");
-	  LogPrintf
+	  RTMP_LogPrintf
 	    ("--protocol|-l           Overrides the protocol in the rtmp url (0 - RTMP, 2 - RTMPE)\n");
-	  LogPrintf
+	  RTMP_LogPrintf
 	    ("--playpath|-y           Overrides the playpath parsed from rtmp url\n");
-	  LogPrintf("--swfUrl|-s url         URL to player swf file\n");
-	  LogPrintf
+	  RTMP_LogPrintf("--swfUrl|-s url         URL to player swf file\n");
+	  RTMP_LogPrintf
 	    ("--tcUrl|-t url          URL to played stream (default: \"rtmp://host[:port]/app\")\n");
-	  LogPrintf("--pageUrl|-p url        Web URL of played programme\n");
-	  LogPrintf("--app|-a app            Name of target app in server\n");
+	  RTMP_LogPrintf("--pageUrl|-p url        Web URL of played programme\n");
+	  RTMP_LogPrintf("--app|-a app            Name of target app in server\n");
 #ifdef CRYPTO
-	  LogPrintf
+	  RTMP_LogPrintf
 	    ("--swfhash|-w hexstring  SHA256 hash of the decompressed SWF file (32 bytes)\n");
-	  LogPrintf
+	  RTMP_LogPrintf
 	    ("--swfsize|-x num        Size of the decompressed SWF file, required for SWFVerification\n");
-	  LogPrintf
+	  RTMP_LogPrintf
 	    ("--swfVfy|-W url         URL to player swf file, compute hash/size automatically\n");
-	  LogPrintf
+	  RTMP_LogPrintf
 	    ("--swfAge|-X days        Number of days to use cached SWF hash before refreshing\n");
 #endif
-	  LogPrintf
+	  RTMP_LogPrintf
 	    ("--auth|-u string        Authentication string to be appended to the connect string\n");
-	  LogPrintf
+	  RTMP_LogPrintf
 	    ("--conn|-C type:data     Arbitrary AMF data to be appended to the connect string\n");
-	  LogPrintf
+	  RTMP_LogPrintf
 	    ("                        B:boolean(0|1), S:string, N:number, O:object-flag(0|1),\n");
-	  LogPrintf
+	  RTMP_LogPrintf
 	    ("                        Z:(null), NB:name:boolean, NS:name:string, NN:name:number\n");
-	  LogPrintf
+	  RTMP_LogPrintf
 	    ("--flashVer|-f string    Flash version string (default: \"%s\")\n",
 	     RTMP_DefaultFlashVer.av_val);
-	  LogPrintf
+	  RTMP_LogPrintf
 	    ("--live|-v               Get a live stream, no --resume (seeking) of live streams possible\n");
-	  LogPrintf
+	  RTMP_LogPrintf
 	    ("--subscribe|-d string   Stream name to subscribe to (otherwise defaults to playpath if live is specifed)\n");
-	  LogPrintf
+	  RTMP_LogPrintf
 	    ("--timeout|-m num        Timeout connection num seconds (default: %lu)\n",
 	     defaultRTMPRequest.timeout);
-	  LogPrintf
+	  RTMP_LogPrintf
 	    ("--start|-A num          Start at num seconds into stream (not valid when using --live)\n");
-	  LogPrintf
+	  RTMP_LogPrintf
 	    ("--stop|-B num           Stop at num seconds into stream\n");
-	  LogPrintf
+	  RTMP_LogPrintf
 	    ("--token|-T key          Key for SecureToken response\n");
-	  LogPrintf
+	  RTMP_LogPrintf
 	    ("--buffer|-b             Buffer time in milliseconds (default: %lu)\n\n",
 	     defaultRTMPRequest.bufferTime);
 
-	  LogPrintf
+	  RTMP_LogPrintf
 	    ("--device|-D             Streaming device ip address (default: %s)\n",
 	     DEFAULT_HTTP_STREAMING_DEVICE);
-	  LogPrintf
+	  RTMP_LogPrintf
 	    ("--sport|-g              Streaming port (default: %d)\n\n",
 	     nHttpStreamingPort);
-	  LogPrintf
+	  RTMP_LogPrintf
 	    ("--quiet|-q              Suppresses all command output.\n");
-	  LogPrintf("--verbose|-V            Verbose command output.\n");
-	  LogPrintf("--debug|-z              Debug level command output.\n");
-	  LogPrintf
+	  RTMP_LogPrintf("--verbose|-V            Verbose command output.\n");
+	  RTMP_LogPrintf("--debug|-z              Debug level command output.\n");
+	  RTMP_LogPrintf
 	    ("If you don't pass parameters for swfUrl, pageUrl, or auth these properties will not be included in the connect ");
-	  LogPrintf("packet.\n\n");
+	  RTMP_LogPrintf("packet.\n\n");
 	  return RD_SUCCESS;
 	  break;
 	  // streaming server specific options
 	case 'D':
 	  if (inet_addr(optarg) == INADDR_NONE)
 	    {
-	      Log(LOGERROR,
+	      RTMP_Log(RTMP_LOGERROR,
 		  "Invalid binding address (requested address %s), ignoring",
 		  optarg);
 	    }
@@ -1130,7 +1130,7 @@ main(int argc, char **argv)
 	    int port = atoi(optarg);
 	    if (port < 0 || port > 65535)
 	      {
-		Log(LOGERROR,
+		RTMP_Log(RTMP_LOGERROR,
 		    "Streaming port out of range (requested port %d), ignoring\n",
 		    port);
 	      }
@@ -1141,7 +1141,7 @@ main(int argc, char **argv)
 	    break;
 	  }
 	default:
-	  //LogPrintf("unknown option: %c\n", opt);
+	  //RTMP_LogPrintf("unknown option: %c\n", opt);
 	  ParseOption(opt, optarg, &defaultRTMPRequest);
 	  break;
 	}
@@ -1159,17 +1159,17 @@ main(int argc, char **argv)
   if ((httpServer =
        startStreaming(httpStreamingDevice, nHttpStreamingPort)) == 0)
     {
-      Log(LOGERROR, "Failed to start HTTP server, exiting!");
+      RTMP_Log(RTMP_LOGERROR, "Failed to start HTTP server, exiting!");
       return RD_FAILED;
     }
-  LogPrintf("Streaming on http://%s:%d\n", httpStreamingDevice,
+  RTMP_LogPrintf("Streaming on http://%s:%d\n", httpStreamingDevice,
 	    nHttpStreamingPort);
 
   while (httpServer->state != STREAMING_STOPPED)
     {
       sleep(1);
     }
-  Log(LOGDEBUG, "Done, exiting...");
+  RTMP_Log(RTMP_LOGDEBUG, "Done, exiting...");
 
   CleanupSockets();
 

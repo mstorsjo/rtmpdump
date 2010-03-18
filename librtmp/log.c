@@ -30,7 +30,7 @@
 
 #define MAX_PRINT_LEN	2048
 
-AMF_LogLevel AMF_debuglevel = LOGERROR;
+RTMP_LogLevel RTMP_debuglevel = RTMP_LOGERROR;
 
 static int neednl;
 
@@ -41,12 +41,12 @@ static const char *levels[] = {
   "DEBUG", "DEBUG2"
 };
 
-void LogSetOutput(FILE *file)
+void RTMP_LogSetOutput(FILE *file)
 {
 	fmsg = file;
 }
 
-void LogPrintf(const char *format, ...)
+void RTMP_LogPrintf(const char *format, ...)
 {
 	char str[MAX_PRINT_LEN]="";
         int len;
@@ -55,7 +55,7 @@ void LogPrintf(const char *format, ...)
 	len = vsnprintf(str, MAX_PRINT_LEN-1, format, args);
 	va_end(args);
 
-	if ( AMF_debuglevel==LOGCRIT )
+	if ( RTMP_debuglevel==RTMP_LOGCRIT )
 		return;
 
 	if ( !fmsg ) fmsg = stderr;
@@ -72,7 +72,7 @@ void LogPrintf(const char *format, ...)
 	  fflush(fmsg);
 }
 
-void LogStatus(const char *format, ...)
+void RTMP_LogStatus(const char *format, ...)
 {
 	char str[MAX_PRINT_LEN]="";
 	va_list args;
@@ -80,7 +80,7 @@ void LogStatus(const char *format, ...)
 	vsnprintf(str, MAX_PRINT_LEN-1, format, args);
 	va_end(args);
 
-	if ( AMF_debuglevel==LOGCRIT )
+	if ( RTMP_debuglevel==RTMP_LOGCRIT )
 		return;
 
 	if ( !fmsg ) fmsg = stderr;
@@ -90,7 +90,7 @@ void LogStatus(const char *format, ...)
 	neednl = 1;
 }
 
-void Log(int level, const char *format, ...)
+void RTMP_Log(int level, const char *format, ...)
 {
 	char str[MAX_PRINT_LEN]="";
 	va_list args;
@@ -99,12 +99,12 @@ void Log(int level, const char *format, ...)
 	va_end(args);
 
 	// Filter out 'no-name'
-	if ( AMF_debuglevel<LOGALL && strstr(str, "no-name" ) != NULL )
+	if ( RTMP_debuglevel<RTMP_LOGALL && strstr(str, "no-name" ) != NULL )
 		return;
 
 	if ( !fmsg ) fmsg = stderr;
 
-	if ( level <= AMF_debuglevel ) {
+	if ( level <= RTMP_debuglevel ) {
 		if (neednl) {
 			putc('\n', fmsg);
 			neednl = 0;
@@ -116,18 +116,18 @@ void Log(int level, const char *format, ...)
 	}
 }
 
-void LogHex(int level, const char *data, unsigned long len)
+void RTMP_LogHex(int level, const char *data, unsigned long len)
 {
 	unsigned long i;
-	if ( level > AMF_debuglevel )
+	if ( level > RTMP_debuglevel )
 		return;
 	for(i=0; i<len; i++) {
-		LogPrintf("%02X ", (unsigned char)data[i]);
+		RTMP_LogPrintf("%02X ", (unsigned char)data[i]);
 	}
-	LogPrintf("\n");
+	RTMP_LogPrintf("\n");
 }
 
-void LogHexString(int level, const char *data, unsigned long len)
+void RTMP_LogHexString(int level, const char *data, unsigned long len)
 {
 	static const char hexdig[] = "0123456789abcdef";
 #define BP_OFFSET 9
@@ -136,7 +136,7 @@ void LogHexString(int level, const char *data, unsigned long len)
 	char	line[BP_LEN];
 	unsigned long i;
 
-	if ( !data || level > AMF_debuglevel )
+	if ( !data || level > RTMP_debuglevel )
 		return;
 
 	/* in case len is zero */
@@ -148,7 +148,7 @@ void LogHexString(int level, const char *data, unsigned long len)
 		unsigned off;
 
 		if( !n ) {
-			if( i ) LogPrintf( "%s", line );
+			if( i ) RTMP_LogPrintf( "%s", line );
 			memset( line, ' ', sizeof(line)-2 );
 			line[sizeof(line)-2] = '\n';
 			line[sizeof(line)-1] = '\0';
@@ -175,5 +175,5 @@ void LogHexString(int level, const char *data, unsigned long len)
 		}
 	}
 
-	LogPrintf( "%s", line );
+	RTMP_LogPrintf( "%s", line );
 }

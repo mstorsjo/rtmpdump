@@ -203,28 +203,14 @@ RTMP_TLS_Init()
 void
 RTMP_Init(RTMP *r)
 {
-  int i;
-
   if (!RTMP_TLS_ctx)
     RTMP_TLS_Init();
 
-  for (i = 0; i < RTMP_CHANNELS; i++)
-    {
-      r->m_vecChannelsIn[i] = NULL;
-      r->m_vecChannelsOut[i] = NULL;
-    }
+  memset(r, 0, sizeof(RTMP));
   r->m_sb.sb_socket = -1;
-  r->m_write.m_body = NULL;
-  RTMP_Close(r);
   r->m_nBufferMS = 300;
-  r->m_fDuration = 0;
-  r->m_sb.sb_start = NULL;
   r->m_fAudioCodecs = 3191.0;
   r->m_fVideoCodecs = 252.0;
-  r->m_fEncoding = 0.0;
-  r->m_sb.sb_timedout = false;
-  r->m_pausing = 0;
-  r->m_mediaChannel = 0;
 }
 
 double

@@ -219,7 +219,7 @@ DHGenerateKey(MDH *dh)
       if (!MDH_generate_key(dh))
 	return 0;
 
-      MP_t q1;
+      MP_t q1 = NULL;
       MP_gethex(&q1, Q1024, res);
       assert(res);
 
@@ -276,7 +276,7 @@ static int
 DHComputeSharedSecretKey(MDH *dh, uint8_t *pubkey, size_t nPubkeyLen,
 			 uint8_t *secret)
 {
-  MP_t q1, pubkeyBn = NULL;
+  MP_t q1 = NULL, pubkeyBn = NULL;
   size_t len;
   int res;
 

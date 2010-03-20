@@ -35,24 +35,27 @@ cross:
 
 clean:
 	rm -f *.o rtmpdump$(EXT) rtmpgw$(EXT) rtmpsrv$(EXT) rtmpsuck$(EXT)
-	@$(MAKE) -C librtmp clean
+	@cd librtmp; $(MAKE) clean
 
 FORCE:
 
 $(LIBRTMP): FORCE
-	@$(MAKE) -C librtmp all CC="$(CC)" CFLAGS="$(CFLAGS)"
+	@cd librtmp; $(MAKE) all CC="$(CC)" CFLAGS="$(CFLAGS)"
+
+# note: $^ is GNU Make's equivalent to BSD $>
+# we use both since either make will ignore the one it doesn't recognize
 
 rtmpdump: rtmpdump.o $(LIBRTMP)
-	$(CC) $(LDFLAGS) $^ -o $@$(EXT) $(LIBS)
+	$(CC) $(LDFLAGS) $^ $> -o $@$(EXT) $(LIBS)
 
 rtmpsrv: rtmpsrv.o thread.o $(LIBRTMP)
-	$(CC) $(LDFLAGS) $^ -o $@$(EXT) $(SLIBS)
+	$(CC) $(LDFLAGS) $^ $> -o $@$(EXT) $(SLIBS)
 
 rtmpsuck: rtmpsuck.o thread.o $(LIBRTMP)
-	$(CC) $(LDFLAGS) $^ -o $@$(EXT) $(SLIBS)
+	$(CC) $(LDFLAGS) $^ $> -o $@$(EXT) $(SLIBS)
 
 rtmpgw: rtmpgw.o thread.o $(LIBRTMP)
-	$(CC) $(LDFLAGS) $^ -o $@$(EXT) $(SLIBS)
+	$(CC) $(LDFLAGS) $^ $> -o $@$(EXT) $(SLIBS)
 
 rtmpgw.o: rtmpgw.c $(INCRTMP) Makefile
 rtmpdump.o: rtmpdump.c $(INCRTMP) Makefile

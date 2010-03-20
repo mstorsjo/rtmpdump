@@ -4,11 +4,15 @@ Copyright 2009-2010 Howard Chu
 Copyright 2009 The Flvstreamer Team
 http://rtmpdump.mplayerhq.hu/
 
-10 March 2010, v2.2a
+20 March 2010, v2.2a
 - fix C++ compatibility for librtmp
 - misc library restructuring
 - add client support for tunneling: rtmpt, rtmpte, rtmps
 - fix rtmpdump/rtmpgw FLV header dataType
+- implement RTMP_Read() and RTMP_Write() to simplify library use
+- fix SendPacket timestamps
+- add optional support for GnuTLS/Gcrypt instead of OpenSSL
+- use $HOMEPATH on Windows instead of $HOME for .swfinfo
 
 4 March 2010, v2.2
 - move RTMP code into library librtmp

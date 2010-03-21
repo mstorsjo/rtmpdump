@@ -293,6 +293,7 @@ extern "C"
   bool RTMP_SendCreateStream(RTMP *r);
   bool RTMP_SendSeek(RTMP *r, double dTime);
   bool RTMP_SendServerBW(RTMP *r);
+  bool RTMP_SendClientBW(RTMP *r);
   void RTMP_DropRequest(RTMP *r, int i, bool freeit);
   int RTMP_Read(RTMP *r, char *buf, int size);
   int RTMP_Write(RTMP *r, char *buf, int size);

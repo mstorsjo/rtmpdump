@@ -1446,6 +1446,27 @@ RTMP_SendServerBW(RTMP *r)
   return RTMP_SendPacket(r, &packet, false);
 }
 
+bool
+RTMP_SendClientBW(RTMP *r)
+{
+  RTMPPacket packet;
+  char pbuf[256], *pend = pbuf + sizeof(pbuf);
+
+  packet.m_nChannel = 0x02;	// control channel (invoke)
+  packet.m_headerType = RTMP_PACKET_SIZE_LARGE;
+  packet.m_packetType = 0x06;	// Client BW
+  packet.m_nInfoField1 = 0;
+  packet.m_nInfoField2 = 0;
+  packet.m_hasAbsTimestamp = 0;
+  packet.m_body = pbuf + RTMP_MAX_HEADER_SIZE;
+
+  packet.m_nBodySize = 5;
+
+  AMF_EncodeInt32(packet.m_body, pend, r->m_nClientBW);
+  packet.m_body[4] = r->m_nClientBW2;
+  return RTMP_SendPacket(r, &packet, false);
+}
+
 static bool
 SendBytesReceived(RTMP *r)
 {
@@ -1636,6 +1657,7 @@ RTMP_SendCtrl(RTMP *r, short nType, unsigned int nObject, unsigned int nTime)
 
   RTMPPacket packet;
   char pbuf[256], *pend = pbuf + sizeof(pbuf);
+  int nSize;
 
   packet.m_nChannel = 0x02;	// control channel (ping)
   packet.m_headerType = RTMP_PACKET_SIZE_MEDIUM;
@@ -1645,9 +1667,12 @@ RTMP_SendCtrl(RTMP *r, short nType, unsigned int nObject, unsigned int nTime)
   packet.m_hasAbsTimestamp = 0;
   packet.m_body = pbuf + RTMP_MAX_HEADER_SIZE;
 
-  int nSize = (nType == 0x03 ? 10 : 6);	// type 3 is the buffer time and requires all 3 parameters. all in all 10 bytes.
-  if (nType == 0x1B)
-    nSize = 44;
+  switch(nType) {
+  case 0x03: nSize = 10; break;	/* buffer time */
+  case 0x1A: nSize = 3; break;	/* SWF verify request */
+  case 0x1B: nSize = 44; break;	/* SWF verify response */
+  default: nSize = 6; break;
+  }
 
   packet.m_nBodySize = nSize;
 
@@ -1662,6 +1687,10 @@ RTMP_SendCtrl(RTMP *r, short nType, unsigned int nObject, unsigned int nTime)
       RTMP_LogHex(RTMP_LOGDEBUG, packet.m_body, packet.m_nBodySize);
 #endif
     }
+  else if (nType == 0x1A)
+    {
+	  *buf = nObject & 0xff;
+	}
   else
     {
       if (nSize > 2)

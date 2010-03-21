@@ -712,7 +712,7 @@ void doServe(STREAMING_SERVER * server,	// server socket and state (our listenin
 {
   RTMPPacket pc = { 0 }, ps = { 0 };
   RTMPChunk rk = { 0 };
-  char *buf;
+  char *buf = NULL;
   unsigned int buflen = 131072;
   bool paused = false;
 

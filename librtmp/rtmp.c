@@ -208,7 +208,12 @@ RTMP_Init(RTMP *r)
 
   memset(r, 0, sizeof(RTMP));
   r->m_sb.sb_socket = -1;
+  r->m_inChunkSize = RTMP_DEFAULT_CHUNKSIZE;
+  r->m_outChunkSize = RTMP_DEFAULT_CHUNKSIZE;
   r->m_nBufferMS = 300;
+  r->m_nClientBW = 2500000;
+  r->m_nClientBW2 = 2;
+  r->m_nServerBW = 2500000;
   r->m_fAudioCodecs = 3191.0;
   r->m_fVideoCodecs = 252.0;
 }
@@ -2749,14 +2754,9 @@ RTMP_Close(RTMP *r)
 
   r->m_stream_id = -1;
   r->m_sb.sb_socket = -1;
-  r->m_inChunkSize = RTMP_DEFAULT_CHUNKSIZE;
-  r->m_outChunkSize = RTMP_DEFAULT_CHUNKSIZE;
   r->m_nBWCheckCounter = 0;
   r->m_nBytesIn = 0;
   r->m_nBytesInSent = 0;
-  r->m_nClientBW = 2500000;
-  r->m_nClientBW2 = 2;
-  r->m_nServerBW = 2500000;
 
   r->m_read.buf = NULL;
   r->m_read.dataType = 0;

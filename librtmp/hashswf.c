@@ -414,18 +414,12 @@ strtime(time_t * t, char *s)
 
 #define HEX2BIN(a)      (((a)&0x40)?((a)&0xf)+9:((a)&0xf))
 
-#ifdef WIN32
-#define	ENV_HOME	"HOMEPATH"
-#else
-#define ENV_HOME	"HOME"
-#endif
-
 int
 RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash,
 	     int age)
 {
   FILE *f = NULL;
-  char *path, *home, date[64], cctim[64];
+  char *path, date[64], cctim[64];
   long pos = 0;
   time_t ctim = -1, cnow;
   int i, got = 0, ret = 0;
@@ -434,11 +428,23 @@ RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash,
   struct HTTP_ctx http = { 0 };
   HTTPResult httpres;
   z_stream zs = { 0 };
+  AVal home, hpre;
 
   date[0] = '\0';
-  home = getenv(ENV_HOME);
-  if (!home)
-    home = ".";
+#ifdef WIN32
+  hpre.av_val = getenv("HOMEDRIVE");
+  hpre.av_len = strlen(hpre.av_val);
+  home.av_val = getenv("HOMEPATH");
+#define DIRSEP	"\\"
+#else
+  hpre.av_val = "";
+  hpre.av_len = 0;
+  home.av_val = getenv("HOME");
+#define DIRSEP	"/"
+#endif
+  if (!home.av_val)
+    home.av_val = ".";
+  home.av_len = strlen(home.av_val);
 
   /* SWF hash info is cached in a fixed-format file.
    * url: <url of SWF file>
@@ -450,9 +456,8 @@ RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash,
    * These fields must be present in this order. All fields
    * besides URL are fixed size.
    */
-  path = malloc(strlen(home) + sizeof("/.swfinfo"));
-  strcpy(path, home);
-  strcat(path, "/.swfinfo");
+  path = malloc(hpre.av_len + home.av_len + sizeof(DIRSEP ".swfinfo"));
+  sprintf(path, "%s%s" DIRSEP ".swfinfo", hpre.av_val, home.av_val);
 
   f = fopen(path, "r+");
   while (f)

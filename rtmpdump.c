@@ -856,7 +856,7 @@ main(int argc, char **argv)
 	    ("\nThis program dumps the media content streamed over RTMP.\n\n");
 	  RTMP_LogPrintf("--help|-h               Prints this help screen.\n");
 	  RTMP_LogPrintf
-	    ("--rtmp|-r url           URL (e.g. rtmp//host[:port]/path)\n");
+	    ("--rtmp|-r url           URL (e.g. rtmp://host[:port]/path)\n");
 	  RTMP_LogPrintf
 	    ("--host|-n hostname      Overrides the hostname in the rtmp url\n");
 	  RTMP_LogPrintf

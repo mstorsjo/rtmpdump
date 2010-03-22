@@ -803,9 +803,11 @@ void doServe(STREAMING_SERVER * server,	// server socket and state (our listenin
 	      RTMP_Log(RTMP_LOGERROR, "Request timeout/select failed, ignoring request");
 	      goto cleanup;
 	    }
-          if (FD_ISSET(server->rs.m_sb.sb_socket, &rfds))
+          if (server->rs.m_sb.sb_socket > 0 &&
+	    FD_ISSET(server->rs.m_sb.sb_socket, &rfds))
             sr = 1;
-          if (FD_ISSET(server->rc.m_sb.sb_socket, &rfds))
+          if (server->rc.m_sb.sb_socket > 0 &&
+	    FD_ISSET(server->rc.m_sb.sb_socket, &rfds))
             cr = 1;
         }
       if (sr)

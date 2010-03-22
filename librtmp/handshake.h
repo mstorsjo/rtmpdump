@@ -728,6 +728,7 @@ SHandShake(RTMP * r)
     return false;
 
   RTMP_Log(RTMP_LOGDEBUG, "%s: Type Requested : %02X", __FUNCTION__, type);
+  RTMP_LogHexString(RTMP_LOGDEBUG2, clientsig, RTMP_SIG_SIZE);
 
   if (type == 3)
     {
@@ -822,10 +823,8 @@ SHandShake(RTMP * r)
 	     SHA256_DIGEST_LENGTH);
     }
 
-#ifdef _DEBUG
-  RTMP_Log(RTMP_LOGDEBUG, "Serversig: ");
-  RTMP_LogHex(RTMP_LOGDEBUG, serversig, RTMP_SIG_SIZE);
-#endif
+  RTMP_Log(RTMP_LOGDEBUG2, "Serversig: ");
+  RTMP_LogHexString(RTMP_LOGDEBUG2, serversig, RTMP_SIG_SIZE);
 
   if (!WriteN(r, serversig-1, RTMP_SIG_SIZE + 1))
     return false;
@@ -837,11 +836,6 @@ SHandShake(RTMP * r)
   RTMP_Log(RTMP_LOGDEBUG, "%s: Client Uptime : %d", __FUNCTION__, uptime);
   RTMP_Log(RTMP_LOGDEBUG, "%s: Player Version: %d.%d.%d.%d", __FUNCTION__, clientsig[4],
       clientsig[5], clientsig[6], clientsig[7]);
-
-#ifdef _DEBUG
-  RTMP_Log(RTMP_LOGDEBUG, "Client signature:");
-  RTMP_LogHex(RTMP_LOGDEBUG, clientsig, RTMP_SIG_SIZE);
-#endif
 
   if (FP9HandShake)
     {
@@ -952,11 +946,10 @@ SHandShake(RTMP * r)
       memcpy(clientsig+4, &uptime, 4);
     }
 
-#ifdef _DEBUG
-  RTMP_Log(RTMP_LOGDEBUG, "%s: Sending handshake response: ",
+  RTMP_Log(RTMP_LOGDEBUG2, "%s: Sending handshake response: ",
     __FUNCTION__);
-  RTMP_LogHex(RTMP_LOGDEBUG, clientsig, RTMP_SIG_SIZE);
-#endif
+  RTMP_LogHexString(RTMP_LOGDEBUG2, clientsig, RTMP_SIG_SIZE);
+
   if (!WriteN(r, clientsig, RTMP_SIG_SIZE))
     return false;
 
@@ -964,10 +957,8 @@ SHandShake(RTMP * r)
   if (ReadN(r, clientsig, RTMP_SIG_SIZE) != RTMP_SIG_SIZE)
     return false;
 
-#ifdef _DEBUG
-  RTMP_Log(RTMP_LOGDEBUG, "%s: 2nd handshake: ", __FUNCTION__);
-  RTMP_LogHex(RTMP_LOGDEBUG, clientsig, RTMP_SIG_SIZE);
-#endif
+  RTMP_Log(RTMP_LOGDEBUG2, "%s: 2nd handshake: ", __FUNCTION__);
+  RTMP_LogHexString(RTMP_LOGDEBUG2, clientsig, RTMP_SIG_SIZE);
 
   if (FP9HandShake)
     {

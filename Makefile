@@ -31,7 +31,7 @@ all:
 progs:	rtmpdump rtmpgw rtmpsrv rtmpsuck
 
 posix linux unix osx:
-	@$(MAKE) $(MAKEFLAGS) progs
+	@$(MAKE) $(MAKEFLAGS) MF="$(MAKEFLAGS)" progs
 
 mingw:
 	@$(MAKE) CROSS_COMPILE=mingw32- LIBS="$(LIBS) -lws2_32 -lwinmm -lgdi32" THREADLIB= EXT=.exe $(MAKEFLAGS) progs
@@ -49,7 +49,8 @@ clean:
 FORCE:
 
 $(LIBRTMP): FORCE
-	@cd librtmp; $(MAKE) all CC="$(CC)" CFLAGS="$(CFLAGS)"
+#	@cd librtmp; $(MAKE) all CC="$(CC)" CFLAGS="$(CFLAGS)" CRYPTO=$(CRYPTO) VERSION=$(VERSION)
+	cd librtmp; $(MAKE) $(MF) all
 
 # note: $^ is GNU Make's equivalent to BSD $>
 # we use both since either make will ignore the one it doesn't recognize

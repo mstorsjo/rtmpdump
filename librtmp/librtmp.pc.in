@@ -6,6 +6,7 @@ incdir=${prefix}/include
 Name: librtmp
 Description: RTMP implementation
 Version: @VERSION@
+Requires: @CRYPTO_REQ@
 URL: http://rtmpdump.mplayerhq.hu
 Libs: -L${libdir} -lrtmp
 Libs.private: @CRYPTO_LIB@ -lz

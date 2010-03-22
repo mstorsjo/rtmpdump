@@ -1,0 +1,12 @@
+prefix=@prefix@
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+incdir=${prefix}/include
+
+Name: librtmp
+Description: RTMP implementation
+Version: @VERSION@
+URL: http://rtmpdump.mplayerhq.hu
+Libs: -L${libdir} -lrtmp
+Libs.private: @CRYPTO_LIB@ -lz
+Cflags: -I${incdir}

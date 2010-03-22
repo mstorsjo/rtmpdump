@@ -46,6 +46,16 @@ void RTMP_LogSetOutput(FILE *file)
 	fmsg = file;
 }
 
+void RTMP_LogSetLevel(RTMP_LogLevel level)
+{
+	RTMP_debuglevel = level;
+}
+
+RTMP_LogLevel RTMP_LogGetLevel()
+{
+	return RTMP_debuglevel;
+}
+
 void RTMP_LogPrintf(const char *format, ...)
 {
 	char str[MAX_PRINT_LEN]="";

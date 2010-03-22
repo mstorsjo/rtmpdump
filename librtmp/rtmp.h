@@ -36,6 +36,8 @@ extern "C"
 {
 #endif
 
+#define RTMP_LIB_VERSION	0x020202	/* 2.2b */
+
 #define RTMP_FEATURE_HTTP	0x01
 #define RTMP_FEATURE_ENC	0x02
 #define RTMP_FEATURE_SSL	0x04
@@ -279,6 +281,8 @@ extern "C"
 
   void RTMP_Init(RTMP *r);
   void RTMP_Close(RTMP *r);
+  int RTMP_LibVersion();
+  void RTMP_UserInterrupt();	/* user typed Ctrl-C */
 
   bool RTMP_SendCtrl(RTMP *r, short nType, unsigned int nObject,
 		     unsigned int nTime);

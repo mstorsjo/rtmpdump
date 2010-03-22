@@ -48,6 +48,8 @@ void RTMP_LogStatus(const char *format, ...);
 void RTMP_Log(int level, const char *format, ...);
 void RTMP_LogHex(int level, const char *data, unsigned long len);
 void RTMP_LogHexString(int level, const char *data, unsigned long len);
+void RTMP_LogSetLevel(RTMP_LogLevel lvl);
+RTMP_LogLevel RTMP_LogGetLevel();
 
 #ifdef __cplusplus
 }

@@ -138,6 +138,12 @@ RTMP_GetTime()
 }
 
 void
+RTMP_UserInterrupt()
+{
+  RTMP_ctrlC = true;
+}
+
+void
 RTMPPacket_Reset(RTMPPacket *p)
 {
   p->m_headerType = 0;
@@ -178,6 +184,12 @@ RTMPPacket_Dump(RTMPPacket *p)
       "RTMP PACKET: packet type: 0x%02x. channel: 0x%02x. info 1: %d info 2: %d. Body size: %lu. body: 0x%02x",
       p->m_packetType, p->m_nChannel, p->m_nInfoField1, p->m_nInfoField2,
       p->m_nBodySize, p->m_body ? (unsigned char)p->m_body[0] : 0);
+}
+
+int
+RTMP_LibVersion()
+{
+  return RTMP_LIB_VERSION;
 }
 
 void

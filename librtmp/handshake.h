@@ -724,6 +724,9 @@ SHandShake(RTMP * r)
   if (ReadN(r, &type, 1) != 1)	/* 0x03 or 0x06 */
     return false;
 
+  if (ReadN(r, clientsig, RTMP_SIG_SIZE) != RTMP_SIG_SIZE)
+    return false;
+
   RTMP_Log(RTMP_LOGDEBUG, "%s: Type Requested : %02X", __FUNCTION__, type);
 
   if (type == 3)
@@ -735,6 +738,9 @@ SHandShake(RTMP * r)
       encrypted = true;
       FP9HandShake = true;
       r->Link.protocol |= RTMP_FEATURE_ENC;
+      /* use FP10 if client is capable */
+      if (clientsig[4] == 128 || clientsig[4] == -128)
+	type = 8;
     }
   else
     {
@@ -824,9 +830,6 @@ SHandShake(RTMP * r)
   if (!WriteN(r, serversig-1, RTMP_SIG_SIZE + 1))
     return false;
 
-  if (ReadN(r, clientsig, RTMP_SIG_SIZE) != RTMP_SIG_SIZE)
-    return false;
-
   /* decode client response */
   memcpy(&uptime, clientsig, 4);
   uptime = ntohl(uptime);
@@ -913,6 +916,26 @@ SHandShake(RTMP * r)
 		 GenuineFMSKey, sizeof(GenuineFMSKey), digestResp);
       HMACsha256(clientsig, RTMP_SIG_SIZE - SHA256_DIGEST_LENGTH, digestResp,
 		 SHA256_DIGEST_LENGTH, signatureResp);
+#ifdef FP10
+      if (type == 8 )
+        {
+	  unsigned char *dptr = (unsigned char *)digestResp;
+	  unsigned char *sig = (unsigned char *)signatureResp;
+	  /* encrypt signatureResp */
+          for (i=0; i<SHA256_DIGEST_LENGTH; i+=8)
+	    rtmpe8_sig(sig+i, sig+i, dptr[i] % 15);
+        }
+#if 0
+      else if (type == 9))
+        {
+	  unsigned char *dptr = (unsigned char *)digestResp;
+	  unsigned char *sig = (unsigned char *)signatureResp;
+	  /* encrypt signatureResp */
+          for (i=0; i<SHA256_DIGEST_LENGTH; i+=8)
+            rtmpe9_sig(sig+i, sig+i, dptr[i] % 15);
+        }
+#endif
+#endif
 
       /* some info output */
       RTMP_Log(RTMP_LOGDEBUG,
@@ -960,6 +983,26 @@ SHandShake(RTMP * r)
 		 GenuineFPKey, sizeof(GenuineFPKey), digest);
       HMACsha256(clientsig, RTMP_SIG_SIZE - SHA256_DIGEST_LENGTH, digest,
 		 SHA256_DIGEST_LENGTH, signature);
+#ifdef FP10
+      if (type == 8 )
+        {
+	  unsigned char *dptr = (unsigned char *)digest;
+	  unsigned char *sig = (unsigned char *)signature;
+	  /* encrypt signatureResp */
+          for (i=0; i<SHA256_DIGEST_LENGTH; i+=8)
+	    rtmpe8_sig(sig+i, sig+i, dptr[i] % 15);
+        }
+#if 0
+      else if (type == 9))
+        {
+	  unsigned char *dptr = (unsigned char *)digestResp;
+	  unsigned char *sig = (unsigned char *)signatureResp;
+	  /* encrypt signatureResp */
+          for (i=0; i<SHA256_DIGEST_LENGTH; i+=8)
+            rtmpe9_sig(sig+i, sig+i, dptr[i] % 15);
+        }
+#endif
+#endif
 
       /* show some information */
       RTMP_Log(RTMP_LOGDEBUG, "%s: Digest key: ", __FUNCTION__);

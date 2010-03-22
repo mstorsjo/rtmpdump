@@ -1,3 +1,5 @@
+VERSION=v2.2b
+
 prefix=/usr/local
 
 CC=$(CROSS_COMPILE)gcc
@@ -11,7 +13,6 @@ REQ_GNUTLS=gnutls
 REQ_OPENSSL=libssl,libcrypto
 CRYPTO_LIB=$(LIB_$(CRYPTO))
 CRYPTO_REQ=$(REQ_$(CRYPTO))
-VERSION=v2.2a
 
 DEF=-DRTMPDUMP_VERSION=\"$(VERSION)\" -DUSE_$(CRYPTO)
 OPT=-O2

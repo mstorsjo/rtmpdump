@@ -1,16 +1,25 @@
+VERSION=v2.2b
+
 CC=$(CROSS_COMPILE)gcc
 LD=$(CROSS_COMPILE)ld
 
-DEF=-DRTMPDUMP_VERSION=\"v2.2a\"
+CRYPTO=OPENSSL
+#CRYPTO=GNUTLS
+LIB_GNUTLS=-lgnutls
+LIB_OPENSSL=-lssl -lcrypto
+CRYPTO_LIB=$(LIB_$(CRYPTO))
+
+DEF=-DRTMPDUMP_VERSION=\"$(VERSION)\"
 OPT=-O2
 CFLAGS=-Wall $(XCFLAGS) $(INC) $(DEF) $(OPT)
 LDFLAGS=-Wall $(XLDFLAGS)
-LIBS=-lssl -lcrypto -lz
-#LIBS=-lgnutls -lz
+
+LIBS=$(CRYPTO_LIB) -lz
 THREADLIB=-lpthread
+SLIBS=$(THREADLIB) $(LIBS)
+
 LIBRTMP=librtmp/librtmp.a
 INCRTMP=librtmp/rtmp_sys.h librtmp/rtmp.h librtmp/log.h librtmp/amf.h
-SLIBS=$(THREADLIB) $(LIBS)
 
 EXT=
 

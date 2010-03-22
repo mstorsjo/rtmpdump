@@ -4,6 +4,15 @@ Copyright 2009-2010 Howard Chu
 Copyright 2009 The Flvstreamer Team
 http://rtmpdump.mplayerhq.hu/
 
+22 March 2010, v2.2b
+- fix v2.2a crashes in rtmpsrv/rtmpsuck
+- fix v2.2a .swfinfo location on Windows
+- fix typo for --auth parameter in manpages
+- add FP10 handshake support for rtmpsrv/rtmpsuck
+- avoid GNUMake vs BSDMake incompatibilities
+- add pkgconfig file for librtmp
+- more library cleanup
+
 20 March 2010, v2.2a
 - fix C++ compatibility for librtmp
 - misc library restructuring

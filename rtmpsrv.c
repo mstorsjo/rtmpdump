@@ -171,7 +171,7 @@ SendConnectResult(RTMP *r, double txn)
   packet.m_nChannel = 0x03;     // control channel (invoke)
   packet.m_headerType = 1; /* RTMP_PACKET_SIZE_MEDIUM; */
   packet.m_packetType = 0x14;   // INVOKE
-  packet.m_nInfoField1 = 0;
+  packet.m_nTimeStamp = 0;
   packet.m_nInfoField2 = 0;
   packet.m_hasAbsTimestamp = 0;
   packet.m_body = pbuf + RTMP_MAX_HEADER_SIZE;
@@ -232,7 +232,7 @@ SendResultNumber(RTMP *r, double txn, double ID)
   packet.m_nChannel = 0x03;     // control channel (invoke)
   packet.m_headerType = 1; /* RTMP_PACKET_SIZE_MEDIUM; */
   packet.m_packetType = 0x14;   // INVOKE
-  packet.m_nInfoField1 = 0;
+  packet.m_nTimeStamp = 0;
   packet.m_nInfoField2 = 0;
   packet.m_hasAbsTimestamp = 0;
   packet.m_body = pbuf + RTMP_MAX_HEADER_SIZE;
@@ -266,7 +266,7 @@ SendPlayStart(RTMP *r)
   packet.m_nChannel = 0x03;     // control channel (invoke)
   packet.m_headerType = 1; /* RTMP_PACKET_SIZE_MEDIUM; */
   packet.m_packetType = 0x14;   // INVOKE
-  packet.m_nInfoField1 = 0;
+  packet.m_nTimeStamp = 0;
   packet.m_nInfoField2 = 0;
   packet.m_hasAbsTimestamp = 0;
   packet.m_body = pbuf + RTMP_MAX_HEADER_SIZE;
@@ -298,7 +298,7 @@ SendPlayStop(RTMP *r)
   packet.m_nChannel = 0x03;     // control channel (invoke)
   packet.m_headerType = 1; /* RTMP_PACKET_SIZE_MEDIUM; */
   packet.m_packetType = 0x14;   // INVOKE
-  packet.m_nInfoField1 = 0;
+  packet.m_nTimeStamp = 0;
   packet.m_nInfoField2 = 0;
   packet.m_hasAbsTimestamp = 0;
   packet.m_body = pbuf + RTMP_MAX_HEADER_SIZE;

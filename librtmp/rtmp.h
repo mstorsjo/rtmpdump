@@ -92,9 +92,8 @@ extern "C"
     BYTE m_packetType;
     BYTE m_hasAbsTimestamp;	// timestamp absolute or relative?
     int m_nChannel;
-    uint32_t m_nInfoField1;	// 3 first bytes
-    int32_t m_nInfoField2;	// last 4 bytes in a long header, absolute timestamp for long headers, relative timestamp for short headers
     uint32_t m_nTimeStamp;	// absolute timestamp
+    int32_t m_nInfoField2;	// last 4 bytes in a long header
     uint32_t m_nBodySize;
     uint32_t m_nBytesRead;
     RTMPChunk *m_chunk;

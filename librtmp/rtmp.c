@@ -3568,6 +3568,8 @@ RTMP_Read(RTMP *r, char *buf, int size)
 		}
 	      r->m_read.buf += nRead;
 	      r->m_read.buflen -= nRead;
+	      if (r->m_read.dataType == 5)
+	        break;
 	    }
 	  mybuf[4] = r->m_read.dataType;
 	  r->m_read.buflen = r->m_read.buf - mybuf;

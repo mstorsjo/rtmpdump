@@ -142,7 +142,7 @@ parsehost:
 		slash3 = strchr(slash2+1, '/');
 
 	applen = end-p; // ondemand, pass all parameters as app
-	appnamelen = 8; // ondemand length
+	appnamelen = applen; // ondemand length
 
 	if(ques && strstr(p, "slist=")) { // whatever it is, the '?' and slist= means we need to use everything as app and parse plapath from slist=
 		appnamelen = ques-p;
@@ -170,9 +170,9 @@ parsehost:
 	if (*p == '/')
 		p++;
 
-	{
-	AVal av = {p, end-p};
-	RTMP_ParsePlaypath(&av, playpath);
+	if (end-p) {
+		AVal av = {p, end-p};
+		RTMP_ParsePlaypath(&av, playpath);
 	}
 
 	return true;

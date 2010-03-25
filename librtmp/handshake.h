@@ -728,7 +728,7 @@ SHandShake(RTMP * r)
     return false;
 
   RTMP_Log(RTMP_LOGDEBUG, "%s: Type Requested : %02X", __FUNCTION__, type);
-  RTMP_LogHexString(RTMP_LOGDEBUG2, clientsig, RTMP_SIG_SIZE);
+  RTMP_LogHex(RTMP_LOGDEBUG2, clientsig, RTMP_SIG_SIZE);
 
   if (type == 3)
     {
@@ -824,7 +824,7 @@ SHandShake(RTMP * r)
     }
 
   RTMP_Log(RTMP_LOGDEBUG2, "Serversig: ");
-  RTMP_LogHexString(RTMP_LOGDEBUG2, serversig, RTMP_SIG_SIZE);
+  RTMP_LogHex(RTMP_LOGDEBUG2, serversig, RTMP_SIG_SIZE);
 
   if (!WriteN(r, serversig-1, RTMP_SIG_SIZE + 1))
     return false;
@@ -948,7 +948,7 @@ SHandShake(RTMP * r)
 
   RTMP_Log(RTMP_LOGDEBUG2, "%s: Sending handshake response: ",
     __FUNCTION__);
-  RTMP_LogHexString(RTMP_LOGDEBUG2, clientsig, RTMP_SIG_SIZE);
+  RTMP_LogHex(RTMP_LOGDEBUG2, clientsig, RTMP_SIG_SIZE);
 
   if (!WriteN(r, clientsig, RTMP_SIG_SIZE))
     return false;
@@ -958,7 +958,7 @@ SHandShake(RTMP * r)
     return false;
 
   RTMP_Log(RTMP_LOGDEBUG2, "%s: 2nd handshake: ", __FUNCTION__);
-  RTMP_LogHexString(RTMP_LOGDEBUG2, clientsig, RTMP_SIG_SIZE);
+  RTMP_LogHex(RTMP_LOGDEBUG2, clientsig, RTMP_SIG_SIZE);
 
   if (FP9HandShake)
     {

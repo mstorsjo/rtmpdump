@@ -132,9 +132,11 @@ void RTMP_LogHex(int level, const char *data, unsigned long len)
 	if ( level > RTMP_debuglevel )
 		return;
 	for(i=0; i<len; i++) {
-		RTMP_LogPrintf("%02X ", (unsigned char)data[i]);
+		RTMP_LogPrintf("%02X%c", (unsigned char)data[i],
+		  ((i & 0x0f) == 0x0f) ? '\n': ' ');
 	}
-	RTMP_LogPrintf("\n");
+	if (i & 0x0f)
+	  RTMP_LogPrintf("\n");
 }
 
 void RTMP_LogHexString(int level, const char *data, unsigned long len)

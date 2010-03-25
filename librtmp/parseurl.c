@@ -150,6 +150,7 @@ parsehost:
 	else if(strncmp(p, "ondemand/", 9)==0) {
                 // app = ondemand/foobar, only pass app=ondemand
                 applen = 8;
+                appnamelen = 8;
         }
 	else { // app!=ondemand, so app is app[/appinstance]
 		if(slash3)

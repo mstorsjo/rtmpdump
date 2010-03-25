@@ -348,7 +348,8 @@ spawn_dumper(int argc, AVal *av, char *cmd)
       argv[i][av[i].av_len] = '\0';
     }
     argv[i] = NULL;
-    execvp(argv[0], argv);
+    if ((i = execvp(argv[0], argv)))
+      _exit(i);
   }
 #endif
 }

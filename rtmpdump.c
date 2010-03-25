@@ -1122,6 +1122,7 @@ main(int argc, char **argv)
 	  break;
 	default:
 	  RTMP_LogPrintf("unknown option: %c\n", opt);
+	  return RD_FAILED;
 	  break;
 	}
     }

@@ -446,7 +446,11 @@ void processTCPrequest(STREAMING_SERVER * server,	// server socket and state (ou
 		  ptr += nArgLen + 1;
 		  len -= nArgLen + 1;
 
-		  ParseOption(ich, arg, &req);
+		  if (!ParseOption(ich, arg, &req))
+		    {
+		      status = "400 unrecognized option";
+		      goto filenotfound;
+		    }
 		}
 	    }
 	}
@@ -953,7 +957,7 @@ ParseOption(char opt, char *arg, RTMP_REQUEST * req)
       break;
     default:
       RTMP_LogPrintf("unknown option: %c, arg: %s\n", opt, arg);
-      break;
+      return false;
     }
   return true;
 }
@@ -1142,7 +1146,8 @@ main(int argc, char **argv)
 	  }
 	default:
 	  //RTMP_LogPrintf("unknown option: %c\n", opt);
-	  ParseOption(opt, optarg, &defaultRTMPRequest);
+	  if (!ParseOption(opt, optarg, &defaultRTMPRequest))
+	    return RD_FAILED;
 	  break;
 	}
     }

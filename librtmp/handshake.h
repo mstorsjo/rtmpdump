@@ -468,6 +468,9 @@ HandShake(RTMP * r, bool FP9HandShake)
   RTMP_Log(RTMP_LOGDEBUG, "%s: FMS Version   : %d.%d.%d.%d", __FUNCTION__, serversig[4],
       serversig[5], serversig[6], serversig[7]);
 
+  if (FP9HandShake && type == 3 && !serversig[4])
+    FP9HandShake = false;
+
 #ifdef _DEBUG
   RTMP_Log(RTMP_LOGDEBUG, "Server signature:");
   RTMP_LogHex(RTMP_LOGDEBUG, serversig, RTMP_SIG_SIZE);

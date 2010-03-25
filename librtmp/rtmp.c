@@ -37,12 +37,12 @@
 #include <openssl/ssl.h>
 #include <openssl/rc4.h>
 #endif
+TLS_CTX RTMP_TLS_ctx;
 #endif
 
 #define RTMP_SIG_SIZE 1536
 #define RTMP_LARGE_HEADER_SIZE 12
 
-TLS_CTX RTMP_TLS_ctx;
 static const int packetSize[] = { 12, 8, 4, 1 };
 
 bool RTMP_ctrlC;
@@ -195,6 +195,7 @@ RTMP_LibVersion()
 void
 RTMP_TLS_Init()
 {
+#ifdef CRYPTO
 #ifdef USE_GNUTLS
   gnutls_global_init();
   RTMP_TLS_ctx = malloc(sizeof(struct tls_ctx));
@@ -210,13 +211,16 @@ RTMP_TLS_Init()
   SSL_CTX_set_options(RTMP_TLS_ctx, SSL_OP_ALL);
   SSL_CTX_set_default_verify_paths(RTMP_TLS_ctx);
 #endif
+#endif
 }
 
 void
 RTMP_Init(RTMP *r)
 {
+#ifdef CRYPTO
   if (!RTMP_TLS_ctx)
     RTMP_TLS_Init();
+#endif
 
   memset(r, 0, sizeof(RTMP));
   r->m_sb.sb_socket = -1;
@@ -474,6 +478,7 @@ RTMP_Connect1(RTMP *r, RTMPPacket *cp)
 {
   if (r->Link.protocol & RTMP_FEATURE_SSL)
     {
+#ifdef CRYPTO
       TLS_client(RTMP_TLS_ctx, r->m_sb.sb_ssl);
       TLS_setfd(r->m_sb.sb_ssl, r->m_sb.sb_socket);
       if (TLS_connect(r->m_sb.sb_ssl) < 0)
@@ -482,6 +487,12 @@ RTMP_Connect1(RTMP *r, RTMPPacket *cp)
 	  RTMP_Close(r);
 	  return false;
 	}
+#else
+      RTMP_Log(RTMP_LOGERROR, "%s, no CRYPTO support", __FUNCTION__);
+      RTMP_Close(r);
+      return false;
+
+#endif
     }
   if (r->Link.protocol & RTMP_FEATURE_HTTP)
     {
@@ -2866,11 +2877,13 @@ RTMPSockBuf_Fill(RTMPSockBuf *sb)
   while (1)
     {
       nBytes = sizeof(sb->sb_buf) - sb->sb_size - (sb->sb_start - sb->sb_buf);
+#ifdef CRYPTO
       if (sb->sb_ssl)
 	{
 	  nBytes = TLS_read(sb->sb_ssl, sb->sb_start + sb->sb_size, nBytes);
 	}
       else
+#endif
 	{
 	  nBytes = recv(sb->sb_socket, sb->sb_start + sb->sb_size, nBytes, 0);
 	}
@@ -2907,11 +2920,13 @@ RTMPSockBuf_Send(RTMPSockBuf *sb, const char *buf, int len)
   fwrite(buf, 1, len, netstackdump);
 #endif
 
+#ifdef CRYPTO
   if (sb->sb_ssl)
     {
       rc = TLS_write(sb->sb_ssl, buf, len);
     }
   else
+#endif
     {
       rc = send(sb->sb_socket, buf, len, 0);
     }
@@ -2921,12 +2936,14 @@ RTMPSockBuf_Send(RTMPSockBuf *sb, const char *buf, int len)
 int
 RTMPSockBuf_Close(RTMPSockBuf *sb)
 {
+#ifdef CRYPTO
   if (sb->sb_ssl)
     {
       TLS_shutdown(sb->sb_ssl);
       TLS_close(sb->sb_ssl);
       sb->sb_ssl = NULL;
     }
+#endif
   return closesocket(sb->sb_socket);
 }
 

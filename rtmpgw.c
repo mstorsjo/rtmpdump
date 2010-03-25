@@ -104,7 +104,9 @@ typedef struct
   uint32_t dStartOffset;
   uint32_t dStopOffset;
 
+#ifdef CRYPTO
   unsigned char hash[HASHLEN];
+#endif
 } RTMP_REQUEST;
 
 #define STR2AVAL(av,str)	av.av_val = str; av.av_len = strlen(av.av_val)
@@ -515,11 +517,13 @@ void processTCPrequest(STREAMING_SERVER * server,	// server socket and state (ou
 
   if (req.swfVfy)
     {
+#ifdef CRYPTO
         if (RTMP_HashSWF(req.swfUrl.av_val, &req.swfSize, req.hash, req.swfAge) == 0)
           {
             req.swfHash.av_val = (char *)req.hash;
             req.swfHash.av_len = HASHLEN;
           }
+#endif
     }
 
   // after validation of the http request send response header

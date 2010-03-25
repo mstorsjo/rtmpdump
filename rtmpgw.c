@@ -448,7 +448,7 @@ void processTCPrequest(STREAMING_SERVER * server,	// server socket and state (ou
 
 		  if (!ParseOption(ich, arg, &req))
 		    {
-		      status = "400 unrecognized option";
+		      status = "400 unknown option";
 		      goto filenotfound;
 		    }
 		}

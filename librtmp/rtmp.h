@@ -119,7 +119,7 @@ extern "C"
 
   typedef struct RTMP_LNK
   {
-    const char *hostname;
+    AVal hostname;
     unsigned int port;
     int protocol;
 
@@ -142,7 +142,7 @@ extern "C"
 
     int timeout;		// number of seconds before connection times out
 
-    const char *sockshost;
+    AVal sockshost;
     unsigned short socksport;
 
 #ifdef CRYPTO
@@ -234,16 +234,16 @@ extern "C"
     RTMPSockBuf m_sb;
   } RTMP;
 
-  bool RTMP_ParseURL(const char *url, int *protocol, char **host,
+  bool RTMP_ParseURL(const char *url, int *protocol, AVal *host,
 		     unsigned int *port, AVal *playpath, AVal *app);
   void RTMP_ParsePlaypath(AVal *in, AVal *out);
   void RTMP_SetBufferMS(RTMP *r, int size);
   void RTMP_UpdateBufferMS(RTMP *r);
 
   void RTMP_SetupStream(RTMP *r, int protocol,
-			const char *hostname,
+			AVal *hostname,
 			unsigned int port,
-			const char *sockshost,
+			AVal *sockshost,
 			AVal *playpath,
 			AVal *tcUrl,
 			AVal *swfUrl,

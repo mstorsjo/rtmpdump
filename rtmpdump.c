@@ -738,7 +738,7 @@ main(int argc, char **argv)
   uint32_t nInitialFrameSize = 0;
   int initialFrameType = 0;	// tye: audio or video
 
-  char *hostname = 0;
+  AVal hostname = { 0, 0 };
   AVal playpath = { 0, 0 };
   AVal subscribepath = { 0, 0 };
   int port = -1;
@@ -762,7 +762,7 @@ main(int argc, char **argv)
   uint32_t swfSize = 0;
   AVal flashVer = { 0, 0 };
   AVal token = { 0, 0 };
-  char *sockshost = 0;
+  AVal sockshost = { 0, 0 };
   AMFObject extras = {0};
   int edepth = 0;
 
@@ -1007,7 +1007,7 @@ main(int argc, char **argv)
 	  STR2AVAL(subscribepath, optarg);
 	  break;
 	case 'n':
-	  hostname = optarg;
+	  STR2AVAL(hostname, optarg);
 	  break;
 	case 'c':
 	  port = atoi(optarg);
@@ -1026,9 +1026,7 @@ main(int argc, char **argv)
 	  break;
 	case 'r':
 	  {
-		AVal parsedApp, parsedPlaypath;
-
-	    char *parsedHost = 0;
+	    AVal parsedHost, parsedApp, parsedPlaypath;
 	    unsigned int parsedPort = 0;
 	    int parsedProtocol = RTMP_PROTOCOL_UNDEFINED;
 
@@ -1042,7 +1040,7 @@ main(int argc, char **argv)
 	      }
 	    else
 	      {
-		if (hostname == 0)
+		if (!hostname.av_len)
 		  hostname = parsedHost;
 		if (port == -1)
 		  port = parsedPort;
@@ -1118,7 +1116,7 @@ main(int argc, char **argv)
 	  RTMP_debuglevel = RTMP_LOGALL;
 	  break;
 	case 'S':
-	  sockshost = optarg;
+	  STR2AVAL(sockshost, optarg);
 	  break;
 	default:
 	  RTMP_LogPrintf("unknown option: %c\n", opt);
@@ -1127,7 +1125,7 @@ main(int argc, char **argv)
 	}
     }
 
-  if (hostname == 0)
+  if (!hostname.av_len)
     {
       RTMP_Log(RTMP_LOGERROR,
 	  "You must specify a hostname (--host) or url (-r \"rtmp://host[:port]/playpath\") containing a hostname");
@@ -1212,8 +1210,9 @@ main(int argc, char **argv)
     {
       char str[512] = { 0 };
 
-      tcUrl.av_len = snprintf(str, 511, "%s://%s:%d/%.*s",
-	  	   RTMPProtocolStringsLower[protocol], hostname, port, app.av_len, app.av_val);
+      tcUrl.av_len = snprintf(str, 511, "%s://%.*s:%d/%.*s",
+	  	   RTMPProtocolStringsLower[protocol], hostname.av_len,
+		   hostname.av_val, port, app.av_len, app.av_val);
       tcUrl.av_val = (char *) malloc(tcUrl.av_len + 1);
       strcpy(tcUrl.av_val, str);
     }
@@ -1234,7 +1233,7 @@ main(int argc, char **argv)
 
   RTMP rtmp = { 0 };
   RTMP_Init(&rtmp);
-  RTMP_SetupStream(&rtmp, protocol, hostname, port, sockshost, &playpath,
+  RTMP_SetupStream(&rtmp, protocol, &hostname, port, &sockshost, &playpath,
 		   &tcUrl, &swfUrl, &pageUrl, &app, &auth, &swfHash, swfSize,
 		   &flashVer, &subscribepath, dSeek, 0, bLiveStream, timeout);
 

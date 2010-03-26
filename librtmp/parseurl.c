@@ -29,7 +29,7 @@
 #include "rtmp_sys.h"
 #include "log.h"
 
-bool RTMP_ParseURL(const char *url, int *protocol, char **host, unsigned int *port,
+bool RTMP_ParseURL(const char *url, int *protocol, AVal *host, unsigned int *port,
 	AVal *playpath, AVal *app)
 {
 	char *p, *end, *col, *ques, *slash;
@@ -99,11 +99,9 @@ parsehost:
 		hostlen = col - p;
 
 	if(hostlen < 256) {
-		*host = malloc(hostlen+1);
-		strncpy(*host, p, hostlen);
-		(*host)[hostlen]=0;
-
-		RTMP_Log(RTMP_LOGDEBUG, "Parsed host    : %s", *host);
+		host->av_val = p;
+		host->av_len = hostlen;
+		RTMP_Log(RTMP_LOGDEBUG, "Parsed host    : %.*s", hostlen, host->av_val);
 	} else {
 		RTMP_Log(RTMP_LOGWARNING, "Hostname exceeds 255 characters!");
 	}

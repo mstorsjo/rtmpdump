@@ -75,7 +75,7 @@ void stopStreaming(STREAMING_SERVER * server);
 
 typedef struct
 {
-  char *hostname;
+  AVal hostname;
   int rtmpport;
   int protocol;
   bool bLiveStream;		// is it a live stream? then we can't seek/resume
@@ -94,7 +94,7 @@ typedef struct
   AVal flashVer;
   AVal token;
   AVal subscribepath;
-  char *sockshost;
+  AVal sockshost;
   AMFObject extras;
   int edepth;
   uint32_t swfSize;
@@ -468,7 +468,7 @@ void processTCPrequest(STREAMING_SERVER * server,	// server socket and state (ou
     }
 
   // do necessary checks right here to make sure the combined request of default values and GET parameters is correct
-  if (req.hostname == 0)
+  if (!req.hostname.av_len)
     {
       RTMP_Log(RTMP_LOGERROR,
 	  "You must specify a hostname (--host) or url (-r \"rtmp://host[:port]/playpath\") containing a hostname");
@@ -508,9 +508,9 @@ void processTCPrequest(STREAMING_SERVER * server,	// server socket and state (ou
   if (req.tcUrl.av_len == 0)
     {
       char str[512] = { 0 };
-      req.tcUrl.av_len = snprintf(str, 511, "%s://%s:%d/%.*s",
-	RTMPProtocolStringsLower[req.protocol],
-	req.hostname, req.rtmpport, req.app.av_len, req.app.av_val);
+      req.tcUrl.av_len = snprintf(str, 511, "%s://%.*s:%d/%.*s",
+	RTMPProtocolStringsLower[req.protocol], req.hostname.av_len,
+	req.hostname.av_val, req.rtmpport, req.app.av_len, req.app.av_val);
       req.tcUrl.av_val = (char *) malloc(req.tcUrl.av_len + 1);
       strcpy(req.tcUrl.av_val, str);
     }
@@ -556,7 +556,7 @@ void processTCPrequest(STREAMING_SERVER * server,	// server socket and state (ou
   RTMP_Log(RTMP_LOGDEBUG, "Setting buffer time to: %dms", req.bufferTime);
   RTMP_Init(&rtmp);
   RTMP_SetBufferMS(&rtmp, req.bufferTime);
-  RTMP_SetupStream(&rtmp, req.protocol, req.hostname, req.rtmpport, req.sockshost,
+  RTMP_SetupStream(&rtmp, req.protocol, &req.hostname, req.rtmpport, &req.sockshost,
 		   &req.playpath, &req.tcUrl, &req.swfUrl, &req.pageUrl, &req.app, &req.auth, &req.swfHash, req.swfSize, &req.flashVer, &req.subscribepath, dSeek, dLength,
 		   req.bLiveStream, req.timeout);
   /* backward compatibility, we always sent this as true before */
@@ -856,7 +856,7 @@ ParseOption(char opt, char *arg, RTMP_REQUEST * req)
       STR2AVAL(req->subscribepath, arg);
       break;
     case 'n':
-      req->hostname = arg;
+      STR2AVAL(req->hostname, arg);
       break;
     case 'c':
       req->rtmpport = atoi(arg);
@@ -883,8 +883,7 @@ ParseOption(char opt, char *arg, RTMP_REQUEST * req)
       {
 	req->rtmpurl = arg;
 
-	AVal parsedPlaypath, parsedApp;
-	char *parsedHost = 0;
+	AVal parsedHost, parsedPlaypath, parsedApp;
 	unsigned int parsedPort = 0;
 	int parsedProtocol = RTMP_PROTOCOL_UNDEFINED;
 
@@ -896,7 +895,7 @@ ParseOption(char opt, char *arg, RTMP_REQUEST * req)
 	  }
 	else
 	  {
-	    if (req->hostname == 0)
+	    if (!req->hostname.av_len)
 	      req->hostname = parsedHost;
 	    if (req->rtmpport == -1)
 	      req->rtmpport = parsedPort;
@@ -949,7 +948,7 @@ ParseOption(char opt, char *arg, RTMP_REQUEST * req)
       STR2AVAL(req->token, arg);
       break;
     case 'S':
-	  req->sockshost = arg;
+      STR2AVAL(req->sockshost, arg);
     case 'q':
       RTMP_debuglevel = RTMP_LOGCRIT;
       break;

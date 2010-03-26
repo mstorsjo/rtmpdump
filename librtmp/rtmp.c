@@ -283,9 +283,9 @@ const AVal RTMP_DefaultFlashVer =
 void
 RTMP_SetupStream(RTMP *r,
 		 int protocol,
-		 const char *hostname,
+		 AVal *host,
 		 unsigned int port,
-		 const char *sockshost,
+		 AVal *sockshost,
 		 AVal *playpath,
 		 AVal *tcUrl,
 		 AVal *swfUrl,
@@ -300,7 +300,7 @@ RTMP_SetupStream(RTMP *r,
 		 uint32_t dLength, bool bLiveStream, long int timeout)
 {
   RTMP_Log(RTMP_LOGDEBUG, "Protocol : %s", RTMPProtocolStrings[protocol&7]);
-  RTMP_Log(RTMP_LOGDEBUG, "Hostname : %s", hostname);
+  RTMP_Log(RTMP_LOGDEBUG, "Hostname : %.*s", host->av_len, host->av_val);
   RTMP_Log(RTMP_LOGDEBUG, "Port     : %d", port);
   RTMP_Log(RTMP_LOGDEBUG, "Playpath : %s", playpath->av_val);
 
@@ -343,22 +343,24 @@ RTMP_SetupStream(RTMP *r,
     }
 #endif
 
-  if (sockshost)
+  if (sockshost->av_len)
     {
-      const char *socksport = strchr(sockshost, ':');
-      char *hostname = strdup(sockshost);
+      const char *socksport = strchr(sockshost->av_val, ':');
+      char *hostname = strdup(sockshost->av_val);
 
       if (socksport)
-	hostname[socksport - sockshost] = '\0';
-      r->Link.sockshost = hostname;
+	hostname[socksport - sockshost->av_val] = '\0';
+      r->Link.sockshost.av_val = hostname;
+      r->Link.sockshost.av_len = strlen(hostname);
 
       r->Link.socksport = socksport ? atoi(socksport + 1) : 1080;
-      RTMP_Log(RTMP_LOGDEBUG, "Connecting via SOCKS proxy: %s:%d", r->Link.sockshost,
+      RTMP_Log(RTMP_LOGDEBUG, "Connecting via SOCKS proxy: %s:%d", r->Link.sockshost.av_val,
 	  r->Link.socksport);
     }
   else
     {
-      r->Link.sockshost = NULL;
+      r->Link.sockshost.av_val = NULL;
+      r->Link.sockshost.av_len = 0;
       r->Link.socksport = 0;
     }
 
@@ -384,7 +386,7 @@ RTMP_SetupStream(RTMP *r,
   r->Link.timeout = timeout;
 
   r->Link.protocol = protocol;
-  r->Link.hostname = hostname;
+  r->Link.hostname = *host;
   r->Link.port = port;
   r->Link.playpath = *playpath;
 
@@ -400,8 +402,21 @@ RTMP_SetupStream(RTMP *r,
 }
 
 static bool
-add_addr_info(struct sockaddr_in *service, const char *hostname, int port)
+add_addr_info(struct sockaddr_in *service, AVal *host, int port)
 {
+  char *hostname;
+  bool ret = true;
+  if (host->av_val[host->av_len])
+    {
+      hostname = malloc(host->av_len+1);
+      memcpy(hostname, host->av_val, host->av_len);
+      hostname[host->av_len] = '\0';
+    }
+  else
+    {
+      hostname = host->av_val;
+    }
+
   service->sin_addr.s_addr = inet_addr(hostname);
   if (service->sin_addr.s_addr == INADDR_NONE)
     {
@@ -409,13 +424,17 @@ add_addr_info(struct sockaddr_in *service, const char *hostname, int port)
       if (host == NULL || host->h_addr == NULL)
 	{
 	  RTMP_Log(RTMP_LOGERROR, "Problem accessing the DNS. (addr: %s)", hostname);
-	  return false;
+	  ret = false;
+	  goto finish;
 	}
       service->sin_addr = *(struct in_addr *)host->h_addr;
     }
 
   service->sin_port = htons(port);
-  return true;
+finish:
+  if (hostname != host->av_val)
+    free(hostname);
+  return ret;
 }
 
 bool
@@ -525,7 +544,7 @@ bool
 RTMP_Connect(RTMP *r, RTMPPacket *cp)
 {
   struct sockaddr_in service;
-  if (!r->Link.hostname)
+  if (!r->Link.hostname.av_len)
     return false;
 
   memset(&service, 0, sizeof(struct sockaddr_in));
@@ -534,13 +553,13 @@ RTMP_Connect(RTMP *r, RTMPPacket *cp)
   if (r->Link.socksport)
     {
       // Connect via SOCKS
-      if (!add_addr_info(&service, r->Link.sockshost, r->Link.socksport))
+      if (!add_addr_info(&service, &r->Link.sockshost, r->Link.socksport))
 	return false;
     }
   else
     {
       // Connect directly
-      if (!add_addr_info(&service, r->Link.hostname, r->Link.port))
+      if (!add_addr_info(&service, &r->Link.hostname, r->Link.port))
 	return false;
     }
 
@@ -558,7 +577,7 @@ SocksNegotiate(RTMP *r)
   struct sockaddr_in service;
   memset(&service, 0, sizeof(struct sockaddr_in));
 
-  add_addr_info(&service, r->Link.hostname, r->Link.port);
+  add_addr_info(&service, &r->Link.hostname, r->Link.port);
   unsigned long addr = htonl(service.sin_addr.s_addr);
 
   char packet[] = {
@@ -3024,7 +3043,7 @@ HTTP_Post(RTMP *r, RTMPTCmd cmd, const char *buf, int len)
 {
   char hbuf[512];
   int hlen = snprintf(hbuf, sizeof(hbuf), "POST /%s%s/%d HTTP/1.1\r\n"
-    "Host: %s:%d\r\n"
+    "Host: %.*s:%d\r\n"
     "Accept: */*\r\n"
     "User-Agent: Shockwave Flash\n"
     "Connection: Keep-Alive\n"
@@ -3032,7 +3051,8 @@ HTTP_Post(RTMP *r, RTMPTCmd cmd, const char *buf, int len)
     "Content-type: application/x-fcs\r\n"
     "Content-length: %d\r\n\r\n", RTMPT_cmds[cmd],
     r->m_clientID.av_val ? r->m_clientID.av_val : "",
-    r->m_msgCounter, r->Link.hostname, r->Link.port, len);
+    r->m_msgCounter, r->Link.hostname.av_len, r->Link.hostname.av_val,
+    r->Link.port, len);
   RTMPSockBuf_Send(&r->m_sb, hbuf, hlen);
   hlen = RTMPSockBuf_Send(&r->m_sb, buf, len);
   r->m_msgCounter++;

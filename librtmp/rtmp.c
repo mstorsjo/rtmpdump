@@ -226,12 +226,14 @@ RTMP_Init(RTMP *r)
   r->m_sb.sb_socket = -1;
   r->m_inChunkSize = RTMP_DEFAULT_CHUNKSIZE;
   r->m_outChunkSize = RTMP_DEFAULT_CHUNKSIZE;
-  r->m_nBufferMS = 300;
+  r->m_nBufferMS = 30000;
   r->m_nClientBW = 2500000;
   r->m_nClientBW2 = 2;
   r->m_nServerBW = 2500000;
   r->m_fAudioCodecs = 3191.0;
   r->m_fVideoCodecs = 252.0;
+  r->Link.timeout = 30;
+  r->Link.swfAge = 30;
 }
 
 double
@@ -297,8 +299,8 @@ RTMP_SetupStream(RTMP *r,
 		 uint32_t swfSize,
 		 AVal *flashVer,
 		 AVal *subscribepath,
-		 double dStart,
-		 double dStop, bool bLiveStream, long int timeout)
+		 int dStart,
+		 int dStop, bool bLiveStream, long int timeout)
 {
   RTMP_Log(RTMP_LOGDEBUG, "Protocol : %s", RTMPProtocolStrings[protocol&7]);
   RTMP_Log(RTMP_LOGDEBUG, "Hostname : %.*s", host->av_len, host->av_val);
@@ -320,9 +322,9 @@ RTMP_SetupStream(RTMP *r,
   if (flashVer && flashVer->av_val)
     RTMP_Log(RTMP_LOGDEBUG, "flashVer : %s", flashVer->av_val);
   if (dStart > 0)
-    RTMP_Log(RTMP_LOGDEBUG, "StartTime     : %.3f sec", dStart);
+    RTMP_Log(RTMP_LOGDEBUG, "StartTime     : %d msec", dStart);
   if (dStop > 0)
-    RTMP_Log(RTMP_LOGDEBUG, "StopTime      : %.3f sec", dStop);
+    RTMP_Log(RTMP_LOGDEBUG, "StopTime      : %d msec", dStop);
 
   RTMP_Log(RTMP_LOGDEBUG, "live     : %s", bLiveStream ? "yes" : "no");
   RTMP_Log(RTMP_LOGDEBUG, "timeout  : %d sec", timeout);
@@ -615,6 +617,16 @@ bool RTMP_SetupURL(RTMP *r, char *url)
   bool ret;
   unsigned int port = 0;
 
+  if (ptr)
+    *ptr = '\0';
+
+  ret = RTMP_ParseURL(url, &r->Link.protocol, &r->Link.hostname,
+  	&port, &r->Link.playpath0, &r->Link.app);
+  if (!ret)
+    return ret;
+  r->Link.port = port;
+  r->Link.playpath = r->Link.playpath0;
+
   while (ptr) {
     *ptr++ = '\0';
     p1 = ptr;
@@ -636,15 +648,29 @@ bool RTMP_SetupURL(RTMP *r, char *url)
     if (!ret)
       return ret;
   }
-  ret = RTMP_ParseURL(url, &r->Link.protocol, &r->Link.hostname,
-  	&port, &r->Link.playpath0, &r->Link.app);
-  if (!ret)
-    return ret;
-  r->Link.port = port;
-  r->Link.playpath = r->Link.playpath0;
+
+  if (!r->Link.tcUrl.av_len)
+    {
+	  r->Link.tcUrl.av_val = url;
+	  if (r->Link.app.av_len)
+	    r->Link.tcUrl.av_len = r->Link.app.av_len + (r->Link.app.av_val - url);
+	  else
+	    r->Link.tcUrl.av_len = strlen(url);
+	}
+
   if (r->Link.swfVfy && r->Link.swfUrl.av_len)
     RTMP_HashSWF(r->Link.swfUrl.av_val, &r->Link.SWFSize,
 	  (unsigned char *)r->Link.SWFHash, r->Link.swfAge);
+
+  if (r->Link.port == 0)
+    {
+      if (r->Link.protocol & RTMP_FEATURE_SSL)
+	r->Link.port = 443;
+      else if (r->Link.protocol & RTMP_FEATURE_HTTP)
+	r->Link.port = 80;
+      else
+	r->Link.port = 1935;
+    }
   return true;
 }
 
@@ -687,9 +713,6 @@ finish:
 bool
 RTMP_Connect0(RTMP *r, struct sockaddr * service)
 {
-  // close any previous connection
-  RTMP_Close(r);
-
   r->m_sb.sb_timedout = false;
   r->m_pausing = 0;
   r->m_fDuration = 0.0;

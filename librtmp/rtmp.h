@@ -259,8 +259,8 @@ extern "C"
 			uint32_t swfSize,
 			AVal *flashVer,
 			AVal *subscribepath,
-			double dStart,
-			double dStop, bool bLiveStream, long int timeout);
+			int dStart,
+			int dStop, bool bLiveStream, long int timeout);
 
   bool RTMP_Connect(RTMP *r, RTMPPacket *cp);
   struct sockaddr;

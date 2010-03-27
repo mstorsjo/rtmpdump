@@ -876,10 +876,14 @@ SocksNegotiate(RTMP *r)
 }
 
 bool
-RTMP_ConnectStream(RTMP *r, double seekTime)
+RTMP_ConnectStream(RTMP *r, int seekTime)
 {
   RTMPPacket packet = { 0 };
-  if (seekTime >= -2.0)
+
+  /* seekTime was already set by SetupStream / SetupURL.
+   * This is only needed by ReconnectStream.
+   */
+  if (seekTime > 0)
     r->Link.seekTime = seekTime;
 
   r->m_mediaChannel = 0;
@@ -908,7 +912,7 @@ RTMP_ConnectStream(RTMP *r, double seekTime)
 }
 
 bool
-RTMP_ReconnectStream(RTMP *r, double seekTime)
+RTMP_ReconnectStream(RTMP *r, int seekTime)
 {
   RTMP_DeleteStream(r);
 
@@ -1677,7 +1681,7 @@ SendDeleteStream(RTMP *r, double dStreamId)
 SAVC(pause);
 
 bool
-RTMP_SendPause(RTMP *r, bool DoPause, double dTime)
+RTMP_SendPause(RTMP *r, bool DoPause, int dTime)
 {
   RTMPPacket packet;
   char pbuf[256], *pend = pbuf + sizeof(pbuf);
@@ -1706,7 +1710,7 @@ RTMP_SendPause(RTMP *r, bool DoPause, double dTime)
 SAVC(seek);
 
 bool
-RTMP_SendSeek(RTMP *r, double dTime)
+RTMP_SendSeek(RTMP *r, int dTime)
 {
   RTMPPacket packet;
   char pbuf[256], *pend = pbuf + sizeof(pbuf);
@@ -1723,7 +1727,7 @@ RTMP_SendSeek(RTMP *r, double dTime)
   enc = AMF_EncodeString(enc, pend, &av_seek);
   enc = AMF_EncodeNumber(enc, pend, ++r->m_numInvokes);
   *enc++ = AMF_NULL;
-  enc = AMF_EncodeNumber(enc, pend, dTime);
+  enc = AMF_EncodeNumber(enc, pend, (double)dTime);
 
   packet.m_nBodySize = enc - packet.m_body;
 

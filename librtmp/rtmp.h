@@ -276,8 +276,8 @@ extern "C"
   double RTMP_GetDuration(RTMP *r);
   bool RTMP_ToggleStream(RTMP *r);
 
-  bool RTMP_ConnectStream(RTMP *r, double seekTime);
-  bool RTMP_ReconnectStream(RTMP *r, double seekTime);
+  bool RTMP_ConnectStream(RTMP *r, int seekTime);
+  bool RTMP_ReconnectStream(RTMP *r, int seekTime);
   void RTMP_DeleteStream(RTMP *r);
   int RTMP_GetNextMediaPacket(RTMP *r, RTMPPacket *packet);
   int RTMP_ClientPacket(RTMP *r, RTMPPacket *packet);
@@ -289,7 +289,7 @@ extern "C"
 
   bool RTMP_SendCtrl(RTMP *r, short nType, unsigned int nObject,
 		     unsigned int nTime);
-  bool RTMP_SendPause(RTMP *r, bool DoPause, double dTime);
+  bool RTMP_SendPause(RTMP *r, bool DoPause, int dTime);
   bool RTMP_FindFirstMatchingProperty(AMFObject *obj, const AVal *name,
 				      AMFObjectProperty * p);
 
@@ -298,7 +298,7 @@ extern "C"
   int RTMPSockBuf_Close(RTMPSockBuf *sb);
 
   bool RTMP_SendCreateStream(RTMP *r);
-  bool RTMP_SendSeek(RTMP *r, double dTime);
+  bool RTMP_SendSeek(RTMP *r, int dTime);
   bool RTMP_SendServerBW(RTMP *r);
   bool RTMP_SendClientBW(RTMP *r);
   void RTMP_DropRequest(RTMP *r, int i, bool freeit);

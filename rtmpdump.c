@@ -46,6 +46,10 @@
 #define RD_FAILED		1
 #define RD_INCOMPLETE		2
 
+#define DEF_TIMEOUT	30	/* seconds */
+#define DEF_BUFTIME	(10 * 60 * 60 * 1000)	/* 10 hours default */
+#define DEF_SKIPFRM	0
+
 // starts sockets
 bool
 InitSockets()
@@ -119,6 +123,8 @@ int hex2bin(char *str, char **hex)
 
 static const AVal av_onMetaData = AVC("onMetaData");
 static const AVal av_duration = AVC("duration");
+static const AVal av_conn = AVC("conn");
+static const AVal av_token = AVC("token");
 
 int
 OpenResumeFile(const char *flvFile,	// file name [in]
@@ -431,7 +437,7 @@ GetLastKeyframe(FILE * file,	// output file [in]
 
 int
 Download(RTMP * rtmp,		// connected RTMP object
-	 FILE * file, uint32_t dSeek, uint32_t dLength, double duration, bool bResume, char *metaHeader, uint32_t nMetaHeaderSize, char *initialFrame, int initialFrameType, uint32_t nInitialFrameSize, int nSkipKeyFrames, bool bStdoutMode, bool bLiveStream, bool bHashes, bool bOverrideBufferTime, uint32_t bufferTime, double *percent)	// percentage downloaded [out]
+	 FILE * file, uint32_t dSeek, uint32_t dStopOffset, double duration, bool bResume, char *metaHeader, uint32_t nMetaHeaderSize, char *initialFrame, int initialFrameType, uint32_t nInitialFrameSize, int nSkipKeyFrames, bool bStdoutMode, bool bLiveStream, bool bHashes, bool bOverrideBufferTime, uint32_t bufferTime, double *percent)	// percentage downloaded [out]
 {
   int32_t now, lastUpdate;
   int bufferSize = 64 * 1024;
@@ -484,8 +490,8 @@ Download(RTMP * rtmp,		// connected RTMP object
 	}
     }
 
-  if (dLength > 0)
-    RTMP_LogPrintf("For duration: %.3f sec\n", (double) dLength / 1000.0);
+  if (dStopOffset > 0)
+    RTMP_LogPrintf("For duration: %.3f sec\n", (double) (dStopOffset - dSeek) / 1000.0);
 
   if (bResume && nInitialFrameSize > 0)
     rtmp->m_read.flags |= RTMP_READ_RESUME;
@@ -620,240 +626,10 @@ Download(RTMP * rtmp,		// connected RTMP object
 
 #define STR2AVAL(av,str)	av.av_val = str; av.av_len = strlen(av.av_val)
 
-int
-parseAMF(AMFObject *obj, const char *arg, int *depth)
+void usage(char *prog)
 {
-  AMFObjectProperty prop = {{0,0}};
-  int i;
-  char *p;
-
-  if (arg[1] == ':')
-    {
-      p = (char *)arg+2;
-      switch(arg[0])
-        {
-        case 'B':
-          prop.p_type = AMF_BOOLEAN;
-          prop.p_vu.p_number = atoi(p);
-          break;
-        case 'S':
-          prop.p_type = AMF_STRING;
-          STR2AVAL(prop.p_vu.p_aval,p);
-          break;
-        case 'N':
-          prop.p_type = AMF_NUMBER;
-          prop.p_vu.p_number = strtod(p, NULL);
-          break;
-        case 'Z':
-          prop.p_type = AMF_NULL;
-          break;
-        case 'O':
-          i = atoi(p);
-          if (i)
-            {
-              prop.p_type = AMF_OBJECT;
-            }
-          else
-            {
-              (*depth)--;
-              return 0;
-            }
-          break;
-        default:
-          return -1;
-        }
-    }
-  else if (arg[2] == ':' && arg[0] == 'N')
-    {
-      p = strchr(arg+3, ':');
-      if (!p || !*depth)
-        return -1;
-      prop.p_name.av_val = (char *)arg+3;
-      prop.p_name.av_len = p - (arg+3);
-
-      p++;
-      switch(arg[1])
-        {
-        case 'B':
-          prop.p_type = AMF_BOOLEAN;
-          prop.p_vu.p_number = atoi(p);
-          break;
-        case 'S':
-          prop.p_type = AMF_STRING;
-          STR2AVAL(prop.p_vu.p_aval,p);
-          break;
-        case 'N':
-          prop.p_type = AMF_NUMBER;
-          prop.p_vu.p_number = strtod(p, NULL);
-          break;
-        case 'O':
-          prop.p_type = AMF_OBJECT;
-          break;
-        default:
-          return -1;
-        }
-    }
-  else
-    return -1;
-
-  if (*depth)
-    {
-      AMFObject *o2;
-      for (i=0; i<*depth; i++)
-        {
-          o2 = &obj->o_props[obj->o_num-1].p_vu.p_object;
-          obj = o2;
-        }
-    }
-  AMF_AddProp(obj, &prop);
-  if (prop.p_type == AMF_OBJECT)
-    (*depth)++;
-  return 0;
-}
-
-int
-main(int argc, char **argv)
-{
-  extern char *optarg;
-
-  int nStatus = RD_SUCCESS;
-  double percent = 0;
-  double duration = 0.0;
-
-  int nSkipKeyFrames = 0;	// skip this number of keyframes when resuming
-
-  bool bOverrideBufferTime = false;	// if the user specifies a buffer time override this is true
-  bool bStdoutMode = true;	// if true print the stream directly to stdout, messages go to stderr
-  bool bResume = false;		// true in resume mode
-  uint32_t dSeek = 0;		// seek position in resume mode, 0 otherwise
-  uint32_t bufferTime = 10 * 60 * 60 * 1000;	// 10 hours as default
-
-  // meta header and initial frame for the resume mode (they are read from the file and compared with
-  // the stream we are trying to continue
-  char *metaHeader = 0;
-  uint32_t nMetaHeaderSize = 0;
-
-  // video keyframe for matching
-  char *initialFrame = 0;
-  uint32_t nInitialFrameSize = 0;
-  int initialFrameType = 0;	// tye: audio or video
-
-  AVal hostname = { 0, 0 };
-  AVal playpath = { 0, 0 };
-  AVal subscribepath = { 0, 0 };
-  int port = -1;
-  int protocol = RTMP_PROTOCOL_UNDEFINED;
-  int retries = 0;
-  bool bLiveStream = false;	// is it a live stream? then we can't seek/resume
-  bool bHashes = false;		// display byte counters not hashes by default
-
-  long int timeout = 120;	// timeout connection after 120 seconds
-  uint32_t dStartOffset = 0;	// seek position in non-live mode
-  uint32_t dStopOffset = 0;
-  uint32_t dLength = 0;		// length to play from stream - calculated from seek position and dStopOffset
-
-  char *rtmpurl = 0;
-  AVal swfUrl = { 0, 0 };
-  AVal tcUrl = { 0, 0 };
-  AVal pageUrl = { 0, 0 };
-  AVal app = { 0, 0 };
-  AVal auth = { 0, 0 };
-  AVal swfHash = { 0, 0 };
-  uint32_t swfSize = 0;
-  AVal flashVer = { 0, 0 };
-  AVal token = { 0, 0 };
-  AVal sockshost = { 0, 0 };
-  AMFObject extras = {0};
-  int edepth = 0;
-
-#ifdef CRYPTO
-  int swfAge = 30;	/* 30 days for SWF cache by default */
-  int swfVfy = 0;
-  unsigned char hash[HASHLEN];
-#endif
-
-  char *flvFile = 0;
-
-  signal(SIGINT, sigIntHandler);
-  signal(SIGTERM, sigIntHandler);
-#ifndef WIN32
-  signal(SIGHUP, sigIntHandler);
-  signal(SIGPIPE, sigIntHandler);
-  signal(SIGQUIT, sigIntHandler);
-#endif
-
-  // Check for --quiet option before printing any output
-  int index = 0;
-  while (index < argc)
-    {
-      if (strcmp(argv[index], "--quiet") == 0
-	  || strcmp(argv[index], "-q") == 0)
-	RTMP_debuglevel = RTMP_LOGCRIT;
-      index++;
-    }
-
-  RTMP_LogPrintf("RTMPDump %s\n", RTMPDUMP_VERSION);
-  RTMP_LogPrintf
-    ("(c) 2010 Andrej Stepanchuk, Howard Chu, The Flvstreamer Team; license: GPL\n");
-
-  if (!InitSockets())
-    {
-      RTMP_Log(RTMP_LOGERROR,
-	  "Couldn't load sockets support on your platform, exiting!");
-      return RD_FAILED;
-    }
-
-  /* sleep(30); */
-
-  int opt;
-  struct option longopts[] = {
-    {"help", 0, NULL, 'h'},
-    {"host", 1, NULL, 'n'},
-    {"port", 1, NULL, 'c'},
-    {"socks", 1, NULL, 'S'},
-    {"protocol", 1, NULL, 'l'},
-    {"playpath", 1, NULL, 'y'},
-    {"rtmp", 1, NULL, 'r'},
-    {"swfUrl", 1, NULL, 's'},
-    {"tcUrl", 1, NULL, 't'},
-    {"pageUrl", 1, NULL, 'p'},
-    {"app", 1, NULL, 'a'},
-    {"auth", 1, NULL, 'u'},
-    {"conn", 1, NULL, 'C'},
-#ifdef CRYPTO
-    {"swfhash", 1, NULL, 'w'},
-    {"swfsize", 1, NULL, 'x'},
-    {"swfVfy", 1, NULL, 'W'},
-    {"swfAge", 1, NULL, 'X'},
-#endif
-    {"flashVer", 1, NULL, 'f'},
-    {"live", 0, NULL, 'v'},
-    {"flv", 1, NULL, 'o'},
-    {"resume", 0, NULL, 'e'},
-    {"timeout", 1, NULL, 'm'},
-    {"buffer", 1, NULL, 'b'},
-    {"skip", 1, NULL, 'k'},
-    {"subscribe", 1, NULL, 'd'},
-    {"start", 1, NULL, 'A'},
-    {"stop", 1, NULL, 'B'},
-    {"token", 1, NULL, 'T'},
-    {"hashes", 0, NULL, '#'},
-    {"debug", 0, NULL, 'z'},
-    {"quiet", 0, NULL, 'q'},
-    {"verbose", 0, NULL, 'V'},
-    {0, 0, 0, 0}
-  };
-
-  while ((opt =
-	  getopt_long(argc, argv,
-		      "hVveqzr:s:t:p:a:b:f:o:u:C:n:c:l:y:m:k:d:A:B:T:w:x:W:X:S:#",
-		      longopts, NULL)) != -1)
-    {
-      switch (opt)
-	{
-	case 'h':
 	  RTMP_LogPrintf
-	    ("\nThis program dumps the media content streamed over RTMP.\n\n");
+	    ("\n%s: This program dumps the media content streamed over RTMP.\n\n", prog);
 	  RTMP_LogPrintf("--help|-h               Prints this help screen.\n");
 	  RTMP_LogPrintf
 	    ("--rtmp|-r url           URL (e.g. rtmp://host[:port]/path)\n");
@@ -903,7 +679,7 @@ main(int argc, char **argv)
 	    ("--resume|-e             Resume a partial RTMP download\n");
 	  RTMP_LogPrintf
 	    ("--timeout|-m num        Timeout connection num seconds (default: %lu)\n",
-	     timeout);
+	     DEF_TIMEOUT);
 	  RTMP_LogPrintf
 	    ("--start|-A num          Start at num seconds into stream (not valid when using --live)\n");
 	  RTMP_LogPrintf
@@ -913,11 +689,11 @@ main(int argc, char **argv)
 	  RTMP_LogPrintf
 	    ("--hashes|-#             Display progress with hashes, not with the byte counter\n");
 	  RTMP_LogPrintf
-	    ("--buffer|-b             Buffer time in milliseconds (default: %lu), this option makes only sense in stdout mode (-o -)\n",
-	     bufferTime);
+	    ("--buffer|-b             Buffer time in milliseconds (default: %lu)\n",
+	     DEF_BUFTIME);
 	  RTMP_LogPrintf
 	    ("--skip|-k num           Skip num keyframes when looking for last keyframe to resume from. Useful if resume fails (default: %d)\n\n",
-	     nSkipKeyFrames);
+	     DEF_SKIPFRM);
 	  RTMP_LogPrintf
 	    ("--quiet|-q              Suppresses all command output.\n");
 	  RTMP_LogPrintf("--verbose|-V            Verbose command output.\n");
@@ -925,6 +701,148 @@ main(int argc, char **argv)
 	  RTMP_LogPrintf
 	    ("If you don't pass parameters for swfUrl, pageUrl, or auth these properties will not be included in the connect ");
 	  RTMP_LogPrintf("packet.\n\n");
+}
+
+int
+main(int argc, char **argv)
+{
+  extern char *optarg;
+
+  int nStatus = RD_SUCCESS;
+  double percent = 0;
+  double duration = 0.0;
+
+  int nSkipKeyFrames = DEF_SKIPFRM;	// skip this number of keyframes when resuming
+
+  bool bOverrideBufferTime = false;	// if the user specifies a buffer time override this is true
+  bool bStdoutMode = true;	// if true print the stream directly to stdout, messages go to stderr
+  bool bResume = false;		// true in resume mode
+  uint32_t dSeek = 0;		// seek position in resume mode, 0 otherwise
+  uint32_t bufferTime = DEF_BUFTIME;
+
+  // meta header and initial frame for the resume mode (they are read from the file and compared with
+  // the stream we are trying to continue
+  char *metaHeader = 0;
+  uint32_t nMetaHeaderSize = 0;
+
+  // video keyframe for matching
+  char *initialFrame = 0;
+  uint32_t nInitialFrameSize = 0;
+  int initialFrameType = 0;	// tye: audio or video
+
+  AVal hostname = { 0, 0 };
+  AVal playpath = { 0, 0 };
+  AVal subscribepath = { 0, 0 };
+  int port = -1;
+  int protocol = RTMP_PROTOCOL_UNDEFINED;
+  int retries = 0;
+  bool bLiveStream = false;	// is it a live stream? then we can't seek/resume
+  bool bHashes = false;		// display byte counters not hashes by default
+
+  long int timeout = DEF_TIMEOUT;	// timeout connection after 120 seconds
+  uint32_t dStartOffset = 0;	// seek position in non-live mode
+  uint32_t dStopOffset = 0;
+  RTMP rtmp = { 0 };
+
+  AVal swfUrl = { 0, 0 };
+  AVal tcUrl = { 0, 0 };
+  AVal pageUrl = { 0, 0 };
+  AVal app = { 0, 0 };
+  AVal auth = { 0, 0 };
+  AVal swfHash = { 0, 0 };
+  uint32_t swfSize = 0;
+  AVal flashVer = { 0, 0 };
+  AVal sockshost = { 0, 0 };
+
+#ifdef CRYPTO
+  int swfAge = 30;	/* 30 days for SWF cache by default */
+  int swfVfy = 0;
+  unsigned char hash[HASHLEN];
+#endif
+
+  char *flvFile = 0;
+
+  signal(SIGINT, sigIntHandler);
+  signal(SIGTERM, sigIntHandler);
+#ifndef WIN32
+  signal(SIGHUP, sigIntHandler);
+  signal(SIGPIPE, sigIntHandler);
+  signal(SIGQUIT, sigIntHandler);
+#endif
+
+  // Check for --quiet option before printing any output
+  int index = 0;
+  while (index < argc)
+    {
+      if (strcmp(argv[index], "--quiet") == 0
+	  || strcmp(argv[index], "-q") == 0)
+	RTMP_debuglevel = RTMP_LOGCRIT;
+      index++;
+    }
+
+  RTMP_LogPrintf("RTMPDump %s\n", RTMPDUMP_VERSION);
+  RTMP_LogPrintf
+    ("(c) 2010 Andrej Stepanchuk, Howard Chu, The Flvstreamer Team; license: GPL\n");
+
+  if (!InitSockets())
+    {
+      RTMP_Log(RTMP_LOGERROR,
+	  "Couldn't load sockets support on your platform, exiting!");
+      return RD_FAILED;
+    }
+
+  /* sleep(30); */
+
+  RTMP_Init(&rtmp);
+
+  int opt;
+  struct option longopts[] = {
+    {"help", 0, NULL, 'h'},
+    {"host", 1, NULL, 'n'},
+    {"port", 1, NULL, 'c'},
+    {"socks", 1, NULL, 'S'},
+    {"protocol", 1, NULL, 'l'},
+    {"playpath", 1, NULL, 'y'},
+    {"rtmp", 1, NULL, 'r'},
+    {"swfUrl", 1, NULL, 's'},
+    {"tcUrl", 1, NULL, 't'},
+    {"pageUrl", 1, NULL, 'p'},
+    {"app", 1, NULL, 'a'},
+    {"auth", 1, NULL, 'u'},
+    {"conn", 1, NULL, 'C'},
+#ifdef CRYPTO
+    {"swfhash", 1, NULL, 'w'},
+    {"swfsize", 1, NULL, 'x'},
+    {"swfVfy", 1, NULL, 'W'},
+    {"swfAge", 1, NULL, 'X'},
+#endif
+    {"flashVer", 1, NULL, 'f'},
+    {"live", 0, NULL, 'v'},
+    {"flv", 1, NULL, 'o'},
+    {"resume", 0, NULL, 'e'},
+    {"timeout", 1, NULL, 'm'},
+    {"buffer", 1, NULL, 'b'},
+    {"skip", 1, NULL, 'k'},
+    {"subscribe", 1, NULL, 'd'},
+    {"start", 1, NULL, 'A'},
+    {"stop", 1, NULL, 'B'},
+    {"token", 1, NULL, 'T'},
+    {"hashes", 0, NULL, '#'},
+    {"debug", 0, NULL, 'z'},
+    {"quiet", 0, NULL, 'q'},
+    {"verbose", 0, NULL, 'V'},
+    {0, 0, 0, 0}
+  };
+
+  while ((opt =
+	  getopt_long(argc, argv,
+		      "hVveqzr:s:t:p:a:b:f:o:u:C:n:c:l:y:m:k:d:A:B:T:w:x:W:X:S:#",
+		      longopts, NULL)) != -1)
+    {
+      switch (opt)
+	{
+	case 'h':
+	  usage(argv[0]);
 	  return RD_SUCCESS;
 #ifdef CRYPTO
 	case 'w':
@@ -1014,8 +932,7 @@ main(int argc, char **argv)
 	  break;
 	case 'l':
 	  protocol = atoi(optarg);
-	  if (protocol != RTMP_PROTOCOL_RTMP
-	      && protocol != RTMP_PROTOCOL_RTMPE)
+	  if (protocol < RTMP_PROTOCOL_RTMP || protocol > RTMP_PROTOCOL_RTMPS)
 	    {
 	      RTMP_Log(RTMP_LOGERROR, "Unknown protocol specified: %d", protocol);
 	      return RD_FAILED;
@@ -1030,9 +947,8 @@ main(int argc, char **argv)
 	    unsigned int parsedPort = 0;
 	    int parsedProtocol = RTMP_PROTOCOL_UNDEFINED;
 
-	    rtmpurl = optarg;
 	    if (!RTMP_ParseURL
-		(rtmpurl, &parsedProtocol, &parsedHost, &parsedPort,
+		(optarg, &parsedProtocol, &parsedHost, &parsedPort,
 		 &parsedPlaypath, &parsedApp))
 	      {
 		RTMP_Log(RTMP_LOGWARNING, "Couldn't parse the specified url (%s)!",
@@ -1084,13 +1000,16 @@ main(int argc, char **argv)
 	case 'u':
 	  STR2AVAL(auth, optarg);
 	  break;
-        case 'C':
-          if (parseAMF(&extras, optarg, &edepth))
-            {
-              RTMP_Log(RTMP_LOGERROR, "Invalid AMF parameter: %s", optarg);
-              return RD_FAILED;
-            }
-          break;
+	case 'C': {
+	  AVal av;
+	  STR2AVAL(av, optarg);
+	  if (!RTMP_SetOpt(&rtmp, &av_conn, &av))
+	    {
+	      RTMP_Log(RTMP_LOGERROR, "Invalid AMF parameter: %s", optarg);
+	      return RD_FAILED;
+	    }
+	  }
+	  break;
 	case 'm':
 	  timeout = atoi(optarg);
 	  break;
@@ -1100,8 +1019,11 @@ main(int argc, char **argv)
 	case 'B':
 	  dStopOffset = (int) (atof(optarg) * 1000.0);
 	  break;
-	case 'T':
+	case 'T': {
+	  AVal token;
 	  STR2AVAL(token, optarg);
+	  RTMP_SetOpt(&rtmp, &av_token, &token);
+	  }
 	  break;
 	case '#':
 	  bHashes = true;
@@ -1120,6 +1042,7 @@ main(int argc, char **argv)
 	  break;
 	default:
 	  RTMP_LogPrintf("unknown option: %c\n", opt);
+	  usage(argv[0]);
 	  return RD_FAILED;
 	  break;
 	}
@@ -1231,18 +1154,10 @@ main(int argc, char **argv)
 	}
     }
 
-  RTMP rtmp = { 0 };
-  RTMP_Init(&rtmp);
   RTMP_SetupStream(&rtmp, protocol, &hostname, port, &sockshost, &playpath,
 		   &tcUrl, &swfUrl, &pageUrl, &app, &auth, &swfHash, swfSize,
-		   &flashVer, &subscribepath, dSeek, 0, bLiveStream, timeout);
+		   &flashVer, &subscribepath, dSeek, dStopOffset, bLiveStream, timeout);
 
-  /* backward compatibility, we always sent this as true before */
-  if (auth.av_len)
-    rtmp.Link.authflag = true;
-
-  rtmp.Link.extras = extras;
-  rtmp.Link.token = token;
   off_t size = 0;
 
   // ok, we have to get the timestamp of the last keyframe (only keyframes are seekable) / last audio frame (audio only streams)
@@ -1339,10 +1254,8 @@ main(int argc, char **argv)
 	  // Calculate the length of the stream to still play
 	  if (dStopOffset > 0)
 	    {
-	      dLength = dStopOffset - dSeek;
-
 	      // Quit if start seek is past required stop offset
-	      if (dLength <= 0)
+	      if (dStopOffset <= dSeek)
 		{
 		  RTMP_LogPrintf("Already Completed\n");
 		  nStatus = RD_SUCCESS;
@@ -1350,7 +1263,7 @@ main(int argc, char **argv)
 		}
 	    }
 
-	  if (!RTMP_ConnectStream(&rtmp, dSeek, dLength))
+	  if (!RTMP_ConnectStream(&rtmp, dSeek))
 	    {
 	      nStatus = RD_FAILED;
 	      break;
@@ -1378,15 +1291,14 @@ main(int argc, char **argv)
               dSeek = rtmp.m_pauseStamp;
               if (dStopOffset > 0)
                 {
-                  dLength = dStopOffset - dSeek;
-                  if (dLength <= 0)
+                  if (dStopOffset <= dSeek)
                     {
                       RTMP_LogPrintf("Already Completed\n");
 		      nStatus = RD_SUCCESS;
 		      break;
                     }
                 }
-              if (!RTMP_ReconnectStream(&rtmp, bufferTime, dSeek, dLength))
+              if (!RTMP_ReconnectStream(&rtmp, dSeek))
                 {
 	          RTMP_Log(RTMP_LOGERROR, "Failed to resume the stream\n\n");
 	          if (!RTMP_IsTimedout(&rtmp))
@@ -1408,7 +1320,7 @@ main(int argc, char **argv)
 	  bResume = true;
 	}
 
-      nStatus = Download(&rtmp, file, dSeek, dLength, duration, bResume,
+      nStatus = Download(&rtmp, file, dSeek, dStopOffset, duration, bResume,
 			 metaHeader, nMetaHeaderSize, initialFrame,
 			 initialFrameType, nInitialFrameSize,
 			 nSkipKeyFrames, bStdoutMode, bLiveStream, bHashes,

@@ -276,7 +276,8 @@ RTMP_UpdateBufferMS(RTMP *r)
 #else
 #define OSS	"GNU"
 #endif
-static const char DEFAULT_FLASH_VER[] = OSS " 10,0,32,18";
+#define DEF_VERSTR	OSS " 10,0,32,18"
+static const char DEFAULT_FLASH_VER[] = DEF_VERSTR;
 const AVal RTMP_DefaultFlashVer =
   { (char *)DEFAULT_FLASH_VER, sizeof(DEFAULT_FLASH_VER) - 1 };
 
@@ -296,8 +297,8 @@ RTMP_SetupStream(RTMP *r,
 		 uint32_t swfSize,
 		 AVal *flashVer,
 		 AVal *subscribepath,
-		 double dTime,
-		 uint32_t dLength, bool bLiveStream, long int timeout)
+		 double dStart,
+		 double dStop, bool bLiveStream, long int timeout)
 {
   RTMP_Log(RTMP_LOGDEBUG, "Protocol : %s", RTMPProtocolStrings[protocol&7]);
   RTMP_Log(RTMP_LOGDEBUG, "Hostname : %.*s", host->av_len, host->av_val);
@@ -318,10 +319,10 @@ RTMP_SetupStream(RTMP *r,
     RTMP_Log(RTMP_LOGDEBUG, "subscribepath : %s", subscribepath->av_val);
   if (flashVer && flashVer->av_val)
     RTMP_Log(RTMP_LOGDEBUG, "flashVer : %s", flashVer->av_val);
-  if (dTime > 0)
-    RTMP_Log(RTMP_LOGDEBUG, "SeekTime      : %.3f sec", (double)dTime / 1000.0);
-  if (dLength > 0)
-    RTMP_Log(RTMP_LOGDEBUG, "playLength    : %.3f sec", (double)dLength / 1000.0);
+  if (dStart > 0)
+    RTMP_Log(RTMP_LOGDEBUG, "StartTime     : %.3f sec", dStart);
+  if (dStop > 0)
+    RTMP_Log(RTMP_LOGDEBUG, "StopTime      : %.3f sec", dStop);
 
   RTMP_Log(RTMP_LOGDEBUG, "live     : %s", bLiveStream ? "yes" : "no");
   RTMP_Log(RTMP_LOGDEBUG, "timeout  : %d sec", timeout);
@@ -329,16 +330,14 @@ RTMP_SetupStream(RTMP *r,
 #ifdef CRYPTO
   if (swfSHA256Hash != NULL && swfSize > 0)
     {
-      r->Link.SWFHash = *swfSHA256Hash;
+      memcpy(r->Link.SWFHash, swfSHA256Hash->av_val, sizeof(r->Link.SWFHash));
       r->Link.SWFSize = swfSize;
       RTMP_Log(RTMP_LOGDEBUG, "SWFSHA256:");
-      RTMP_LogHex(RTMP_LOGDEBUG, r->Link.SWFHash.av_val, 32);
+      RTMP_LogHex(RTMP_LOGDEBUG, r->Link.SWFHash, sizeof(r->Link.SWFHash));
       RTMP_Log(RTMP_LOGDEBUG, "SWFSize  : %lu", r->Link.SWFSize);
     }
   else
     {
-      r->Link.SWFHash.av_len = 0;
-      r->Link.SWFHash.av_val = NULL;
       r->Link.SWFSize = 0;
     }
 #endif
@@ -373,15 +372,18 @@ RTMP_SetupStream(RTMP *r,
   if (app && app->av_len)
     r->Link.app = *app;
   if (auth && auth->av_len)
-    r->Link.auth = *auth;
+    {
+      r->Link.auth = *auth;
+      r->Link.authflag = true;
+    }
   if (flashVer && flashVer->av_len)
     r->Link.flashVer = *flashVer;
   else
     r->Link.flashVer = RTMP_DefaultFlashVer;
   if (subscribepath && subscribepath->av_len)
     r->Link.subscribepath = *subscribepath;
-  r->Link.seekTime = dTime;
-  r->Link.length = dLength;
+  r->Link.seekTime = dStart;
+  r->Link.stopTime = dStop;
   r->Link.bLiveStream = bLiveStream;
   r->Link.timeout = timeout;
 
@@ -399,6 +401,251 @@ RTMP_SetupStream(RTMP *r,
       else
 	r->Link.port = 1935;
     }
+}
+
+enum { OPT_STR=0, OPT_INT, OPT_BOOL, OPT_CONN };
+static const char *optinfo[] = {
+	"string", "integer", "boolean", "AMF" };
+
+#define OFF(x)	offsetof(struct RTMP,x)
+
+static struct urlopt {
+  AVal name;
+  off_t off;
+  int otype;
+  char *use;
+} options[] = {
+  { AVC("socks"),     OFF(Link.sockshost),     OPT_STR,
+  	"Use the specified SOCKS proxy" },
+  { AVC("app"),       OFF(Link.app),           OPT_STR,
+	"Name of target app on server" },
+  { AVC("tcUrl"),     OFF(Link.tcUrl),         OPT_STR,
+  	"URL to played stream" },
+  { AVC("pageUrl"),   OFF(Link.pageUrl),       OPT_STR,
+  	"URL of played media's web page" },
+  { AVC("swfUrl"),    OFF(Link.swfUrl),        OPT_STR,
+  	"URL to player SWF file" },
+  { AVC("flashver"),  OFF(Link.flashVer),      OPT_STR,
+  	"Flash version string (default " DEF_VERSTR ")" },
+  { AVC("conn"),      OFF(Link.extras),        OPT_CONN,
+  	"Append arbitrary AMF data to Connect message" },
+  { AVC("playpath"),  OFF(Link.playpath),      OPT_STR,
+  	"Path to target media on server" },
+  { AVC("live"),      OFF(Link.bLiveStream),   OPT_BOOL,
+  	"Stream is live, no seeking possible" },
+  { AVC("subscribe"), OFF(Link.subscribepath), OPT_STR,
+  	"Stream to subscribe to" },
+  { AVC("token"),     OFF(Link.token),	       OPT_STR,
+  	"Key for SecureToken response" },
+  { AVC("swfVfy"),    OFF(Link.swfVfy),        OPT_BOOL,
+  	"Perform SWF Verification" },
+  { AVC("swfAge"),    OFF(Link.swfAge),        OPT_INT,
+  	"Number of days to use cached SWF hash" },
+  { AVC("start"),     OFF(Link.seekTime),      OPT_INT,
+  	"Stream start position in milliseconds" },
+  { AVC("stop"),      OFF(Link.stopTime),      OPT_INT,
+  	"Stream stop position in milliseconds" },
+  { AVC("buffer"),    OFF(m_nBufferMS),        OPT_INT,
+  	"Buffer time in milliseconds" },
+  { AVC("timeout"),   OFF(Link.timeout),       OPT_INT,
+  	"Session timeout in seconds" },
+  { {NULL,0}, 0, 0}
+};
+
+static const AVal truth[] = {
+	AVC("1"),
+	AVC("on"),
+	AVC("yes"),
+	AVC("true"),
+	{0,0}
+};
+
+static void RTMP_OptUsage()
+{
+  int i;
+
+  RTMP_LogPrintf("Valid RTMP options are:\n");
+  for (i=0; options[i].name.av_len; i++) {
+    RTMP_LogPrintf("%10s %-7s  %s\n", options[i].name.av_val,
+    	optinfo[options[i].otype], options[i].use);
+  }
+}
+
+static int
+parseAMF(AMFObject *obj, AVal *av, int *depth)
+{
+  AMFObjectProperty prop = {{0,0}};
+  int i;
+  char *p, *arg = av->av_val;
+
+  if (arg[1] == ':')
+    {
+      p = (char *)arg+2;
+      switch(arg[0])
+        {
+        case 'B':
+          prop.p_type = AMF_BOOLEAN;
+          prop.p_vu.p_number = atoi(p);
+          break;
+        case 'S':
+          prop.p_type = AMF_STRING;
+	  prop.p_vu.p_aval.av_val = p;
+	  prop.p_vu.p_aval.av_len = av->av_len - (p-arg);
+          break;
+        case 'N':
+          prop.p_type = AMF_NUMBER;
+          prop.p_vu.p_number = strtod(p, NULL);
+          break;
+        case 'Z':
+          prop.p_type = AMF_NULL;
+          break;
+        case 'O':
+          i = atoi(p);
+          if (i)
+            {
+              prop.p_type = AMF_OBJECT;
+            }
+          else
+            {
+              (*depth)--;
+              return 0;
+            }
+          break;
+        default:
+          return -1;
+        }
+    }
+  else if (arg[2] == ':' && arg[0] == 'N')
+    {
+      p = strchr(arg+3, ':');
+      if (!p || !*depth)
+        return -1;
+      prop.p_name.av_val = (char *)arg+3;
+      prop.p_name.av_len = p - (arg+3);
+
+      p++;
+      switch(arg[1])
+        {
+        case 'B':
+          prop.p_type = AMF_BOOLEAN;
+          prop.p_vu.p_number = atoi(p);
+          break;
+        case 'S':
+          prop.p_type = AMF_STRING;
+	  prop.p_vu.p_aval.av_val = p;
+	  prop.p_vu.p_aval.av_len = av->av_len - (p-arg);
+          break;
+        case 'N':
+          prop.p_type = AMF_NUMBER;
+          prop.p_vu.p_number = strtod(p, NULL);
+          break;
+        case 'O':
+          prop.p_type = AMF_OBJECT;
+          break;
+        default:
+          return -1;
+        }
+    }
+  else
+    return -1;
+
+  if (*depth)
+    {
+      AMFObject *o2;
+      for (i=0; i<*depth; i++)
+        {
+          o2 = &obj->o_props[obj->o_num-1].p_vu.p_object;
+          obj = o2;
+        }
+    }
+  AMF_AddProp(obj, &prop);
+  if (prop.p_type == AMF_OBJECT)
+    (*depth)++;
+  return 0;
+}
+
+bool RTMP_SetOpt(RTMP *r, const AVal *opt, AVal *arg)
+{
+  int i;
+  void *v;
+
+  for (i=0; options[i].name.av_len; i++) {
+    if (opt->av_len != options[i].name.av_len) continue;
+    if (strcasecmp(opt->av_val, options[i].name.av_val)) continue;
+    v = (char *)r + options[i].off;
+    switch(options[i].otype) {
+    case OPT_STR: {
+      AVal *aptr = v;
+      *aptr = *arg; }
+      break;
+    case OPT_INT: {
+      long l = strtol(arg->av_val, NULL, 0);
+      *(int *)v = l; }
+      break;
+    case OPT_BOOL: {
+      int j;
+      bool b = false;
+      for (j=0; truth[j].av_len; j++) {
+        if (arg->av_len != truth[j].av_len) continue;
+        if (strcasecmp(arg->av_val, truth[j].av_val)) continue;
+        b = true; break; }
+      *(bool *)v = b;
+      }
+      break;
+    case OPT_CONN:
+      if (parseAMF(&r->Link.extras, arg, &r->Link.edepth))
+        return false;
+      break;
+    }
+    break;
+  }
+  if (!options[i].name.av_len) {
+    RTMP_Log(RTMP_LOGERROR, "Unknown option %s", opt->av_val);
+    RTMP_OptUsage();
+    return false;
+  }
+
+  return true;
+}
+
+bool RTMP_SetupURL(RTMP *r, char *url)
+{
+  AVal opt, arg;
+  char *p1, *p2, *ptr = strchr(url, ' ');
+  bool ret;
+  unsigned int port = 0;
+
+  while (ptr) {
+    *ptr++ = '\0';
+    p1 = ptr;
+    p2 = strchr(p1, '=');
+    if (!p2)
+      break;
+    opt.av_val = p1;
+    opt.av_len = p2 - p1;
+    *p2++ = '\0';
+    arg.av_val = p2;
+    ptr = strchr(p2, ' ');
+    if (ptr) {
+      *ptr = '\0';
+      arg.av_len = ptr - p2;
+    } else {
+      arg.av_len = strlen(p2);
+    }
+    ret = RTMP_SetOpt(r, &opt, &arg);
+    if (!ret)
+      return ret;
+  }
+  ret = RTMP_ParseURL(url, &r->Link.protocol, &r->Link.hostname,
+  	&port, &r->Link.playpath0, &r->Link.app);
+  if (!ret)
+    return ret;
+  r->Link.port = port;
+  r->Link.playpath = r->Link.playpath0;
+  if (r->Link.swfVfy && r->Link.swfUrl.av_len)
+    RTMP_HashSWF(r->Link.swfUrl.av_val, &r->Link.SWFSize,
+	  (unsigned char *)r->Link.SWFHash, r->Link.swfAge);
+  return true;
 }
 
 static bool
@@ -606,14 +853,11 @@ SocksNegotiate(RTMP *r)
 }
 
 bool
-RTMP_ConnectStream(RTMP *r, double seekTime, uint32_t dLength)
+RTMP_ConnectStream(RTMP *r, double seekTime)
 {
   RTMPPacket packet = { 0 };
   if (seekTime >= -2.0)
     r->Link.seekTime = seekTime;
-
-  if (dLength >= 0)
-    r->Link.length = dLength;
 
   r->m_mediaChannel = 0;
 
@@ -641,16 +885,13 @@ RTMP_ConnectStream(RTMP *r, double seekTime, uint32_t dLength)
 }
 
 bool
-RTMP_ReconnectStream(RTMP *r, int bufferTime, double seekTime,
-		     uint32_t dLength)
+RTMP_ReconnectStream(RTMP *r, double seekTime)
 {
   RTMP_DeleteStream(r);
 
   RTMP_SendCreateStream(r);
 
-  RTMP_SetBufferMS(r, bufferTime);
-
-  return RTMP_ConnectStream(r, seekTime, dLength);
+  return RTMP_ConnectStream(r, seekTime);
 }
 
 bool
@@ -681,6 +922,7 @@ RTMP_DeleteStream(RTMP *r)
   r->m_bPlaying = false;
 
   SendDeleteStream(r, r->m_stream_id);
+  r->m_stream_id = -1;
 }
 
 int
@@ -1607,8 +1849,8 @@ SendPlay(RTMP *r)
   enc = AMF_EncodeNumber(enc, pend, ++r->m_numInvokes);
   *enc++ = AMF_NULL;
 
-  RTMP_Log(RTMP_LOGDEBUG, "%s, seekTime=%.2f, dLength=%d, sending play: %s",
-      __FUNCTION__, r->Link.seekTime, r->Link.length,
+  RTMP_Log(RTMP_LOGDEBUG, "%s, seekTime=%.2f, stopTime=%.2f, sending play: %s",
+      __FUNCTION__, r->Link.seekTime, r->Link.stopTime,
       r->Link.playpath.av_val);
   enc = AMF_EncodeString(enc, pend, &r->Link.playpath);
   if (!enc)
@@ -1637,9 +1879,9 @@ SendPlay(RTMP *r)
   //   0: plays a frame 'start' ms away from the beginning
   //  >0: plays a live or recoded stream for 'len' milliseconds
   //enc += EncodeNumber(enc, -1.0); // len
-  if (r->Link.length)
+  if (r->Link.stopTime)
     {
-      enc = AMF_EncodeNumber(enc, pend, r->Link.length);	// len
+      enc = AMF_EncodeNumber(enc, pend, r->Link.stopTime - r->Link.seekTime);
       if (!enc)
 	return false;
     }
@@ -2230,7 +2472,7 @@ HandleCtrl(RTMP *r, const RTMPPacket *packet)
       //RTMP_LogHex(packet.m_body, packet.m_nBodySize);
 
       // respond with HMAC SHA256 of decompressed SWF, key is the 30byte player key, also the last 30 bytes of the server handshake are applied
-      if (r->Link.SWFHash.av_len)
+      if (r->Link.SWFSize)
 	{
 	  RTMP_SendCtrl(r, 0x1B, 0, 0);
 	}
@@ -2865,6 +3107,9 @@ RTMP_Close(RTMP *r)
   r->m_msgCounter = 0;
   r->m_resplen = 0;
   r->m_unackd = 0;
+
+  free(r->Link.playpath0.av_val);
+  r->Link.playpath0.av_val = NULL;
 
 #ifdef CRYPTO
   if (r->Link.dh)

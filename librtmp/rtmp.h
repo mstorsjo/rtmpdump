@@ -76,8 +76,6 @@ extern "C"
 #define RTMP_PACKET_SIZE_SMALL    2
 #define RTMP_PACKET_SIZE_MINIMUM  3
 
-  typedef unsigned char BYTE;
-
   typedef struct RTMPChunk
   {
     int c_headerSize;
@@ -88,9 +86,9 @@ extern "C"
 
   typedef struct RTMPPacket
   {
-    BYTE m_headerType;
-    BYTE m_packetType;
-    BYTE m_hasAbsTimestamp;	// timestamp absolute or relative?
+    uint8_t m_headerType;
+    uint8_t m_packetType;
+    uint8_t m_hasAbsTimestamp;	// timestamp absolute or relative?
     int m_nChannel;
     uint32_t m_nTimeStamp;	// timestamp
     int32_t m_nInfoField2;	// last 4 bytes in a long header
@@ -120,10 +118,10 @@ extern "C"
   typedef struct RTMP_LNK
   {
     AVal hostname;
-    unsigned int port;
-    int protocol;
+    AVal sockshost;
 
-    AVal playpath;
+    AVal playpath0;	/* parsed from URL */
+    AVal playpath;	/* passed in explicitly */
     AVal tcUrl;
     AVal swfUrl;
     AVal pageUrl;
@@ -132,26 +130,30 @@ extern "C"
     AVal flashVer;
     AVal subscribepath;
     AVal token;
-    AVal playpath0;
     AMFObject extras;
+	int edepth;
 
-    double seekTime;
-    uint32_t length;
+    int seekTime;
+    int stopTime;
+
     bool authflag;
     bool bLiveStream;
+    bool swfVfy;
+    int swfAge;
 
+    int protocol;
     int timeout;		// number of seconds before connection times out
 
-    AVal sockshost;
     unsigned short socksport;
+    unsigned short port;
 
 #ifdef CRYPTO
     void *dh;			// for encryption
     void *rc4keyIn;
     void *rc4keyOut;
 
-    AVal SWFHash;
     uint32_t SWFSize;
+    char SWFHash[32];
     char SWFVerificationResponse[42];
 #endif
   } RTMP_LNK;
@@ -236,10 +238,13 @@ extern "C"
 
   bool RTMP_ParseURL(const char *url, int *protocol, AVal *host,
 		     unsigned int *port, AVal *playpath, AVal *app);
+
   void RTMP_ParsePlaypath(AVal *in, AVal *out);
   void RTMP_SetBufferMS(RTMP *r, int size);
   void RTMP_UpdateBufferMS(RTMP *r);
 
+  bool RTMP_SetOpt(RTMP *r, const AVal *opt, AVal *arg);
+  bool RTMP_SetupURL(RTMP *r, char *url);
   void RTMP_SetupStream(RTMP *r, int protocol,
 			AVal *hostname,
 			unsigned int port,
@@ -254,8 +259,8 @@ extern "C"
 			uint32_t swfSize,
 			AVal *flashVer,
 			AVal *subscribepath,
-			double dTime,
-			uint32_t dLength, bool bLiveStream, long int timeout);
+			double dStart,
+			double dStop, bool bLiveStream, long int timeout);
 
   bool RTMP_Connect(RTMP *r, RTMPPacket *cp);
   struct sockaddr;
@@ -271,9 +276,8 @@ extern "C"
   double RTMP_GetDuration(RTMP *r);
   bool RTMP_ToggleStream(RTMP *r);
 
-  bool RTMP_ConnectStream(RTMP *r, double seekTime, uint32_t dLength);
-  bool RTMP_ReconnectStream(RTMP *r, int bufferTime, double seekTime,
-			    uint32_t dLength);
+  bool RTMP_ConnectStream(RTMP *r, double seekTime);
+  bool RTMP_ReconnectStream(RTMP *r, double seekTime);
   void RTMP_DeleteStream(RTMP *r);
   int RTMP_GetNextMediaPacket(RTMP *r, RTMPPacket *packet);
   int RTMP_ClientPacket(RTMP *r, RTMPPacket *packet);

@@ -95,9 +95,6 @@ typedef struct
   Flist *f_head, *f_tail;
   Flist *f_cur;
 
-#ifdef CRYPTO
-  unsigned char hash[HASHLEN];
-#endif
 } STREAMING_SERVER;
 
 STREAMING_SERVER *rtmpServer = 0;	// server structure pointer
@@ -215,11 +212,9 @@ ServeInvoke(STREAMING_SERVER *server, int which, RTMPPacket *pack, const char *b
           else if (AVMATCH(&pname, &av_swfUrl))
             {
 #ifdef CRYPTO
-              if (pval.av_val && RTMP_HashSWF(pval.av_val, &server->rc.Link.SWFSize, server->hash, 30) == 0)
-                {
-                  server->rc.Link.SWFHash.av_val = (char *)server->hash;
-                  server->rc.Link.SWFHash.av_len = HASHLEN;
-                }
+              if (pval.av_val)
+	        RTMP_HashSWF(pval.av_val, &server->rc.Link.SWFSize,
+		  (unsigned char *)server->rc.Link.SWFHash, 30);
 #endif
               server->rc.Link.swfUrl = pval;
               pval.av_val = NULL;
@@ -907,16 +902,16 @@ void doServe(STREAMING_SERVER * server,	// server socket and state (our listenin
                       short nType = AMF_DecodeInt16(pc.m_body);
                       /* SWFverification */
                       if (nType == 0x1a)
-  #ifdef CRYPTO
-                        if (server->rc.Link.SWFHash.av_len)
+#ifdef CRYPTO
+                        if (server->rc.Link.SWFSize)
                         {
                           RTMP_SendCtrl(&server->rc, 0x1b, 0, 0);
                           sendit = 0;
                         }
-  #else
+#else
                         /* The session will certainly fail right after this */
                         RTMP_Log(RTMP_LOGERROR, "%s, server requested SWF verification, need CRYPTO support! ", __FUNCTION__);
-  #endif
+#endif
                     }
                   else if (server->f_cur && (
                        pc.m_packetType == 0x08 ||
@@ -974,9 +969,6 @@ cleanup:
   server->rc.Link.app.av_val = NULL;
   server->rc.Link.auth.av_val = NULL;
   server->rc.Link.flashVer.av_val = NULL;
-#ifdef CRYPTO
-  server->rc.Link.SWFHash.av_val = NULL;
-#endif
   RTMP_LogPrintf("done!\n\n");
 
 quit:

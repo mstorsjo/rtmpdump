@@ -346,7 +346,7 @@ HandShake(RTMP * r, bool FP9HandShake)
   char type;
   getoff *getdh, *getdig;
 
-  if (encrypted || r->Link.SWFHash.av_len)
+  if (encrypted || r->Link.SWFSize)
     FP9HandShake = true;
   else
     FP9HandShake = false;
@@ -504,7 +504,7 @@ HandShake(RTMP * r, bool FP9HandShake)
 	  dhposServer);
 
       /* generate SWFVerification token (SHA256 HMAC hash of decompressed SWF, key are the last 32 bytes of the server handshake) */
-      if (r->Link.SWFHash.av_len)
+      if (r->Link.SWFSize)
 	{
 	  const char swfVerify[] = { 0x01, 0x01 };
           char *vend = r->Link.SWFVerificationResponse+sizeof(r->Link.SWFVerificationResponse);
@@ -512,7 +512,7 @@ HandShake(RTMP * r, bool FP9HandShake)
 	  memcpy(r->Link.SWFVerificationResponse, swfVerify, 2);
 	  AMF_EncodeInt32(&r->Link.SWFVerificationResponse[2], vend, r->Link.SWFSize);
 	  AMF_EncodeInt32(&r->Link.SWFVerificationResponse[6], vend, r->Link.SWFSize);
-	  HMACsha256(r->Link.SWFHash.av_val, SHA256_DIGEST_LENGTH,
+	  HMACsha256(r->Link.SWFHash, SHA256_DIGEST_LENGTH,
 		     &serversig[RTMP_SIG_SIZE - SHA256_DIGEST_LENGTH],
 		     SHA256_DIGEST_LENGTH, &r->Link.SWFVerificationResponse[10]);
 	}
@@ -866,7 +866,7 @@ SHandShake(RTMP * r)
 	  dhposClient);
 
       /* generate SWFVerification token (SHA256 HMAC hash of decompressed SWF, key are the last 32 bytes of the server handshake) */
-      if (r->Link.SWFHash.av_len)
+      if (r->Link.SWFSize)
 	{
 	  const char swfVerify[] = { 0x01, 0x01 };
           char *vend = r->Link.SWFVerificationResponse+sizeof(r->Link.SWFVerificationResponse);
@@ -874,7 +874,7 @@ SHandShake(RTMP * r)
 	  memcpy(r->Link.SWFVerificationResponse, swfVerify, 2);
 	  AMF_EncodeInt32(&r->Link.SWFVerificationResponse[2], vend, r->Link.SWFSize);
 	  AMF_EncodeInt32(&r->Link.SWFVerificationResponse[6], vend, r->Link.SWFSize);
-	  HMACsha256(r->Link.SWFHash.av_val, SHA256_DIGEST_LENGTH,
+	  HMACsha256(r->Link.SWFHash, SHA256_DIGEST_LENGTH,
 		     &serversig[RTMP_SIG_SIZE - SHA256_DIGEST_LENGTH],
 		     SHA256_DIGEST_LENGTH, &r->Link.SWFVerificationResponse[10]);
 	}

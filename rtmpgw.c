@@ -343,7 +343,6 @@ void processTCPrequest(STREAMING_SERVER * server,	// server socket and state (ou
 
   RTMP rtmp = { 0 };
   uint32_t dSeek = 0;		// can be used to start from a later point in the stream
-  int32_t dLength = -1;
 
   // reset RTMP options to defaults specified upon invokation of streams
   RTMP_REQUEST req;
@@ -548,16 +547,11 @@ void processTCPrequest(STREAMING_SERVER * server,	// server socket and state (ou
       RTMP_LogPrintf("Starting at TS: %d ms\n", dSeek);
     }
 
-  if (req.dStopOffset > 0)
-    {
-      dLength = req.dStopOffset - dSeek;
-    }
-
   RTMP_Log(RTMP_LOGDEBUG, "Setting buffer time to: %dms", req.bufferTime);
   RTMP_Init(&rtmp);
   RTMP_SetBufferMS(&rtmp, req.bufferTime);
   RTMP_SetupStream(&rtmp, req.protocol, &req.hostname, req.rtmpport, &req.sockshost,
-		   &req.playpath, &req.tcUrl, &req.swfUrl, &req.pageUrl, &req.app, &req.auth, &req.swfHash, req.swfSize, &req.flashVer, &req.subscribepath, dSeek, dLength,
+		   &req.playpath, &req.tcUrl, &req.swfUrl, &req.pageUrl, &req.app, &req.auth, &req.swfHash, req.swfSize, &req.flashVer, &req.subscribepath, dSeek, req.dStopOffset,
 		   req.bLiveStream, req.timeout);
   /* backward compatibility, we always sent this as true before */
   if (req.auth.av_len)
@@ -937,11 +931,11 @@ ParseOption(char opt, char *arg, RTMP_REQUEST * req)
       req->timeout = atoi(arg);
       break;
     case 'A':
-      req->dStartOffset = atoi(arg) * 1000;
+      req->dStartOffset = (int)(atof(arg) * 1000.0);
       //printf("dStartOffset = %d\n", dStartOffset);
       break;
     case 'B':
-      req->dStopOffset = atoi(arg) * 1000;
+      req->dStopOffset = (int)(atof(arg) * 1000.0);
       //printf("dStartOffset = %d\n", dStartOffset);
       break;
     case 'T':

@@ -484,69 +484,69 @@ parseAMF(AMFObject *obj, AVal *av, int *depth)
     {
       p = (char *)arg+2;
       switch(arg[0])
-        {
-        case 'B':
-          prop.p_type = AMF_BOOLEAN;
-          prop.p_vu.p_number = atoi(p);
-          break;
-        case 'S':
-          prop.p_type = AMF_STRING;
+	{
+	case 'B':
+	  prop.p_type = AMF_BOOLEAN;
+	  prop.p_vu.p_number = atoi(p);
+	  break;
+	case 'S':
+	  prop.p_type = AMF_STRING;
 	  prop.p_vu.p_aval.av_val = p;
 	  prop.p_vu.p_aval.av_len = av->av_len - (p-arg);
-          break;
-        case 'N':
-          prop.p_type = AMF_NUMBER;
-          prop.p_vu.p_number = strtod(p, NULL);
-          break;
-        case 'Z':
-          prop.p_type = AMF_NULL;
-          break;
-        case 'O':
-          i = atoi(p);
-          if (i)
-            {
-              prop.p_type = AMF_OBJECT;
-            }
-          else
-            {
-              (*depth)--;
-              return 0;
-            }
-          break;
-        default:
-          return -1;
-        }
+	  break;
+	case 'N':
+	  prop.p_type = AMF_NUMBER;
+	  prop.p_vu.p_number = strtod(p, NULL);
+	  break;
+	case 'Z':
+	  prop.p_type = AMF_NULL;
+	  break;
+	case 'O':
+	  i = atoi(p);
+	  if (i)
+	    {
+	      prop.p_type = AMF_OBJECT;
+	    }
+	  else
+	    {
+	      (*depth)--;
+	      return 0;
+	    }
+	  break;
+	default:
+	  return -1;
+	}
     }
   else if (arg[2] == ':' && arg[0] == 'N')
     {
       p = strchr(arg+3, ':');
       if (!p || !*depth)
-        return -1;
+	return -1;
       prop.p_name.av_val = (char *)arg+3;
       prop.p_name.av_len = p - (arg+3);
 
       p++;
       switch(arg[1])
-        {
-        case 'B':
-          prop.p_type = AMF_BOOLEAN;
-          prop.p_vu.p_number = atoi(p);
-          break;
-        case 'S':
-          prop.p_type = AMF_STRING;
+	{
+	case 'B':
+	  prop.p_type = AMF_BOOLEAN;
+	  prop.p_vu.p_number = atoi(p);
+	  break;
+	case 'S':
+	  prop.p_type = AMF_STRING;
 	  prop.p_vu.p_aval.av_val = p;
 	  prop.p_vu.p_aval.av_len = av->av_len - (p-arg);
-          break;
-        case 'N':
-          prop.p_type = AMF_NUMBER;
-          prop.p_vu.p_number = strtod(p, NULL);
-          break;
-        case 'O':
-          prop.p_type = AMF_OBJECT;
-          break;
-        default:
-          return -1;
-        }
+	  break;
+	case 'N':
+	  prop.p_type = AMF_NUMBER;
+	  prop.p_vu.p_number = strtod(p, NULL);
+	  break;
+	case 'O':
+	  prop.p_type = AMF_OBJECT;
+	  break;
+	default:
+	  return -1;
+	}
     }
   else
     return -1;
@@ -555,10 +555,10 @@ parseAMF(AMFObject *obj, AVal *av, int *depth)
     {
       AMFObject *o2;
       for (i=0; i<*depth; i++)
-        {
-          o2 = &obj->o_props[obj->o_num-1].p_vu.p_object;
-          obj = o2;
-        }
+	{
+	  o2 = &obj->o_props[obj->o_num-1].p_vu.p_object;
+	  obj = o2;
+	}
     }
   AMF_AddProp(obj, &prop);
   if (prop.p_type == AMF_OBJECT)
@@ -644,6 +644,23 @@ bool RTMP_SetupURL(RTMP *r, char *url)
     } else {
       arg.av_len = strlen(p2);
     }
+
+    /* urldecode */
+    port = arg.av_len;
+    for (p1=p2; port >0;) {
+      if (*p1 == '%') {
+	int c;
+	sscanf(p1+1, "%02x", &c);
+	*p2++ = c;
+	port -= 3;
+	p1 += 3;
+      } else {
+	*p2++ = *p1++;
+	port--;
+      }
+    }
+    arg.av_len = p2 - arg.av_val;
+
     ret = RTMP_SetOpt(r, &opt, &arg);
     if (!ret)
       return ret;

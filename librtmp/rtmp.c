@@ -650,6 +650,8 @@ bool RTMP_SetupURL(RTMP *r, char *url)
     for (p1=p2; port >0;) {
       if (*p1 == '\\') {
 	int c;
+	if (port < 3)
+	  return false;
 	sscanf(p1+1, "%02x", &c);
 	*p2++ = c;
 	port -= 3;

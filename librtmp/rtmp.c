@@ -645,25 +645,15 @@ bool RTMP_SetupURL(RTMP *r, char *url)
       arg.av_len = strlen(p2);
     }
 
-    /* Decode embedded spaces. Spaces are encoded as TAB+Ctrl-A.
-     * TABs are encoded as TAB+Ctrl-B. For TAB+anything else the
-     * TAB is dropped.
-     */
+    /* unescape */
     port = arg.av_len;
     for (p1=p2; port >0;) {
-      if (*p1 == 0x08) {
-        if (p1[1] == 0x01) {
-	  *p2++ = ' ';
-	  port -= 2;
-	  p1 += 2;
-	} else if (p1[1] == 0x02) {
-	  *p2++ = 0x08;
-	  port -= 2;
-	  p1 += 2;
-	} else {
-	  p1++;
-	  port--;
-	}
+      if (*p1 == '\\') {
+	int c;
+	sscanf(p1+1, "%02x", &c);
+	*p2++ = c;
+	port -= 3;
+	p1 += 3;
       } else {
 	*p2++ = *p1++;
 	port--;

@@ -63,7 +63,7 @@ extern "C"
   extern const AVal RTMP_DefaultFlashVer;
   extern bool RTMP_ctrlC;
 
-  uint32_t RTMP_GetTime();
+  uint32_t RTMP_GetTime(void);
 
 #define RTMP_PACKET_TYPE_AUDIO 0x08
 #define RTMP_PACKET_TYPE_VIDEO 0x09
@@ -284,8 +284,8 @@ extern "C"
 
   void RTMP_Init(RTMP *r);
   void RTMP_Close(RTMP *r);
-  int RTMP_LibVersion();
-  void RTMP_UserInterrupt();	/* user typed Ctrl-C */
+  int RTMP_LibVersion(void);
+  void RTMP_UserInterrupt(void);	/* user typed Ctrl-C */
 
   bool RTMP_SendCtrl(RTMP *r, short nType, unsigned int nObject,
 		     unsigned int nTime);

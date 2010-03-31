@@ -1572,7 +1572,7 @@ SendReleaseStream(RTMP *r)
 
   packet.m_nBodySize = enc - packet.m_body;
 
-  return RTMP_SendPacket(r, &packet, true);
+  return RTMP_SendPacket(r, &packet, false);
 }
 
 SAVC(FCPublish);
@@ -1601,7 +1601,7 @@ SendFCPublish(RTMP *r)
 
   packet.m_nBodySize = enc - packet.m_body;
 
-  return RTMP_SendPacket(r, &packet, true);
+  return RTMP_SendPacket(r, &packet, false);
 }
 
 SAVC(FCUnpublish);
@@ -1630,7 +1630,7 @@ SendFCUnpublish(RTMP *r)
 
   packet.m_nBodySize = enc - packet.m_body;
 
-  return RTMP_SendPacket(r, &packet, true);
+  return RTMP_SendPacket(r, &packet, false);
 }
 
 SAVC(publish);

@@ -1895,7 +1895,7 @@ SendPlay(RTMP *r)
   enc = AMF_EncodeNumber(enc, pend, ++r->m_numInvokes);
   *enc++ = AMF_NULL;
 
-  RTMP_Log(RTMP_LOGDEBUG, "%s, seekTime=%.2f, stopTime=%.2f, sending play: %s",
+  RTMP_Log(RTMP_LOGDEBUG, "%s, seekTime=%d, stopTime=%d, sending play: %s",
       __FUNCTION__, r->Link.seekTime, r->Link.stopTime,
       r->Link.playpath.av_val);
   enc = AMF_EncodeString(enc, pend, &r->Link.playpath);
@@ -3117,6 +3117,7 @@ RTMP_Close(RTMP *r)
   r->m_nBytesIn = 0;
   r->m_nBytesInSent = 0;
 
+  free(r->m_read.buf);
   r->m_read.buf = NULL;
   r->m_read.dataType = 0;
   r->m_read.flags = 0;

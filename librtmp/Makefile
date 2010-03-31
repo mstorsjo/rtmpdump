@@ -40,6 +40,7 @@ librtmp.pc: librtmp.pc.in Makefile
 		librtmp.pc.in > $@
 
 install:	librtmp.a librtmp.pc
-	-mkdir $(INCDIR); cp amf.h http.h log.h rtmp.h $(INCDIR)
+	-mkdir -p $(INCDIR) $(DESTDIR)$(prefix)/lib/pkgconfig
+	cp amf.h http.h log.h rtmp.h $(INCDIR)
 	cp librtmp.a $(DESTDIR)$(prefix)/lib
 	cp librtmp.pc $(DESTDIR)$(prefix)/lib/pkgconfig

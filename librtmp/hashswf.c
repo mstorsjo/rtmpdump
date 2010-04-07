@@ -20,6 +20,7 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 #include <time.h>
@@ -28,6 +29,7 @@
 #include "log.h"
 #include "http.h"
 
+#ifdef CRYPTO
 #ifdef USE_GNUTLS
 #include <gnutls/gnutls.h>
 #include <gcrypt.h>
@@ -49,67 +51,13 @@
 #define HMAC_finish(ctx, dig, dlen)	HMAC_Final(&ctx, (unsigned char *)dig, &dlen);
 #define HMAC_close(ctx)	HMAC_CTX_cleanup(&ctx)
 #endif
-#include <zlib.h>
-
-struct info
-{
-  z_stream *zs;
-  HMAC_CTX ctx;
-  int first;
-  int zlib;
-  int size;
-};
 
 extern void RTMP_TLS_Init();
 extern TLS_CTX RTMP_TLS_ctx;
 
-#define CHUNK	16384
+#endif /* CRYPTO */
 
-static size_t
-swfcrunch(void *ptr, size_t size, size_t nmemb, void *stream)
-{
-  struct info *i = stream;
-  char *p = ptr;
-  size_t len = size * nmemb;
-
-  if (i->first)
-    {
-      i->first = 0;
-      /* compressed? */
-      if (!strncmp(p, "CWS", 3))
-	{
-	  *p = 'F';
-	  i->zlib = 1;
-	}
-      HMAC_crunch(i->ctx, (unsigned char *)p, 8);
-      p += 8;
-      len -= 8;
-      i->size = 8;
-    }
-
-  if (i->zlib)
-    {
-      unsigned char out[CHUNK];
-      i->zs->next_in = (unsigned char *)p;
-      i->zs->avail_in = len;
-      do
-	{
-	  i->zs->avail_out = CHUNK;
-	  i->zs->next_out = out;
-	  inflate(i->zs, Z_NO_FLUSH);
-	  len = CHUNK - i->zs->avail_out;
-	  i->size += len;
-	  HMAC_crunch(i->ctx, out, len);
-	}
-      while (i->zs->avail_out == 0);
-    }
-  else
-    {
-      i->size += len;
-      HMAC_crunch(i->ctx, (unsigned char *)p, len);
-    }
-  return size * nmemb;
-}
+#include <zlib.h>
 
 #define	AGENT	"Mozilla/5.0"
 
@@ -120,7 +68,9 @@ HTTP_get(struct HTTP_ctx *http, const char *url, HTTP_read_callback *cb)
   char *p1, *p2;
   char hbuf[256];
   int port = 80;
+#ifdef CRYPTO
   int ssl = 0;
+#endif
   int hlen, flen = 0;
   int rc, i;
   int len_known;
@@ -139,10 +89,14 @@ HTTP_get(struct HTTP_ctx *http, const char *url, HTTP_read_callback *cb)
 
   if (url[4] == 's')
     {
+#ifdef CRYPTO
       ssl = 1;
       port = 443;
       if (!RTMP_TLS_ctx)
 	RTMP_TLS_Init();
+#else
+      return HTTPRES_BAD_REQUEST;
+#endif
     }
 
   p1 = strchr(url + 4, ':');
@@ -188,6 +142,7 @@ HTTP_get(struct HTTP_ctx *http, const char *url, HTTP_read_callback *cb)
       ret = HTTPRES_LOST_CONNECTION;
       goto leave;
     }
+#ifdef CRYPTO
   if (ssl)
     {
       TLS_client(RTMP_TLS_ctx, sb.sb_ssl);
@@ -199,6 +154,7 @@ HTTP_get(struct HTTP_ctx *http, const char *url, HTTP_read_callback *cb)
 	  goto leave;
 	}
     }
+#endif
   RTMPSockBuf_Send(&sb, sb.sb_buf, i);
 
   // set timeout
@@ -305,6 +261,65 @@ HTTP_get(struct HTTP_ctx *http, const char *url, HTTP_read_callback *cb)
 leave:
   RTMPSockBuf_Close(&sb);
   return ret;
+}
+
+#ifdef CRYPTO
+
+#define CHUNK	16384
+
+struct info
+{
+  z_stream *zs;
+  HMAC_CTX ctx;
+  int first;
+  int zlib;
+  int size;
+};
+
+static size_t
+swfcrunch(void *ptr, size_t size, size_t nmemb, void *stream)
+{
+  struct info *i = stream;
+  char *p = ptr;
+  size_t len = size * nmemb;
+
+  if (i->first)
+    {
+      i->first = 0;
+      /* compressed? */
+      if (!strncmp(p, "CWS", 3))
+	{
+	  *p = 'F';
+	  i->zlib = 1;
+	}
+      HMAC_crunch(i->ctx, (unsigned char *)p, 8);
+      p += 8;
+      len -= 8;
+      i->size = 8;
+    }
+
+  if (i->zlib)
+    {
+      unsigned char out[CHUNK];
+      i->zs->next_in = (unsigned char *)p;
+      i->zs->avail_in = len;
+      do
+	{
+	  i->zs->avail_out = CHUNK;
+	  i->zs->next_out = out;
+	  inflate(i->zs, Z_NO_FLUSH);
+	  len = CHUNK - i->zs->avail_out;
+	  i->size += len;
+	  HMAC_crunch(i->ctx, out, len);
+	}
+      while (i->zs->avail_out == 0);
+    }
+  else
+    {
+      i->size += len;
+      HMAC_crunch(i->ctx, (unsigned char *)p, len);
+    }
+  return size * nmemb;
 }
 
 static int tzoff;
@@ -614,3 +629,11 @@ out:
     fclose(f);
   return ret;
 }
+#else
+int
+RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash,
+	     int age)
+{
+  return -1;
+}
+#endif

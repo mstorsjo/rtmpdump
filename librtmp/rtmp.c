@@ -677,9 +677,11 @@ bool RTMP_SetupURL(RTMP *r, char *url)
 	    r->Link.tcUrl.av_len = strlen(url);
 	}
 
+#ifdef CRYPTO
   if (r->Link.swfVfy && r->Link.swfUrl.av_len)
     RTMP_HashSWF(r->Link.swfUrl.av_val, &r->Link.SWFSize,
 	  (unsigned char *)r->Link.SWFHash, r->Link.swfAge);
+#endif
 
   if (r->Link.port == 0)
     {
@@ -3433,14 +3435,14 @@ Read_1_Packet(RTMP *r, char *buf, int buflen)
 
       if (packet.m_packetType == 0x09 && nPacketLen <= 5)
 	{
-	  RTMP_Log(RTMP_LOGWARNING, "ignoring too small video packet: size: %d",
+	  RTMP_Log(RTMP_LOGDEBUG, "ignoring too small video packet: size: %d",
 	      nPacketLen);
 	  ret = RTMP_READ_IGNORE;
 	  break;
 	}
       if (packet.m_packetType == 0x08 && nPacketLen <= 1)
 	{
-	  RTMP_Log(RTMP_LOGWARNING, "ignoring too small audio packet: size: %d",
+	  RTMP_Log(RTMP_LOGDEBUG, "ignoring too small audio packet: size: %d",
 	      nPacketLen);
 	  ret = RTMP_READ_IGNORE;
 	  break;

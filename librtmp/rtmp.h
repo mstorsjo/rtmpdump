@@ -24,8 +24,6 @@
  *  http://www.gnu.org/copyleft/lgpl.html
  */
 
-#define CRYPTO
-
 #include <errno.h>
 #include <stdint.h>
 #include <stddef.h>

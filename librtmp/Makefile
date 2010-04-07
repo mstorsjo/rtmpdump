@@ -7,14 +7,20 @@ LD=$(CROSS_COMPILE)ld
 
 CRYPTO=OPENSSL
 #CRYPTO=GNUTLS
+DEF_OPENSSL=-DCRYPTO -DUSE_OPENSSL
+DEF_GNUTLS=-DCRYPTO -DUSE_GNUTLS
 LIB_GNUTLS=-lgnutls
 LIB_OPENSSL=-lssl -lcrypto
+OBJ_OPENSSL=hashswf.o
+OBJ_GNUTLS=hashswf.o
 REQ_GNUTLS=gnutls
 REQ_OPENSSL=libssl,libcrypto
 CRYPTO_LIB=$(LIB_$(CRYPTO))
 CRYPTO_REQ=$(REQ_$(CRYPTO))
+CRYPTO_DEF=$(DEF_$(CRYPTO))
+CRYPTO_OBJ=$(OBJ_$(CRYPTO))
 
-DEF=-DRTMPDUMP_VERSION=\"$(VERSION)\" -DUSE_$(CRYPTO)
+DEF=-DRTMPDUMP_VERSION=\"$(VERSION)\" $(CRYPTO_DEF)
 OPT=-O2
 CFLAGS=-Wall $(XCFLAGS) $(INC) $(DEF) $(OPT)
 
@@ -25,7 +31,7 @@ all:	librtmp.a
 clean:
 	rm -f *.o *.a
 
-librtmp.a: rtmp.o log.o amf.o hashswf.o parseurl.o
+librtmp.a: rtmp.o log.o amf.o parseurl.o $(CRYPTO_OBJ)
 	$(AR) rs $@ $?
 
 log.o: log.c log.h Makefile

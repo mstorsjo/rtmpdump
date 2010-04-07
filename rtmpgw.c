@@ -105,7 +105,7 @@ typedef struct
   uint32_t dStopOffset;
 
 #ifdef CRYPTO
-  unsigned char hash[HASHLEN];
+  unsigned char hash[RTMP_SWF_HASHLEN];
 #endif
 } RTMP_REQUEST;
 
@@ -520,7 +520,7 @@ void processTCPrequest(STREAMING_SERVER * server,	// server socket and state (ou
         if (RTMP_HashSWF(req.swfUrl.av_val, &req.swfSize, req.hash, req.swfAge) == 0)
           {
             req.swfHash.av_val = (char *)req.hash;
-            req.swfHash.av_len = HASHLEN;
+            req.swfHash.av_len = RTMP_SWF_HASHLEN;
           }
 #endif
     }
@@ -786,13 +786,13 @@ ParseOption(char opt, char *arg, RTMP_REQUEST * req)
     case 'w':
       {
 	int res = hex2bin(arg, &req->swfHash.av_val);
-	if (!res || res != HASHLEN)
+	if (!res || res != RTMP_SWF_HASHLEN)
 	  {
 	    req->swfHash.av_val = NULL;
 	    RTMP_Log(RTMP_LOGWARNING,
-		"Couldn't parse swf hash hex string, not hexstring or not %d bytes, ignoring!", HASHLEN);
+		"Couldn't parse swf hash hex string, not hexstring or not %d bytes, ignoring!", RTMP_SWF_HASHLEN);
 	  }
-	req->swfHash.av_len = HASHLEN;
+	req->swfHash.av_len = RTMP_SWF_HASHLEN;
 	break;
       }
     case 'x':

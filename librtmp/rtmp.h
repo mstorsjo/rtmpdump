@@ -146,15 +146,14 @@ extern "C"
     unsigned short socksport;
     unsigned short port;
 
-#ifdef CRYPTO
+#define RTMP_SWF_HASHLEN	32
     void *dh;			// for encryption
     void *rc4keyIn;
     void *rc4keyOut;
 
     uint32_t SWFSize;
-    char SWFHash[32];
-    char SWFVerificationResponse[42];
-#endif
+    char SWFHash[RTMP_SWF_HASHLEN];
+    char SWFVerificationResponse[RTMP_SWF_HASHLEN+10];
   } RTMP_LNK;
 
   /* state for read() wrapper */
@@ -304,13 +303,9 @@ extern "C"
   int RTMP_Read(RTMP *r, char *buf, int size);
   int RTMP_Write(RTMP *r, char *buf, int size);
 
-#ifdef CRYPTO
 /* hashswf.c */
-#define HASHLEN	32
-
   int RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash,
 		   int age);
-#endif
 
 #ifdef __cplusplus
 };

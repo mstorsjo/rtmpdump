@@ -757,7 +757,7 @@ main(int argc, char **argv)
 #ifdef CRYPTO
   int swfAge = 30;	/* 30 days for SWF cache by default */
   int swfVfy = 0;
-  unsigned char hash[HASHLEN];
+  unsigned char hash[RTMP_SWF_HASHLEN];
 #endif
 
   char *flvFile = 0;
@@ -848,13 +848,13 @@ main(int argc, char **argv)
 	case 'w':
 	  {
 	    int res = hex2bin(optarg, &swfHash.av_val);
-	    if (res != HASHLEN)
+	    if (res != RTMP_SWF_HASHLEN)
 	      {
 		swfHash.av_val = NULL;
 		RTMP_Log(RTMP_LOGWARNING,
-		    "Couldn't parse swf hash hex string, not hexstring or not %d bytes, ignoring!", HASHLEN);
+		    "Couldn't parse swf hash hex string, not hexstring or not %d bytes, ignoring!", RTMP_SWF_HASHLEN);
 	      }
-	    swfHash.av_len = HASHLEN;
+	    swfHash.av_len = RTMP_SWF_HASHLEN;
 	    break;
 	  }
 	case 'x':
@@ -1109,7 +1109,7 @@ main(int argc, char **argv)
       if (RTMP_HashSWF(swfUrl.av_val, &swfSize, hash, swfAge) == 0)
         {
           swfHash.av_val = (char *)hash;
-          swfHash.av_len = HASHLEN;
+          swfHash.av_len = RTMP_SWF_HASHLEN;
         }
     }
 

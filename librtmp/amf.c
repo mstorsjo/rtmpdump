@@ -804,10 +804,10 @@ AMFProp_Dump(AMFObjectProperty *prop)
       name.av_val = "no-name.";
       name.av_len = sizeof("no-name.") - 1;
     }
-  if (name.av_len > 25)
-    name.av_len = 25;
+  if (name.av_len > 18)
+    name.av_len = 18;
 
-  snprintf(strRes, 255, "Name: %25.*s, ", name.av_len, name.av_val);
+  snprintf(strRes, 255, "Name: %18.*s, ", name.av_len, name.av_val);
 
   if (prop->p_type == AMF_OBJECT)
     {

@@ -137,7 +137,7 @@ GetDHOffset2(char *handshake, unsigned int len)
   if (res + 128 > 767)
     {
       RTMP_Log(RTMP_LOGERROR,
-	  "%s: Couldn't calculate correct DH offset (got %d), exiting!\n",
+	  "%s: Couldn't calculate correct DH offset (got %d), exiting!",
 	  __FUNCTION__, res);
       exit(1);
     }
@@ -163,7 +163,7 @@ GetDigestOffset2(char *handshake, unsigned int len)
   if (res + 32 > 1535)
     {
       RTMP_Log(RTMP_LOGERROR,
-	  "%s: Couldn't calculate correct digest offset (got %d), exiting\n",
+	  "%s: Couldn't calculate correct digest offset (got %d), exiting",
 	  __FUNCTION__, res);
       exit(1);
     }
@@ -190,7 +190,7 @@ GetDHOffset1(char *handshake, unsigned int len)
 
   if (res + 128 > 1531)
     {
-      RTMP_Log(RTMP_LOGERROR, "%s: Couldn't calculate DH offset (got %d), exiting!\n",
+      RTMP_Log(RTMP_LOGERROR, "%s: Couldn't calculate DH offset (got %d), exiting!",
 	  __FUNCTION__, res);
       exit(1);
     }
@@ -218,8 +218,8 @@ GetDigestOffset1(char *handshake, unsigned int len)
 
   if (res + 32 > 771)
     {
-      RTMP_Log(RTMP_LOGDEBUG,
-	  "%s: Couldn't calculate digest offset (got %d), exiting!\n",
+      RTMP_Log(RTMP_LOGERROR,
+	  "%s: Couldn't calculate digest offset (got %d), exiting!",
 	  __FUNCTION__, res);
       exit(1);
     }
@@ -380,7 +380,7 @@ HandShake(RTMP * r, bool FP9HandShake)
       clientsig[5] = 0;
       clientsig[7] = 2;
 
-      RTMP_Log(RTMP_LOGDEBUG, "%s: Client type: %02X\n", __FUNCTION__, clientsig[-1]);
+      RTMP_Log(RTMP_LOGDEBUG, "%s: Client type: %02X", __FUNCTION__, clientsig[-1]);
     }
   else
     {
@@ -485,12 +485,12 @@ HandShake(RTMP * r, bool FP9HandShake)
 
       if (!VerifyDigest(digestPosServer, serversig, GenuineFMSKey, 36))
 	{
-	  RTMP_Log(RTMP_LOGWARNING, "Trying different position for server digest!\n");
+	  RTMP_Log(RTMP_LOGWARNING, "Trying different position for server digest!");
 	  digestPosServer = GetDigestOffset1(serversig, RTMP_SIG_SIZE);
 
 	  if (!VerifyDigest(digestPosServer, serversig, GenuineFMSKey, 36))
 	    {
-	      RTMP_Log(RTMP_LOGERROR, "Couldn't verify the server digest\n");	/* continuing anyway will probably fail */
+	      RTMP_Log(RTMP_LOGERROR, "Couldn't verify the server digest");	/* continuing anyway will probably fail */
 	      return false;
 	    }
 	  dhposServer = GetDHOffset1(serversig, RTMP_SIG_SIZE);
@@ -847,12 +847,12 @@ SHandShake(RTMP * r)
 
       if (!VerifyDigest(digestPosClient, clientsig, GenuineFPKey, 30))
 	{
-	  RTMP_Log(RTMP_LOGWARNING, "Trying different position for client digest!\n");
+	  RTMP_Log(RTMP_LOGWARNING, "Trying different position for client digest!");
 	  digestPosClient = GetDigestOffset2(clientsig, RTMP_SIG_SIZE);
 
 	  if (!VerifyDigest(digestPosClient, clientsig, GenuineFPKey, 30))
 	    {
-	      RTMP_Log(RTMP_LOGERROR, "Couldn't verify the client digest\n");	/* continuing anyway will probably fail */
+	      RTMP_Log(RTMP_LOGERROR, "Couldn't verify the client digest");	/* continuing anyway will probably fail */
 	      return false;
 	    }
 	  dhposClient = GetDHOffset2(clientsig, RTMP_SIG_SIZE);

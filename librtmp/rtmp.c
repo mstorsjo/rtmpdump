@@ -466,9 +466,9 @@ static void RTMP_OptUsage()
 {
   int i;
 
-  RTMP_LogPrintf("Valid RTMP options are:\n");
+  RTMP_Log(RTMP_LOGERROR, "Valid RTMP options are:\n");
   for (i=0; options[i].name.av_len; i++) {
-    RTMP_LogPrintf("%10s %-7s  %s\n", options[i].name.av_val,
+    RTMP_Log(RTMP_LOGERROR, "%10s %-7s  %s\n", options[i].name.av_val,
     	optinfo[options[i].otype], options[i].use);
   }
 }
@@ -2364,14 +2364,14 @@ DumpMetaData(AMFObject *obj)
 	      // chomp
 	      if (strlen(str) >= 1 && str[strlen(str) - 1] == '\n')
 		str[strlen(str) - 1] = '\0';
-	      RTMP_LogPrintf("  %-22.*s%s\n", prop->p_name.av_len,
+	      RTMP_Log(RTMP_LOGINFO, "  %-22.*s%s", prop->p_name.av_len,
 			prop->p_name.av_val, str);
 	    }
 	}
       else
 	{
 	  if (prop->p_name.av_len)
-	    RTMP_LogPrintf("%.*s:\n", prop->p_name.av_len, prop->p_name.av_val);
+	    RTMP_Log(RTMP_LOGINFO, "%.*s:", prop->p_name.av_len, prop->p_name.av_val);
 	  DumpMetaData(&prop->p_vu.p_object);
 	}
     }
@@ -2405,7 +2405,7 @@ HandleMetadata(RTMP *r, char *body, unsigned int len)
     {
       AMFObjectProperty prop;
       // Show metadata
-      RTMP_LogPrintf("Metadata:\n");
+      RTMP_Log(RTMP_LOGINFO, "Metadata:");
       DumpMetaData(&obj);
       if (RTMP_FindFirstMatchingProperty(&obj, &av_duration, &prop))
 	{

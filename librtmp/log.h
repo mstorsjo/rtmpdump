@@ -24,6 +24,7 @@
 #define __RTMP_LOG_H__
 
 #include <stdio.h>
+#include <stdarg.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -42,6 +43,8 @@ typedef enum
 
 extern RTMP_LogLevel RTMP_debuglevel;
 
+typedef void (RTMP_LogCallback)(int level, const char *fmt, va_list);
+void RTMP_LogSetCallback(RTMP_LogCallback *cb);
 void RTMP_LogSetOutput(FILE *file);
 void RTMP_LogPrintf(const char *format, ...);
 void RTMP_LogStatus(const char *format, ...);

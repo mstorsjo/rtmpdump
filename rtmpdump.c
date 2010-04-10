@@ -770,6 +770,8 @@ main(int argc, char **argv)
   signal(SIGQUIT, sigIntHandler);
 #endif
 
+  RTMP_debuglevel = RTMP_LOGINFO;
+
   // Check for --quiet option before printing any output
   int index = 0;
   while (index < argc)

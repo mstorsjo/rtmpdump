@@ -36,14 +36,14 @@ static int neednl;
 
 static FILE *fmsg;
 
-static RTMP_LogCallback rtmp_log, *cb = rtmp_log;
+static RTMP_LogCallback rtmp_log_default, *cb = rtmp_log_default;
 
 static const char *levels[] = {
   "CRIT", "ERROR", "WARNING", "INFO",
   "DEBUG", "DEBUG2"
 };
 
-static void rtmp_log(int level, const char *format, va_list vl)
+static void rtmp_log_default(int level, const char *format, va_list vl)
 {
 	char str[MAX_PRINT_LEN]="";
 

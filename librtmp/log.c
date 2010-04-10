@@ -77,6 +77,11 @@ void RTMP_LogSetLevel(RTMP_LogLevel level)
 	RTMP_debuglevel = level;
 }
 
+void RTMP_LogSetCallback(RTMP_LogCallback *cbp)
+{
+	cb = cbp;
+}
+
 RTMP_LogLevel RTMP_LogGetLevel()
 {
 	return RTMP_debuglevel;

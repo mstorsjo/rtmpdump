@@ -1702,7 +1702,7 @@ SendDeleteStream(RTMP *r, double dStreamId)
 SAVC(pause);
 
 bool
-RTMP_SendPause(RTMP *r, bool DoPause, int dTime)
+RTMP_SendPause(RTMP *r, bool DoPause, int iTime)
 {
   RTMPPacket packet;
   char pbuf[256], *pend = pbuf + sizeof(pbuf);
@@ -1720,18 +1720,18 @@ RTMP_SendPause(RTMP *r, bool DoPause, int dTime)
   enc = AMF_EncodeNumber(enc, pend, ++r->m_numInvokes);
   *enc++ = AMF_NULL;
   enc = AMF_EncodeBoolean(enc, pend, DoPause);
-  enc = AMF_EncodeNumber(enc, pend, (double)dTime);
+  enc = AMF_EncodeNumber(enc, pend, (double)iTime);
 
   packet.m_nBodySize = enc - packet.m_body;
 
-  RTMP_Log(RTMP_LOGDEBUG, "%s, %d, pauseTime=%d", __FUNCTION__, DoPause, dTime);
+  RTMP_Log(RTMP_LOGDEBUG, "%s, %d, pauseTime=%d", __FUNCTION__, DoPause, iTime);
   return RTMP_SendPacket(r, &packet, true);
 }
 
 SAVC(seek);
 
 bool
-RTMP_SendSeek(RTMP *r, int dTime)
+RTMP_SendSeek(RTMP *r, int iTime)
 {
   RTMPPacket packet;
   char pbuf[256], *pend = pbuf + sizeof(pbuf);
@@ -1748,7 +1748,7 @@ RTMP_SendSeek(RTMP *r, int dTime)
   enc = AMF_EncodeString(enc, pend, &av_seek);
   enc = AMF_EncodeNumber(enc, pend, ++r->m_numInvokes);
   *enc++ = AMF_NULL;
-  enc = AMF_EncodeNumber(enc, pend, (double)dTime);
+  enc = AMF_EncodeNumber(enc, pend, (double)iTime);
 
   packet.m_nBodySize = enc - packet.m_body;
 

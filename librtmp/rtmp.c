@@ -1724,7 +1724,7 @@ RTMP_SendPause(RTMP *r, bool DoPause, int dTime)
 
   packet.m_nBodySize = enc - packet.m_body;
 
-  RTMP_Log(RTMP_LOGDEBUG, "%s, %d, pauseTime=%.2f", __FUNCTION__, DoPause, dTime);
+  RTMP_Log(RTMP_LOGDEBUG, "%s, %d, pauseTime=%d", __FUNCTION__, DoPause, dTime);
   return RTMP_SendPacket(r, &packet, true);
 }
 

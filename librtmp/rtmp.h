@@ -24,6 +24,10 @@
  *  http://www.gnu.org/copyleft/lgpl.html
  */
 
+#ifndef NO_CRYPTO
+#define CRYPTO
+#endif
+
 #include <errno.h>
 #include <stdint.h>
 #include <stddef.h>
@@ -146,6 +150,7 @@ extern "C"
     unsigned short socksport;
     unsigned short port;
 
+#ifdef CRYPTO
 #define RTMP_SWF_HASHLEN	32
     void *dh;			// for encryption
     void *rc4keyIn;
@@ -154,6 +159,7 @@ extern "C"
     uint32_t SWFSize;
     char SWFHash[RTMP_SWF_HASHLEN];
     char SWFVerificationResponse[RTMP_SWF_HASHLEN+10];
+#endif
   } RTMP_LNK;
 
   /* state for read() wrapper */

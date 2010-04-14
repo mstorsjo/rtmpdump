@@ -4,6 +4,11 @@ Copyright 2009-2010 Howard Chu
 Copyright 2009 The Flvstreamer Team
 http://rtmpdump.mplayerhq.hu/
 
+14 April 2010, v2.2c
+- internal restructuring, fix #undef CRYPTO builds
+- add RTMP_SetupURL, RTMP_SetOpt APIs
+- add logging callback
+
 22 March 2010, v2.2b
 - fix v2.2a crashes in rtmpsrv/rtmpsuck
 - fix v2.2a .swfinfo location on Windows

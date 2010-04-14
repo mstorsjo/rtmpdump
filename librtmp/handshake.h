@@ -43,9 +43,9 @@ typedef gcry_cipher_hd_t	RC4_handle;
 #include <openssl/sha.h>
 #include <openssl/hmac.h>
 #include <openssl/rc4.h>
-#define HMAC_setup(ctx, key, len)	HMAC_CTX_init(&ctx); HMAC_Init_ex(&ctx, (uint8_t *)key, len, EVP_sha256(), 0)
-#define HMAC_crunch(ctx, buf, len)	HMAC_Update(&ctx, (uint8_t *)buf, len)
-#define HMAC_finish(ctx, dig, dlen)	HMAC_Final(&ctx, (uint8_t *)dig, &dlen); HMAC_CTX_cleanup(&ctx)
+#define HMAC_setup(ctx, key, len)	HMAC_CTX_init(&ctx); HMAC_Init_ex(&ctx, key, len, EVP_sha256(), 0)
+#define HMAC_crunch(ctx, buf, len)	HMAC_Update(&ctx, buf, len)
+#define HMAC_finish(ctx, dig, dlen)	HMAC_Final(&ctx, dig, &dlen); HMAC_CTX_cleanup(&ctx)
 
 typedef RC4_KEY *	RC4_handle;
 #define RC4_setup(h)	*h = malloc(sizeof(RC4_KEY))

@@ -121,6 +121,7 @@ GetDHOffset2(char *handshake, unsigned int len)
 {
   unsigned int offset = 0;
   unsigned char *ptr = (unsigned char *) handshake + 768;
+  unsigned int res;
 
   assert(RTMP_SIG_SIZE <= len);
 
@@ -132,7 +133,7 @@ GetDHOffset2(char *handshake, unsigned int len)
   ptr++;
   offset += (*ptr);
 
-  unsigned int res = (offset % 632) + 8;
+  res = (offset % 632) + 8;
 
   if (res + 128 > 767)
     {
@@ -149,6 +150,7 @@ GetDigestOffset2(char *handshake, unsigned int len)
 {
   unsigned int offset = 0;
   unsigned char *ptr = (unsigned char *) handshake + 772;
+  unsigned int res;
 
   offset += (*ptr);
   ptr++;
@@ -158,7 +160,7 @@ GetDigestOffset2(char *handshake, unsigned int len)
   ptr++;
   offset += (*ptr);
 
-  unsigned int res = (offset % 728) + 776;
+  res = (offset % 728) + 776;
 
   if (res + 32 > 1535)
     {
@@ -175,6 +177,7 @@ GetDHOffset1(char *handshake, unsigned int len)
 {
   unsigned int offset = 0;
   unsigned char *ptr = (unsigned char *) handshake + 1532;
+  unsigned int res;
 
   assert(RTMP_SIG_SIZE <= len);
 
@@ -186,7 +189,7 @@ GetDHOffset1(char *handshake, unsigned int len)
   ptr++;
   offset += (*ptr);
 
-  unsigned int res = (offset % 632) + 772;
+  res = (offset % 632) + 772;
 
   if (res + 128 > 1531)
     {
@@ -203,6 +206,7 @@ GetDigestOffset1(char *handshake, unsigned int len)
 {
   unsigned int offset = 0;
   unsigned char *ptr = (unsigned char *) handshake + 8;
+  unsigned int res;
 
   assert(12 <= len);
 
@@ -214,7 +218,7 @@ GetDigestOffset1(char *handshake, unsigned int len)
   ptr++;
   offset += (*ptr);
 
-  unsigned int res = (offset % 728) + 12;
+  res = (offset % 728) + 12;
 
   if (res + 32 > 771)
     {
@@ -246,7 +250,7 @@ CalculateDigest(unsigned int digestPos, char *handshakeMessage,
 		const char *key, size_t keyLen, char *digest)
 {
   const int messageLen = RTMP_SIG_SIZE - SHA256_DIGEST_LENGTH;
-  char message[messageLen];
+  char message[RTMP_SIG_SIZE - SHA256_DIGEST_LENGTH];
 
   memcpy(message, handshakeMessage, digestPos);
   memcpy(message + digestPos,
@@ -477,8 +481,10 @@ HandShake(RTMP * r, bool FP9HandShake)
 #endif
 
   if (FP9HandShake)
-    {
-      int dhposServer;
+  {
+	  int dhposServer;
+	  char digestResp[SHA256_DIGEST_LENGTH];
+	  char *signatureResp = NULL;
 
       /* we have to use this signature now to find the correct algorithms for getting the digest and DH positions */
       int digestPosServer = GetDigestOffset2(serversig, RTMP_SIG_SIZE);
@@ -552,8 +558,7 @@ HandShake(RTMP * r, bool FP9HandShake)
         *ip++ = rand();
 #endif
       /* calculate response now */
-      char digestResp[SHA256_DIGEST_LENGTH];
-      char *signatureResp = reply+RTMP_SIG_SIZE-SHA256_DIGEST_LENGTH;
+      signatureResp = reply+RTMP_SIG_SIZE-SHA256_DIGEST_LENGTH;
 
       HMACsha256(&serversig[digestPosServer], SHA256_DIGEST_LENGTH,
 		 GenuineFPKey, sizeof(GenuineFPKey), digestResp);
@@ -675,11 +680,11 @@ HandShake(RTMP * r, bool FP9HandShake)
 
       if (encrypted)
 	{
+	  char buff[RTMP_SIG_SIZE];
 	  /* set keys for encryption from now on */
 	  r->Link.rc4keyIn = keyIn;
 	  r->Link.rc4keyOut = keyOut;
 
-	  char buff[RTMP_SIG_SIZE];
 
 	  /* update the keystreams */
 	  if (r->Link.rc4keyIn)
@@ -842,6 +847,9 @@ SHandShake(RTMP * r)
 
   if (FP9HandShake)
     {
+      char digestResp[SHA256_DIGEST_LENGTH];
+      char *signatureResp = NULL;
+
       /* we have to use this signature now to find the correct algorithms for getting the digest and DH positions */
       int digestPosClient = GetDigestOffset1(clientsig, RTMP_SIG_SIZE);
 
@@ -906,8 +914,7 @@ SHandShake(RTMP * r)
 
 
       /* calculate response now */
-      char digestResp[SHA256_DIGEST_LENGTH];
-      char *signatureResp = clientsig+RTMP_SIG_SIZE-SHA256_DIGEST_LENGTH;
+      signatureResp = clientsig+RTMP_SIG_SIZE-SHA256_DIGEST_LENGTH;
 
       HMACsha256(&clientsig[digestPosClient], SHA256_DIGEST_LENGTH,
 		 GenuineFMSKey, sizeof(GenuineFMSKey), digestResp);
@@ -1018,11 +1025,10 @@ SHandShake(RTMP * r)
 
       if (encrypted)
 	{
+	  char buff[RTMP_SIG_SIZE];
 	  /* set keys for encryption from now on */
 	  r->Link.rc4keyIn = keyIn;
 	  r->Link.rc4keyOut = keyOut;
-
-	  char buff[RTMP_SIG_SIZE];
 
 	  /* update the keystreams */
 	  if (r->Link.rc4keyIn)

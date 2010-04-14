@@ -111,8 +111,9 @@ parsehost:
 
 	// get the port number if available
 	if(*p == ':') {
+		unsigned int p2;
 		p++;
-		unsigned int p2 = atoi(p);
+		p2 = atoi(p);
 		if(p2 > 65535) {
 			RTMP_Log(RTMP_LOGWARNING, "Invalid port number!");
 		} else {
@@ -196,6 +197,7 @@ void RTMP_ParsePlaypath(AVal *in, AVal *out) {
 	const char *playpath = in->av_val;
 	const char *temp, *q, *ext = NULL;
 	const char *ppstart = playpath;
+	char *streamname, *destptr, *p;
 
 	int pplen = in->av_len;
 
@@ -233,11 +235,11 @@ void RTMP_ParsePlaypath(AVal *in, AVal *out) {
 		}
 	}
 
-	char *streamname = (char *)malloc((pplen+4+1)*sizeof(char));
+	streamname = (char *)malloc((pplen+4+1)*sizeof(char));
 	if (!streamname)
 		return;
 
-	char *destptr = streamname, *p;
+	destptr = streamname;
 	if (addMP4 && (strncmp(ppstart, "mp4:", 4) != 0)) {
 		strcpy(destptr, "mp4:");
 		destptr += 4;

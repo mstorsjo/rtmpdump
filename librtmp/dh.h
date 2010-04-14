@@ -126,9 +126,10 @@ static bool
 isValidPublicKey(MP_t y, MP_t p, MP_t q)
 {
   int ret = true;
+  MP_t bn;
   assert(y);
 
-  MP_t bn = MP_new();
+  bn = MP_new();
   assert(bn);
 
   // y must lie in [2,p-1]
@@ -210,16 +211,17 @@ failed:
 static int
 DHGenerateKey(MDH *dh)
 {
+  size_t res = 0;
   if (!dh)
     return 0;
 
-  size_t res = 0;
   while (!res)
     {
+      MP_t q1 = NULL;
+
       if (!MDH_generate_key(dh))
 	return 0;
 
-      MP_t q1 = NULL;
       MP_gethex(&q1, Q1024, res);
       assert(res);
 
@@ -242,10 +244,11 @@ DHGenerateKey(MDH *dh)
 static int
 DHGetPublicKey(MDH *dh, uint8_t *pubkey, size_t nPubkeyLen)
 {
+  int len;
   if (!dh || !dh->pub_key)
     return 0;
 
-  int len = MP_bytes(dh->pub_key);
+  len = MP_bytes(dh->pub_key);
   if (len <= 0 || len > (int) nPubkeyLen)
     return 0;
 

@@ -25,9 +25,7 @@
  */
 
 #include <stdint.h>
-#ifndef _MSC_VER
 #include <stdbool.h>
-#endif
 
 #ifdef __cplusplus
 extern "C"

@@ -448,10 +448,11 @@ AMF3ReadInteger(const char *data, int32_t *valp)
 int
 AMF3ReadString(const char *data, AVal *str)
 {
+  int32_t ref = 0;
+  int len;
   assert(str != 0);
 
-  int32_t ref = 0;
-  int len = AMF3ReadInteger(data, &ref);
+  len = AMF3ReadInteger(data, &ref);
   data += len;
 
   if ((ref & 0x1) == 0)
@@ -596,6 +597,7 @@ AMFProp_Decode(AMFObjectProperty *prop, const char *pBuffer, int nSize,
 	       bool bDecodeName)
 {
   int nOriginalSize = nSize;
+  int nRes;
 
   prop->p_name.av_len = 0;
   prop->p_name.av_val = NULL;
@@ -692,7 +694,7 @@ AMFProp_Decode(AMFObjectProperty *prop, const char *pBuffer, int nSize,
 	nSize -= 4;
 
 	/* next comes the rest, mixed array has a final 0x000009 mark and names, so its an object */
-	int nRes = AMF_Decode(&prop->p_vu.p_object, pBuffer + 4, nSize, true);
+	nRes = AMF_Decode(&prop->p_vu.p_object, pBuffer + 4, nSize, true);
 	if (nRes == -1)
 	  return -1;
 	nSize -= nRes;
@@ -709,7 +711,7 @@ AMFProp_Decode(AMFObjectProperty *prop, const char *pBuffer, int nSize,
 	unsigned int nArrayLen = AMF_DecodeInt32(pBuffer);
 	nSize -= 4;
 
-	int nRes = AMF_DecodeArray(&prop->p_vu.p_object, pBuffer + 4, nSize,
+	nRes = AMF_DecodeArray(&prop->p_vu.p_object, pBuffer + 4, nSize,
 				   nArrayLen, false);
 	if (nRes == -1)
 	  return -1;
@@ -899,10 +901,11 @@ AMF_DecodeArray(AMFObject *obj, const char *pBuffer, int nSize,
   obj->o_props = NULL;
   while (nArrayLen > 0)
     {
+      AMFObjectProperty prop;
+      int nRes;
       nArrayLen--;
 
-      AMFObjectProperty prop;
-      int nRes = AMFProp_Decode(&prop, pBuffer, nSize, bDecodeName);
+      nRes = AMFProp_Decode(&prop, pBuffer, nSize, bDecodeName);
       if (nRes == -1)
 	bError = true;
       else

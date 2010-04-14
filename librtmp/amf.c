@@ -96,7 +96,7 @@ AMF_DecodeNumber(const char *data)
   co[7] = ci[0];
 #endif
 #else
-#if __BYTE_ORDER == __LITTLE_ENDIAN	// __FLOAT_WORD_ORER == __BIG_ENDIAN
+#if __BYTE_ORDER == __LITTLE_ENDIAN	/* __FLOAT_WORD_ORER == __BIG_ENDIAN */
   unsigned char *ci, *co;
   ci = (unsigned char *)data;
   co = (unsigned char *)&dVal;
@@ -108,7 +108,7 @@ AMF_DecodeNumber(const char *data)
   co[5] = ci[6];
   co[6] = ci[5];
   co[7] = ci[4];
-#else // __BYTE_ORDER == __BIG_ENDIAN && __FLOAT_WORD_ORER == __LITTLE_ENDIAN
+#else /* __BYTE_ORDER == __BIG_ENDIAN && __FLOAT_WORD_ORER == __LITTLE_ENDIAN */
   unsigned char *ci, *co;
   ci = (unsigned char *)data;
   co = (unsigned char *)&dVal;
@@ -198,7 +198,7 @@ AMF_EncodeNumber(char *output, char *outend, double dVal)
   if (output+1+8 > outend)
     return NULL;
 
-  *output++ = AMF_NUMBER;	// type: Number
+  *output++ = AMF_NUMBER;	/* type: Number */
 
 #if __FLOAT_WORD_ORDER == __BYTE_ORDER
 #if __BYTE_ORDER == __BIG_ENDIAN
@@ -414,9 +414,9 @@ AMF3ReadInteger(const char *data, int32_t *valp)
   while (i <= 2)
     {				/* handle first 3 bytes */
       if (data[i] & 0x80)
-	{			// byte used
-	  val <<= 7;		// shift up
-	  val |= (data[i] & 0x7f);	// add bits
+	{			/* byte used */
+	  val <<= 7;		/* shift up */
+	  val |= (data[i] & 0x7f);	/* add bits */
 	  i++;
 	}
       else
@@ -426,16 +426,16 @@ AMF3ReadInteger(const char *data, int32_t *valp)
     }
 
   if (i > 2)
-    {				// use 4th byte, all 8bits
+    {				/* use 4th byte, all 8bits */
       val <<= 8;
       val |= data[3];
 
-      // range check
+      /* range check */
       if (val > AMF3_INTEGER_MAX)
 	val -= (1 << 29);
     }
   else
-    {				// use 7bits of last unparsed byte (0xxxxxxx)
+    {				/* use 7bits of last unparsed byte (0xxxxxxx) */
       val <<= 7;
       val |= data[i];
     }
@@ -883,7 +883,7 @@ AMF_Encode(AMFObject *obj, char *pBuffer, char *pBufEnd)
     }
 
   if (pBuffer + 3 >= pBufEnd)
-    return NULL;			// no room for the end marker
+    return NULL;			/* no room for the end marker */
 
   pBuffer = AMF_EncodeInt24(pBuffer, pBufEnd, AMF_OBJECT_END);
 
@@ -973,13 +973,13 @@ AMF3_Decode(AMFObject *obj, const char *pBuffer, int nSize, bool bAMFData)
 
 	  cd.cd_num = classExtRef >> 2;
 
-	  // class name
+	  /* class name */
 
 	  len = AMF3ReadString(pBuffer, &cd.cd_name);
 	  nSize -= len;
 	  pBuffer += len;
 
-	  //std::string str = className;
+	  /*std::string str = className; */
 
 	  RTMP_Log(RTMP_LOGDEBUG,
 	      "Class name: %s, externalizable: %d, dynamic: %d, classMembers: %d",

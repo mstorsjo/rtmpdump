@@ -29,7 +29,7 @@ typedef enum {
   HTTPRES_BAD_REQUEST,      /* client error */
   HTTPRES_SERVER_ERROR,     /* server reported an error */
   HTTPRES_REDIRECTED,       /* resource has been moved */
-  HTTPRES_LOST_CONNECTION,  /* connection lost while waiting for data */
+  HTTPRES_LOST_CONNECTION   /* connection lost while waiting for data */
 } HTTPResult;
 
 struct HTTP_ctx {

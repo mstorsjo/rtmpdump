@@ -49,7 +49,7 @@ static void rtmp_log_default(int level, const char *format, va_list vl)
 
 	vsnprintf(str, MAX_PRINT_LEN-1, format, vl);
 
-	// Filter out 'no-name'
+	/* Filter out 'no-name' */
 	if ( RTMP_debuglevel<RTMP_LOGALL && strstr(str, "no-name" ) != NULL )
 		return;
 
@@ -97,7 +97,7 @@ void RTMP_Log(int level, const char *format, ...)
 
 static const char hexdig[] = "0123456789abcdef";
 
-void RTMP_LogHex(int level, const char *data, unsigned long len)
+void RTMP_LogHex(int level, const uint8_t *data, unsigned long len)
 {
 	unsigned long i;
 	char line[50], *ptr;
@@ -124,7 +124,7 @@ void RTMP_LogHex(int level, const char *data, unsigned long len)
 	}
 }
 
-void RTMP_LogHexString(int level, const char *data, unsigned long len)
+void RTMP_LogHexString(int level, const uint8_t *data, unsigned long len)
 {
 #define BP_OFFSET 9
 #define BP_GRAPH 60
@@ -162,7 +162,7 @@ void RTMP_LogHexString(int level, const char *data, unsigned long len)
 
 		off = BP_GRAPH + n + ((n >= 8)?1:0);
 
-		if ( isprint( (unsigned char) data[i] )) {
+		if ( isprint( data[i] )) {
 			line[BP_GRAPH + n] = data[i];
 		} else {
 			line[BP_GRAPH + n] = '.';

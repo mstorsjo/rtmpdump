@@ -121,7 +121,7 @@ void dh_pg_init()
 }
 */
 
-// RFC 2631, Section 2.1.5, http://www.ietf.org/rfc/rfc2631.txt
+/* RFC 2631, Section 2.1.5, http://www.ietf.org/rfc/rfc2631.txt */
 static bool
 isValidPublicKey(MP_t y, MP_t p, MP_t q)
 {
@@ -132,7 +132,7 @@ isValidPublicKey(MP_t y, MP_t p, MP_t q)
   bn = MP_new();
   assert(bn);
 
-  // y must lie in [2,p-1]
+  /* y must lie in [2,p-1] */
   MP_set_w(bn, 1);
   if (MP_cmp(y, bn) < 0)
     {
@@ -141,7 +141,7 @@ isValidPublicKey(MP_t y, MP_t p, MP_t q)
       goto failed;
     }
 
-  // bn = p-2
+  /* bn = p-2 */
   MP_set(bn, p);
   MP_sub_w(bn, 1);
   if (MP_cmp(y, bn) > 0)
@@ -151,15 +151,15 @@ isValidPublicKey(MP_t y, MP_t p, MP_t q)
       goto failed;
     }
 
-  // Verify with Sophie-Germain prime
-  //
-  // This is a nice test to make sure the public key position is calculated
-  // correctly. This test will fail in about 50% of the cases if applied to
-  // random data.
-  //
+  /* Verify with Sophie-Germain prime
+   *
+   * This is a nice test to make sure the public key position is calculated
+   * correctly. This test will fail in about 50% of the cases if applied to
+   * random data.
+   */
   if (q)
     {
-      // y must fulfill y^q mod p = 1
+      /* y must fulfill y^q mod p = 1 */
       MP_modexp(bn, y, q, p);
 
       if (MP_cmp_1(bn) != 0)
@@ -187,13 +187,13 @@ DHInit(int nKeyBits)
   if (!dh->g)
     goto failed;
 
-  MP_gethex(&dh->p, P1024, res);	// prime P1024, see dhgroups.h
+  MP_gethex(&dh->p, P1024, res);	/* prime P1024, see dhgroups.h */
   if (!res)
     {
       goto failed;
     }
 
-  if (!MP_set_w(dh->g, 2))	// base 2
+  if (!MP_set_w(dh->g, 2))	/* base 2 */
     {
       goto failed;
     }
@@ -238,8 +238,9 @@ DHGenerateKey(MDH *dh)
   return 1;
 }
 
-// fill pubkey with the public key in BIG ENDIAN order
-// 00 00 00 00 00 x1 x2 x3 .....
+/* fill pubkey with the public key in BIG ENDIAN order
+ * 00 00 00 00 00 x1 x2 x3 .....
+ */
 
 static int
 DHGetPublicKey(MDH *dh, uint8_t *pubkey, size_t nPubkeyLen)
@@ -274,7 +275,9 @@ DHGetPrivateKey(MDH *dh, uint8_t *privkey, size_t nPrivkeyLen)
 }
 #endif
 
-// computes the shared secret key from the private MDH value and the othe parties public key (pubkey)
+/* computes the shared secret key from the private MDH value and the
+ * other party's public key (pubkey)
+ */
 static int
 DHComputeSharedSecretKey(MDH *dh, uint8_t *pubkey, size_t nPubkeyLen,
 			 uint8_t *secret)

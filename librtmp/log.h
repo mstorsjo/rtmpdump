@@ -25,6 +25,7 @@
 
 #include <stdio.h>
 #include <stdarg.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -49,8 +50,8 @@ void RTMP_LogSetOutput(FILE *file);
 void RTMP_LogPrintf(const char *format, ...);
 void RTMP_LogStatus(const char *format, ...);
 void RTMP_Log(int level, const char *format, ...);
-void RTMP_LogHex(int level, const char *data, unsigned long len);
-void RTMP_LogHexString(int level, const char *data, unsigned long len);
+void RTMP_LogHex(int level, const uint8_t *data, unsigned long len);
+void RTMP_LogHexString(int level, const uint8_t *data, unsigned long len);
 void RTMP_LogSetLevel(RTMP_LogLevel lvl);
 RTMP_LogLevel RTMP_LogGetLevel(void);
 

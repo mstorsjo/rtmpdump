@@ -28,7 +28,7 @@
 #include <stdint.h>
 
 #ifdef WIN32
-// Windows is little endian only
+/* Windows is little endian only */
 #define __LITTLE_ENDIAN 1234
 #define __BIG_ENDIAN    4321
 #define __BYTE_ORDER __LITTLE_ENDIAN
@@ -54,7 +54,7 @@ typedef unsigned char uint8_t;
 
 #endif /* !WIN32 */
 
-// define default endianness
+/* define default endianness */
 #ifndef __LITTLE_ENDIAN
 #define __LITTLE_ENDIAN	1234
 #endif
@@ -68,7 +68,7 @@ typedef unsigned char uint8_t;
 #define __BYTE_ORDER	__LITTLE_ENDIAN
 #endif
 
-// ok, we assume to have the same float word order and byte order if float word order is not defined
+/* ok, we assume to have the same float word order and byte order if float word order is not defined */
 #ifndef __FLOAT_WORD_ORDER
 #warning "Float word order not defined, assuming the same as byte order!"
 #define __FLOAT_WORD_ORDER	__BYTE_ORDER

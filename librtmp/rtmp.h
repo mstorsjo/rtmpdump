@@ -58,7 +58,8 @@ extern "C"
 
 #define RTMP_DEFAULT_CHUNKSIZE	128
 
-#define RTMP_BUFFER_CACHE_SIZE (16*1024)	// needs to fit largest number of bytes recv() may return
+/* needs to fit largest number of bytes recv() may return */
+#define RTMP_BUFFER_CACHE_SIZE (16*1024)
 
 #define	RTMP_CHANNELS	65600
 
@@ -91,10 +92,10 @@ extern "C"
   {
     uint8_t m_headerType;
     uint8_t m_packetType;
-    uint8_t m_hasAbsTimestamp;	// timestamp absolute or relative?
+    uint8_t m_hasAbsTimestamp;	/* timestamp absolute or relative? */
     int m_nChannel;
-    uint32_t m_nTimeStamp;	// timestamp
-    int32_t m_nInfoField2;	// last 4 bytes in a long header
+    uint32_t m_nTimeStamp;	/* timestamp */
+    int32_t m_nInfoField2;	/* last 4 bytes in a long header */
     uint32_t m_nBodySize;
     uint32_t m_nBytesRead;
     RTMPChunk *m_chunk;
@@ -145,19 +146,19 @@ extern "C"
     int swfAge;
 
     int protocol;
-    int timeout;		// number of seconds before connection times out
+    int timeout;		/* number of seconds before connection times out */
 
     unsigned short socksport;
     unsigned short port;
 
 #ifdef CRYPTO
 #define RTMP_SWF_HASHLEN	32
-    void *dh;			// for encryption
+    void *dh;			/* for encryption */
     void *rc4keyIn;
     void *rc4keyOut;
 
     uint32_t SWFSize;
-    char SWFHash[RTMP_SWF_HASHLEN];
+    uint8_t SWFHash[RTMP_SWF_HASHLEN];
     char SWFVerificationResponse[RTMP_SWF_HASHLEN+10];
 #endif
   } RTMP_LNK;
@@ -202,7 +203,7 @@ extern "C"
     int m_nBytesIn;
     int m_nBytesInSent;
     int m_nBufferMS;
-    int m_stream_id;		// returned in _result from invoking createStream
+    int m_stream_id;		/* returned in _result from createStream */
     int m_mediaChannel;
     uint32_t m_mediaStamp;
     uint32_t m_pauseStamp;
@@ -221,13 +222,13 @@ extern "C"
     RTMP_LNK Link;
     RTMPPacket *m_vecChannelsIn[RTMP_CHANNELS];
     RTMPPacket *m_vecChannelsOut[RTMP_CHANNELS];
-    int m_channelTimestamp[RTMP_CHANNELS];	// abs timestamp of last packet
+    int m_channelTimestamp[RTMP_CHANNELS];	/* abs timestamp of last packet */
 
-    double m_fAudioCodecs;	// audioCodecs for the connect packet
-    double m_fVideoCodecs;	// videoCodecs for the connect packet
+    double m_fAudioCodecs;	/* audioCodecs for the connect packet */
+    double m_fVideoCodecs;	/* videoCodecs for the connect packet */
     double m_fEncoding;		/* AMF0 or AMF3 */
 
-    double m_fDuration;		// duration of stream in seconds
+    double m_fDuration;		/* duration of stream in seconds */
 
     int m_msgCounter;		/* RTMPT stuff */
     int m_polling;

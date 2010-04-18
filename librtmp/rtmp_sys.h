@@ -22,7 +22,7 @@
  */
 
 #ifdef WIN32
-#include <winsock.h>
+#include <winsock2.h>
 #define GetSockError()	WSAGetLastError()
 #define setsockopt(a,b,c,d,e)	(setsockopt)(a,b,c,(const char *)d,(int)e)
 #define EWOULDBLOCK	WSAETIMEDOUT	/* we don't use nonblocking, but we do use timeouts */

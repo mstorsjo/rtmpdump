@@ -11,11 +11,8 @@ CRYPTO=OPENSSL
 DEF_OPENSSL=-DUSE_OPENSSL
 DEF_GNUTLS=-DUSE_GNUTLS
 DEF_=-DNO_CRYPTO
-LIB_GNUTLS=-lgnutls
-LIB_OPENSSL=-lssl -lcrypto
 REQ_GNUTLS=gnutls
 REQ_OPENSSL=libssl,libcrypto
-CRYPTO_LIB=$(LIB_$(CRYPTO))
 CRYPTO_REQ=$(REQ_$(CRYPTO))
 CRYPTO_DEF=$(DEF_$(CRYPTO))
 
@@ -41,8 +38,7 @@ parseurl.o: parseurl.c rtmp.h rtmp_sys.h log.h Makefile
 
 librtmp.pc: librtmp.pc.in Makefile
 	sed -e "s;@prefix@;$(prefix);" -e "s;@VERSION@;$(VERSION);" \
-		-e "s;@CRYPTO_LIB@;$(CRYPTO_LIB);" -e "s;@CRYPTO_REQ@;$(CRYPTO_REQ);" \
-		librtmp.pc.in > $@
+		-e "s;@CRYPTO_REQ@;$(CRYPTO_REQ);" librtmp.pc.in > $@
 
 install:	librtmp.a librtmp.pc
 	-mkdir -p $(INCDIR) $(DESTDIR)$(prefix)/lib/pkgconfig

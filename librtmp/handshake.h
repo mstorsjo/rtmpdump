@@ -231,6 +231,9 @@ GetDigestOffset1(uint8_t *handshake, unsigned int len)
   return res;
 }
 
+static getoff *digoff[] = {GetDigestOffset1, GetDigestOffset2};
+static getoff *dhoff[] = {GetDHOffset1, GetDHOffset2};
+
 static void
 HMACsha256(const uint8_t *message, size_t messageLen, const uint8_t *key,
 	   size_t keylen, uint8_t *digest)
@@ -334,7 +337,7 @@ static void rtmpe8_sig(uint8_t *in, uint8_t *out, int keyid)
 static bool
 HandShake(RTMP * r, bool FP9HandShake)
 {
-  int i;
+  int i, offalg = 0;
   int dhposClient = 0;
   int digestPosClient = 0;
   bool encrypted = r->Link.protocol & RTMP_FEATURE_ENC;
@@ -348,7 +351,7 @@ HandShake(RTMP * r, bool FP9HandShake)
   uint8_t clientbuf[RTMP_SIG_SIZE + 4], *clientsig=clientbuf+4;
   uint8_t serversig[RTMP_SIG_SIZE], client2[RTMP_SIG_SIZE], *reply;
   uint8_t type;
-  getoff *getdh, *getdig;
+  getoff *getdh = NULL, *getdig = NULL;
 
   if (encrypted || r->Link.SWFSize)
     FP9HandShake = true;
@@ -358,7 +361,10 @@ HandShake(RTMP * r, bool FP9HandShake)
   r->Link.rc4keyIn = r->Link.rc4keyOut = 0;
 
   if (encrypted)
-    clientsig[-1] = 0x06;	/* 0x08 is RTMPE as well */
+    {
+      clientsig[-1] = 0x06;	/* 0x08 is RTMPE as well */
+      offalg = 1;
+    }
   else
     clientsig[-1] = 0x03;
 
@@ -369,15 +375,9 @@ HandShake(RTMP * r, bool FP9HandShake)
     {
       /* set version to at least 9.0.115.0 */
 #ifdef FP10
-      getdig = GetDigestOffset2;
-      getdh = GetDHOffset2;
-
       clientsig[4] = 128;
       clientsig[6] = 3;
 #else
-      getdig = GetDigestOffset1;
-      getdh = GetDHOffset1;
-
       clientsig[4] = 9;
       clientsig[6] = 124;
 #endif
@@ -385,6 +385,8 @@ HandShake(RTMP * r, bool FP9HandShake)
       clientsig[7] = 2;
 
       RTMP_Log(RTMP_LOGDEBUG, "%s: Client type: %02X", __FUNCTION__, clientsig[-1]);
+      getdig = digoff[offalg];
+      getdh  = dhoff[offalg];
     }
   else
     {
@@ -480,33 +482,27 @@ HandShake(RTMP * r, bool FP9HandShake)
 #endif
 
   if (FP9HandShake)
-  {
-    int dhposServer;
-    uint8_t digestResp[SHA256_DIGEST_LENGTH];
-    uint8_t *signatureResp = NULL;
+    {
+      uint8_t digestResp[SHA256_DIGEST_LENGTH];
+      uint8_t *signatureResp = NULL;
 
       /* we have to use this signature now to find the correct algorithms for getting the digest and DH positions */
-      int digestPosServer = GetDigestOffset2(serversig, RTMP_SIG_SIZE);
+      int digestPosServer = getdig(serversig, RTMP_SIG_SIZE);
 
       if (!VerifyDigest(digestPosServer, serversig, GenuineFMSKey, 36))
 	{
 	  RTMP_Log(RTMP_LOGWARNING, "Trying different position for server digest!");
-	  digestPosServer = GetDigestOffset1(serversig, RTMP_SIG_SIZE);
+	  offalg ^= 1;
+	  getdig = digoff[offalg];
+	  getdh  = dhoff[offalg];
+	  digestPosServer = getdig(serversig, RTMP_SIG_SIZE);
 
 	  if (!VerifyDigest(digestPosServer, serversig, GenuineFMSKey, 36))
 	    {
 	      RTMP_Log(RTMP_LOGERROR, "Couldn't verify the server digest");	/* continuing anyway will probably fail */
 	      return false;
 	    }
-	  dhposServer = GetDHOffset1(serversig, RTMP_SIG_SIZE);
 	}
-      else
-        {
-	  dhposServer = GetDHOffset2(serversig, RTMP_SIG_SIZE);
-        }
-
-      RTMP_Log(RTMP_LOGDEBUG, "%s: Server DH public key offset: %d", __FUNCTION__,
-	  dhposServer);
 
       /* generate SWFVerification token (SHA256 HMAC hash of decompressed SWF, key are the last 32 bytes of the server handshake) */
       if (r->Link.SWFSize)
@@ -528,10 +524,13 @@ HandShake(RTMP * r, bool FP9HandShake)
 	{
 	  /* compute secret key */
 	  uint8_t secretKey[128] = { 0 };
+	  int len, dhposServer;
 
-	  int len =
-	    DHComputeSharedSecretKey(r->Link.dh, &serversig[dhposServer], 128,
-				     secretKey);
+	  dhposServer = getdh(serversig, RTMP_SIG_SIZE);
+	  RTMP_Log(RTMP_LOGDEBUG, "%s: Server DH public key offset: %d", __FUNCTION__,
+	    dhposServer);
+	  len = DHComputeSharedSecretKey(r->Link.dh, &serversig[dhposServer],
+	  				128, secretKey);
 	  if (len < 0)
 	    {
 	      RTMP_Log(RTMP_LOGDEBUG, "%s: Wrong secret key position!", __FUNCTION__);
@@ -596,8 +595,10 @@ HandShake(RTMP * r, bool FP9HandShake)
   else
     {
       reply = serversig;
+#if 0
       uptime = htonl(RTMP_GetTime());
       memcpy(reply+4, &uptime, 4);
+#endif
     }
 
 #ifdef _DEBUG
@@ -713,8 +714,7 @@ HandShake(RTMP * r, bool FP9HandShake)
 static bool
 SHandShake(RTMP * r)
 {
-  int i;
-  int dhposClient = 0;
+  int i, offalg = 0;
   int dhposServer = 0;
   int digestPosServer = 0;
   RC4_handle keyIn = 0;
@@ -727,6 +727,7 @@ SHandShake(RTMP * r)
   uint8_t serverbuf[RTMP_SIG_SIZE + 4], *serversig = serverbuf+4;
   uint8_t type;
   uint32_t uptime;
+  getoff *getdh = NULL, *getdig = NULL;
 
   if (ReadN(r, (char *)&type, 1) != 1)	/* 0x03 or 0x06 */
     return false;
@@ -743,11 +744,12 @@ SHandShake(RTMP * r)
     }
   else if (type == 6 || type == 8)
     {
+      offalg = 1;
       encrypted = true;
       FP9HandShake = true;
       r->Link.protocol |= RTMP_FEATURE_ENC;
       /* use FP10 if client is capable */
-      if (clientsig[4] == 128 || clientsig[4] == -128)
+      if (clientsig[4] == 128)
 	type = 8;
     }
   else
@@ -756,6 +758,9 @@ SHandShake(RTMP * r)
 	  __FUNCTION__, type);
       return false;
     }
+
+  if (!FP9HandShake && clientsig[4])
+    FP9HandShake = true;
 
   serversig[-1] = type;
 
@@ -771,6 +776,9 @@ SHandShake(RTMP * r)
       serversig[5] = 5;
       serversig[6] = 1;
       serversig[7] = 1;
+
+      getdig = digoff[offalg];
+      getdh  = dhoff[offalg];
     }
   else
     {
@@ -800,7 +808,7 @@ SHandShake(RTMP * r)
 	      return false;
 	    }
 
-	  dhposServer = GetDHOffset2(serversig, RTMP_SIG_SIZE);
+	  dhposServer = getdh(serversig, RTMP_SIG_SIZE);
 	  RTMP_Log(RTMP_LOGDEBUG, "%s: DH pubkey position: %d", __FUNCTION__, dhposServer);
 
 	  if (!DHGenerateKey(r->Link.dh))
@@ -818,8 +826,8 @@ SHandShake(RTMP * r)
 	    }
 	}
 
-      digestPosServer = GetDigestOffset2(serversig, RTMP_SIG_SIZE);	/* reuse this value in verification */
-      RTMP_Log(RTMP_LOGDEBUG, "%s: Client digest offset: %d", __FUNCTION__,
+      digestPosServer = getdig(serversig, RTMP_SIG_SIZE);	/* reuse this value in verification */
+      RTMP_Log(RTMP_LOGDEBUG, "%s: Server digest offset: %d", __FUNCTION__,
 	  digestPosServer);
 
       CalculateDigest(digestPosServer, serversig, GenuineFMSKey, 36,
@@ -850,27 +858,23 @@ SHandShake(RTMP * r)
       uint8_t *signatureResp = NULL;
 
       /* we have to use this signature now to find the correct algorithms for getting the digest and DH positions */
-      int digestPosClient = GetDigestOffset1(clientsig, RTMP_SIG_SIZE);
+      int digestPosClient = getdig(clientsig, RTMP_SIG_SIZE);
 
       if (!VerifyDigest(digestPosClient, clientsig, GenuineFPKey, 30))
 	{
 	  RTMP_Log(RTMP_LOGWARNING, "Trying different position for client digest!");
-	  digestPosClient = GetDigestOffset2(clientsig, RTMP_SIG_SIZE);
+	  offalg ^= 1;
+	  getdig = digoff[offalg];
+	  getdh  = dhoff[offalg];
+
+	  digestPosClient = getdig(clientsig, RTMP_SIG_SIZE);
 
 	  if (!VerifyDigest(digestPosClient, clientsig, GenuineFPKey, 30))
 	    {
 	      RTMP_Log(RTMP_LOGERROR, "Couldn't verify the client digest");	/* continuing anyway will probably fail */
 	      return false;
 	    }
-	  dhposClient = GetDHOffset2(clientsig, RTMP_SIG_SIZE);
 	}
-      else
-        {
-	  dhposClient = GetDHOffset1(clientsig, RTMP_SIG_SIZE);
-        }
-
-      RTMP_Log(RTMP_LOGDEBUG, "%s: Client DH public key offset: %d", __FUNCTION__,
-	  dhposClient);
 
       /* generate SWFVerification token (SHA256 HMAC hash of decompressed SWF, key are the last 32 bytes of the server handshake) */
       if (r->Link.SWFSize)
@@ -890,10 +894,14 @@ SHandShake(RTMP * r)
       /* do Diffie-Hellmann Key exchange for encrypted RTMP */
       if (encrypted)
 	{
+	  int dhposClient, len;
 	  /* compute secret key */
 	  uint8_t secretKey[128] = { 0 };
 
-	  int len =
+	  dhposClient = getdh(clientsig, RTMP_SIG_SIZE);
+	  RTMP_Log(RTMP_LOGDEBUG, "%s: Client DH public key offset: %d", __FUNCTION__,
+	    dhposClient);
+	  len =
 	    DHComputeSharedSecretKey(r->Link.dh,
 				     (uint8_t *) &clientsig[dhposClient], 128,
 				     secretKey);
@@ -950,11 +958,13 @@ SHandShake(RTMP * r)
       RTMP_Log(RTMP_LOGDEBUG, "%s: Server signature calculated:", __FUNCTION__);
       RTMP_LogHex(RTMP_LOGDEBUG, signatureResp, SHA256_DIGEST_LENGTH);
     }
+#if 0
   else
     {
       uptime = htonl(RTMP_GetTime());
       memcpy(clientsig+4, &uptime, 4);
     }
+#endif
 
   RTMP_Log(RTMP_LOGDEBUG2, "%s: Sending handshake response: ",
     __FUNCTION__);

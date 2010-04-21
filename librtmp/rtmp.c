@@ -3805,8 +3805,8 @@ Read_1_Packet(RTMP *r, char *buf, int buflen)
 	  int delta;
 
 	  /* grab first timestamp and see if it needs fixing */
-	  nTimeStamp = AMF_DecodeInt24(packetBody + pos + 4);
-	  nTimeStamp |= (packetBody[pos + 7] << 24);
+	  nTimeStamp = AMF_DecodeInt24(packetBody + 4);
+	  nTimeStamp |= (packetBody[7] << 24);
 	  delta = packet.m_nTimeStamp - nTimeStamp;
 
 	  while (pos + 11 < nPacketLen)
@@ -3817,7 +3817,7 @@ Read_1_Packet(RTMP *r, char *buf, int buflen)
 	      nTimeStamp |= (packetBody[pos + 7] << 24);
 
 	      if (delta)
-	        {
+		{
 		  nTimeStamp += delta;
 		  AMF_EncodeInt24(ptr+pos+4, pend, nTimeStamp);
 		  ptr[pos+7] = nTimeStamp>>24;

@@ -3802,6 +3802,12 @@ Read_1_Packet(RTMP *r, char *buf, int buflen)
       if (packet.m_packetType == 0x16)
 	{
 	  unsigned int pos = 0;
+	  int delta;
+
+	  /* grab first timestamp and see if it needs fixing */
+	  nTimeStamp = AMF_DecodeInt24(packetBody + pos + 4);
+	  nTimeStamp |= (packetBody[pos + 7] << 24);
+	  delta = packet.m_nTimeStamp - nTimeStamp;
 
 	  while (pos + 11 < nPacketLen)
 	    {
@@ -3810,9 +3816,12 @@ Read_1_Packet(RTMP *r, char *buf, int buflen)
 	      nTimeStamp = AMF_DecodeInt24(packetBody + pos + 4);
 	      nTimeStamp |= (packetBody[pos + 7] << 24);
 
-	      /*
-	         CRTMP::EncodeInt24(ptr+pos+4, nTimeStamp);
-	         ptr[pos+7] = (nTimeStamp>>24)&0xff; */
+	      if (delta)
+	        {
+	          nTimeStamp += delta;
+		  AMF_EncodeInt24(ptr+pos+4, pend, nTimeStamp);
+		  ptr[pos+7] = nTimeStamp>>24;
+		}
 
 	      /* set data type */
 	      r->m_read.dataType |= (((*(packetBody + pos) == 0x08) << 2) |
@@ -3878,7 +3887,7 @@ Read_1_Packet(RTMP *r, char *buf, int buflen)
        * Update ext timestamp with this absolute offset in non-live mode
        * otherwise report the relative one
        */
-      /* RTMP_LogPrintf("\nDEBUG: type: %02X, size: %d, pktTS: %dms, TS: %dms, bLiveStream: %d", packet.m_packetType, nPacketLen, packet.m_nTimeStamp, nTimeStamp, bLiveStream); */
+      RTMP_Log(RTMP_LOGDEBUG, "type: %02X, size: %d, pktTS: %dms, TS: %dms, bLiveStream: %d", packet.m_packetType, nPacketLen, packet.m_nTimeStamp, nTimeStamp, r->Link.bLiveStream);
       r->m_read.timestamp = r->Link.bLiveStream ? packet.m_nTimeStamp : nTimeStamp;
 
       ret = size;

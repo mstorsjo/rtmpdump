@@ -3887,7 +3887,7 @@ Read_1_Packet(RTMP *r, char *buf, int buflen)
        * Update ext timestamp with this absolute offset in non-live mode
        * otherwise report the relative one
        */
-      RTMP_Log(RTMP_LOGDEBUG, "type: %02X, size: %d, pktTS: %dms, TS: %dms, bLiveStream: %d", packet.m_packetType, nPacketLen, packet.m_nTimeStamp, nTimeStamp, r->Link.bLiveStream);
+      /* RTMP_Log(RTMP_LOGDEBUG, "type: %02X, size: %d, pktTS: %dms, TS: %dms, bLiveStream: %d", packet.m_packetType, nPacketLen, packet.m_nTimeStamp, nTimeStamp, r->Link.bLiveStream); */
       r->m_read.timestamp = r->Link.bLiveStream ? packet.m_nTimeStamp : nTimeStamp;
 
       ret = size;

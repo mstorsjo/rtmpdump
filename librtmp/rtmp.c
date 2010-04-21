@@ -3818,7 +3818,7 @@ Read_1_Packet(RTMP *r, char *buf, int buflen)
 
 	      if (delta)
 	        {
-	          nTimeStamp += delta;
+		  nTimeStamp += delta;
 		  AMF_EncodeInt24(ptr+pos+4, pend, nTimeStamp);
 		  ptr[pos+7] = nTimeStamp>>24;
 		}

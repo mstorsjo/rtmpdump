@@ -241,7 +241,10 @@ ServeInvoke(STREAMING_SERVER *server, int which, RTMPPacket *pack, const char *b
                       r1 = pval.av_val+8;
                     }
                   r2 = strchr(r1, '/');
-                  len = r2 - r1;
+		  if (r2)
+                    len = r2 - r1;
+		  else
+		    len = pval.av_len - (r1 - pval.av_val);
                   r2 = malloc(len+1);
                   memcpy(r2, r1, len);
                   r2[len] = '\0';
@@ -327,7 +330,17 @@ ServeInvoke(STREAMING_SERVER *server, int which, RTMPPacket *pack, const char *b
       /* strip trailing URL parameters */
       q = memchr(av.av_val, '?', av.av_len);
       if (q)
-        av.av_len = q - av.av_val;
+        {
+	  if (q == av.av_val)
+	    {
+	      av.av_val++;
+	      av.av_len--;
+	    }
+	  else
+	    {
+              av.av_len = q - av.av_val;
+	    }
+	}
       /* strip leading slash components */
       for (p=av.av_val+av.av_len-1; p>=av.av_val; p--)
         if (*p == '/')

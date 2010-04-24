@@ -649,7 +649,17 @@ ServeInvoke(STREAMING_SERVER *server, RTMP * r, RTMPPacket *packet, unsigned int
 	  /* strip trailing URL parameters */
 	  q = memchr(av.av_val, '?', av.av_len);
 	  if (q)
-	    av.av_len = q - av.av_val;
+	    {
+		  if (q == av.av_val)
+		    {
+			  av.av_val++;
+			  av.av_len--;
+			}
+		  else
+		    {
+	          av.av_len = q - av.av_val;
+			}
+		}
 	  /* strip leading slash components */
 	  for (p=av.av_val+av.av_len-1; p>=av.av_val; p--)
 	    if (*p == '/')

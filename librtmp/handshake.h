@@ -374,13 +374,16 @@ HandShake(RTMP * r, bool FP9HandShake)
   if (FP9HandShake)
     {
       /* set version to at least 9.0.115.0 */
-#ifdef FP10
-      clientsig[4] = 128;
-      clientsig[6] = 3;
-#else
-      clientsig[4] = 9;
-      clientsig[6] = 124;
-#endif
+      if (encrypted)
+	{
+	  clientsig[4] = 128;
+	  clientsig[6] = 3;
+	}
+      else
+        {
+	  clientsig[4] = 10;
+	  clientsig[6] = 45;
+	}
       clientsig[5] = 0;
       clientsig[7] = 2;
 

@@ -43,6 +43,9 @@ typedef gcry_cipher_hd_t	RC4_handle;
 #include <openssl/sha.h>
 #include <openssl/hmac.h>
 #include <openssl/rc4.h>
+#if OPENSSL_VERSION_NUMBER < 0x0090800
+#error Your OpenSSL installation is too old, need 0.9.8 or newer
+#endif
 #define HMAC_setup(ctx, key, len)	HMAC_CTX_init(&ctx); HMAC_Init_ex(&ctx, key, len, EVP_sha256(), 0)
 #define HMAC_crunch(ctx, buf, len)	HMAC_Update(&ctx, buf, len)
 #define HMAC_finish(ctx, dig, dlen)	HMAC_Final(&ctx, dig, &dlen); HMAC_CTX_cleanup(&ctx)

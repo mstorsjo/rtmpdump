@@ -555,7 +555,7 @@ void processTCPrequest(STREAMING_SERVER * server,	// server socket and state (ou
 		   req.bLiveStream, req.timeout);
   /* backward compatibility, we always sent this as true before */
   if (req.auth.av_len)
-    rtmp.Link.authflag = true;
+    rtmp.Link.lFlags |= RTMP_LF_AUTH;
 
   rtmp.Link.extras = req.extras;
   rtmp.Link.token = req.token;

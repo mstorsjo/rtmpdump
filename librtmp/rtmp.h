@@ -135,18 +135,25 @@ extern "C"
     AVal subscribepath;
     AVal token;
     AMFObject extras;
-	int edepth;
+    int edepth;
 
     int seekTime;
     int stopTime;
 
+#define RTMP_LF_AUTH	0x0001
+#define RTMP_LF_LIVE	0x0002
+#define RTMP_LF_SWFV	0x0004
+#define RTMP_LF_PLST	0x0008
+    int lFlags;
+#if 0
     bool authflag;
     bool bLiveStream;
     bool swfVfy;
+#endif
     int swfAge;
 
     int protocol;
-    int timeout;		/* number of seconds before connection times out */
+    int timeout;		/* connection timeout in seconds */
 
     unsigned short socksport;
     unsigned short port;
@@ -219,7 +226,6 @@ extern "C"
     int m_numCalls;
     AVal *m_methodCalls;	/* remote method calls queue */
 
-    RTMP_LNK Link;
     RTMPPacket *m_vecChannelsIn[RTMP_CHANNELS];
     RTMPPacket *m_vecChannelsOut[RTMP_CHANNELS];
     int m_channelTimestamp[RTMP_CHANNELS];	/* abs timestamp of last packet */
@@ -237,8 +243,9 @@ extern "C"
     AVal m_clientID;
 
     RTMP_READ m_read;
-	RTMPPacket m_write;
+    RTMPPacket m_write;
     RTMPSockBuf m_sb;
+    RTMP_LNK Link;
   } RTMP;
 
   bool RTMP_ParseURL(const char *url, int *protocol, AVal *host,
@@ -289,6 +296,9 @@ extern "C"
 
   void RTMP_Init(RTMP *r);
   void RTMP_Close(RTMP *r);
+  RTMP *RTMP_Alloc(void);
+  void RTMP_Free(RTMP *r);
+
   int RTMP_LibVersion(void);
   void RTMP_UserInterrupt(void);	/* user typed Ctrl-C */
 

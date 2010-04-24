@@ -288,7 +288,8 @@ ServeInvoke(STREAMING_SERVER *server, int which, RTMPPacket *pack, const char *b
         }
       if (obj.o_num > 3)
         {
-          server->rc.Link.authflag = AMFProp_GetBoolean(&obj.o_props[3]);
+          if (AMFProp_GetBoolean(&obj.o_props[3]))
+            server->rc.Link.lFlags |= RTMP_LF_AUTH;
           if (obj.o_num > 4)
           {
             AMFProp_GetString(&obj.o_props[4], &server->rc.Link.auth);

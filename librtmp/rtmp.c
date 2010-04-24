@@ -214,6 +214,18 @@ RTMP_TLS_Init()
 #endif
 }
 
+RTMP *
+RTMP_Alloc()
+{
+  return calloc(1, sizeof(RTMP));
+}
+
+void
+RTMP_Free(RTMP *r)
+{
+  free(r);
+}
+
 void
 RTMP_Init(RTMP *r)
 {
@@ -376,7 +388,7 @@ RTMP_SetupStream(RTMP *r,
   if (auth && auth->av_len)
     {
       r->Link.auth = *auth;
-      r->Link.authflag = true;
+      r->Link.lFlags |= RTMP_LF_AUTH;
     }
   if (flashVer && flashVer->av_len)
     r->Link.flashVer = *flashVer;
@@ -386,7 +398,8 @@ RTMP_SetupStream(RTMP *r,
     r->Link.subscribepath = *subscribepath;
   r->Link.seekTime = dStart;
   r->Link.stopTime = dStop;
-  r->Link.bLiveStream = bLiveStream;
+  if (bLiveStream)
+    r->Link.lFlags |= RTMP_LF_LIVE;
   r->Link.timeout = timeout;
 
   r->Link.protocol = protocol;
@@ -415,41 +428,42 @@ static struct urlopt {
   AVal name;
   off_t off;
   int otype;
+  int omisc;
   char *use;
 } options[] = {
-  { AVC("socks"),     OFF(Link.sockshost),     OPT_STR,
+  { AVC("socks"),     OFF(Link.sockshost),     OPT_STR, 0,
   	"Use the specified SOCKS proxy" },
-  { AVC("app"),       OFF(Link.app),           OPT_STR,
+  { AVC("app"),       OFF(Link.app),           OPT_STR, 0,
 	"Name of target app on server" },
-  { AVC("tcUrl"),     OFF(Link.tcUrl),         OPT_STR,
+  { AVC("tcUrl"),     OFF(Link.tcUrl),         OPT_STR, 0,
   	"URL to played stream" },
-  { AVC("pageUrl"),   OFF(Link.pageUrl),       OPT_STR,
+  { AVC("pageUrl"),   OFF(Link.pageUrl),       OPT_STR, 0,
   	"URL of played media's web page" },
-  { AVC("swfUrl"),    OFF(Link.swfUrl),        OPT_STR,
+  { AVC("swfUrl"),    OFF(Link.swfUrl),        OPT_STR, 0,
   	"URL to player SWF file" },
-  { AVC("flashver"),  OFF(Link.flashVer),      OPT_STR,
+  { AVC("flashver"),  OFF(Link.flashVer),      OPT_STR, 0,
   	"Flash version string (default " DEF_VERSTR ")" },
-  { AVC("conn"),      OFF(Link.extras),        OPT_CONN,
+  { AVC("conn"),      OFF(Link.extras),        OPT_CONN, 0,
   	"Append arbitrary AMF data to Connect message" },
-  { AVC("playpath"),  OFF(Link.playpath),      OPT_STR,
+  { AVC("playpath"),  OFF(Link.playpath),      OPT_STR, 0,
   	"Path to target media on server" },
-  { AVC("live"),      OFF(Link.bLiveStream),   OPT_BOOL,
+  { AVC("live"),      OFF(Link.lFlags),        OPT_BOOL, RTMP_LF_LIVE,
   	"Stream is live, no seeking possible" },
-  { AVC("subscribe"), OFF(Link.subscribepath), OPT_STR,
+  { AVC("subscribe"), OFF(Link.subscribepath), OPT_STR, 0,
   	"Stream to subscribe to" },
-  { AVC("token"),     OFF(Link.token),	       OPT_STR,
+  { AVC("token"),     OFF(Link.token),	       OPT_STR, 0,
   	"Key for SecureToken response" },
-  { AVC("swfVfy"),    OFF(Link.swfVfy),        OPT_BOOL,
+  { AVC("swfVfy"),    OFF(Link.lFlags),        OPT_BOOL, RTMP_LF_SWFV,
   	"Perform SWF Verification" },
-  { AVC("swfAge"),    OFF(Link.swfAge),        OPT_INT,
+  { AVC("swfAge"),    OFF(Link.swfAge),        OPT_INT, 0,
   	"Number of days to use cached SWF hash" },
-  { AVC("start"),     OFF(Link.seekTime),      OPT_INT,
+  { AVC("start"),     OFF(Link.seekTime),      OPT_INT, 0,
   	"Stream start position in milliseconds" },
-  { AVC("stop"),      OFF(Link.stopTime),      OPT_INT,
+  { AVC("stop"),      OFF(Link.stopTime),      OPT_INT, 0,
   	"Stream stop position in milliseconds" },
-  { AVC("buffer"),    OFF(m_nBufferMS),        OPT_INT,
+  { AVC("buffer"),    OFF(m_nBufferMS),        OPT_INT, 0,
   	"Buffer time in milliseconds" },
-  { AVC("timeout"),   OFF(Link.timeout),       OPT_INT,
+  { AVC("timeout"),   OFF(Link.timeout),       OPT_INT, 0,
   	"Session timeout in seconds" },
   { {NULL,0}, 0, 0}
 };
@@ -585,13 +599,13 @@ bool RTMP_SetOpt(RTMP *r, const AVal *opt, AVal *arg)
       *(int *)v = l; }
       break;
     case OPT_BOOL: {
-      int j;
-      bool b = false;
+      int j, fl;
+      fl = *(int *)v;
       for (j=0; truth[j].av_len; j++) {
         if (arg->av_len != truth[j].av_len) continue;
         if (strcasecmp(arg->av_val, truth[j].av_val)) continue;
-        b = true; break; }
-      *(bool *)v = b;
+        fl |= options[i].omisc; break; }
+      *(int *)v = fl;
       }
       break;
     case OPT_CONN:
@@ -678,7 +692,7 @@ bool RTMP_SetupURL(RTMP *r, char *url)
 	}
 
 #ifdef CRYPTO
-  if (r->Link.swfVfy && r->Link.swfUrl.av_len)
+  if ((r->Link.lFlags & RTMP_LF_SWFV) && r->Link.swfUrl.av_len)
     RTMP_HashSWF(r->Link.swfUrl.av_val, &r->Link.SWFSize,
 	  (unsigned char *)r->Link.SWFHash, r->Link.swfAge);
 #endif
@@ -1446,7 +1460,7 @@ SendConnectPacket(RTMP *r, RTMPPacket *cp)
   /* add auth string */
   if (r->Link.auth.av_len)
     {
-      enc = AMF_EncodeBoolean(enc, pend, r->Link.authflag);
+      enc = AMF_EncodeBoolean(enc, pend, r->Link.lFlags & RTMP_LF_AUTH);
       if (!enc)
 	return false;
       enc = AMF_EncodeString(enc, pend, &r->Link.auth);
@@ -1676,7 +1690,7 @@ SendPublish(RTMP *r)
   if (!enc)
     return false;
 
-  /* FIXME: should we choose live based on Link.bLiveStream? */
+  /* FIXME: should we choose live based on Link.lFlags & RTMP_LF_LIVE? */
   enc = AMF_EncodeString(enc, pend, &av_live);
   if (!enc)
     return false;
@@ -1933,7 +1947,7 @@ SendPlay(RTMP *r)
    *  -1: plays a live stream
    * >=0: plays a recorded streams from 'start' milliseconds
    */
-  if (r->Link.bLiveStream)
+  if (r->Link.lFlags & RTMP_LF_LIVE)
     enc = AMF_EncodeNumber(enc, pend, -1000.0);
   else
     {
@@ -2191,7 +2205,7 @@ HandleInvoke(RTMP *r, const char *body, unsigned int nBodySize)
 	      /* Send the FCSubscribe if live stream or if subscribepath is set */
 	      if (r->Link.subscribepath.av_len)
 	        SendFCSubscribe(r, &r->Link.subscribepath);
-	      else if (r->Link.bLiveStream)
+	      else if (r->Link.lFlags & RTMP_LF_LIVE)
 	        SendFCSubscribe(r, &r->Link.playpath);
 	    }
 	}
@@ -2512,7 +2526,7 @@ HandleCtrl(RTMP *r, const RTMPPacket *packet)
 	case 31:
 	  tmp = AMF_DecodeInt32(packet->m_body + 2);
 	  RTMP_Log(RTMP_LOGDEBUG, "%s, Stream BufferEmpty %d", __FUNCTION__, tmp);
-	  if (r->Link.bLiveStream || (r->Link.protocol & RTMP_FEATURE_HTTP))
+	  if ((r->Link.lFlags & RTMP_LF_LIVE) || (r->Link.protocol & RTMP_FEATURE_HTTP))
 	    break;
 	  if (!r->m_pausing)
 	    {
@@ -3887,8 +3901,8 @@ Read_1_Packet(RTMP *r, char *buf, int buflen)
        * Update ext timestamp with this absolute offset in non-live mode
        * otherwise report the relative one
        */
-      /* RTMP_Log(RTMP_LOGDEBUG, "type: %02X, size: %d, pktTS: %dms, TS: %dms, bLiveStream: %d", packet.m_packetType, nPacketLen, packet.m_nTimeStamp, nTimeStamp, r->Link.bLiveStream); */
-      r->m_read.timestamp = r->Link.bLiveStream ? packet.m_nTimeStamp : nTimeStamp;
+      /* RTMP_Log(RTMP_LOGDEBUG, "type: %02X, size: %d, pktTS: %dms, TS: %dms, bLiveStream: %d", packet.m_packetType, nPacketLen, packet.m_nTimeStamp, nTimeStamp, r->Link.lFlags & RTMP_LF_LIVE); */
+      r->m_read.timestamp = (r->Link.lFlags & RTMP_LF_LIVE) ? packet.m_nTimeStamp : nTimeStamp;
 
       ret = size;
       break;

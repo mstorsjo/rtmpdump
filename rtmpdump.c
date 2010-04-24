@@ -125,6 +125,8 @@ static const AVal av_onMetaData = AVC("onMetaData");
 static const AVal av_duration = AVC("duration");
 static const AVal av_conn = AVC("conn");
 static const AVal av_token = AVC("token");
+static const AVal av_playlist = AVC("playlist");
+static const AVal av_true = AVC("true");
 
 int
 OpenResumeFile(const char *flvFile,	// file name [in]
@@ -640,9 +642,11 @@ void usage(char *prog)
 	  RTMP_LogPrintf
 	    ("--socks|-S host:port    Use the specified SOCKS proxy\n");
 	  RTMP_LogPrintf
-	    ("--protocol|-l           Overrides the protocol in the rtmp url (0 - RTMP, 2 - RTMPE)\n");
+	    ("--protocol|-l num       Overrides the protocol in the rtmp url (0 - RTMP, 2 - RTMPE)\n");
 	  RTMP_LogPrintf
-	    ("--playpath|-y           Overrides the playpath parsed from rtmp url\n");
+	    ("--playpath|-y path      Overrides the playpath parsed from rtmp url\n");
+	  RTMP_LogPrintf
+	    ("--playlist|-Y           Set playlist before playing\n");
 	  RTMP_LogPrintf("--swfUrl|-s url         URL to player swf file\n");
 	  RTMP_LogPrintf
 	    ("--tcUrl|-t url          URL to played stream (default: \"rtmp://host[:port]/app\")\n");
@@ -805,6 +809,7 @@ main(int argc, char **argv)
     {"socks", 1, NULL, 'S'},
     {"protocol", 1, NULL, 'l'},
     {"playpath", 1, NULL, 'y'},
+    {"playlist", 0, NULL, 'Y'},
     {"rtmp", 1, NULL, 'r'},
     {"swfUrl", 1, NULL, 's'},
     {"tcUrl", 1, NULL, 't'},
@@ -838,7 +843,7 @@ main(int argc, char **argv)
 
   while ((opt =
 	  getopt_long(argc, argv,
-		      "hVveqzr:s:t:p:a:b:f:o:u:C:n:c:l:y:m:k:d:A:B:T:w:x:W:X:S:#",
+		      "hVveqzr:s:t:p:a:b:f:o:u:C:n:c:l:y:Ym:k:d:A:B:T:w:x:W:X:S:#",
 		      longopts, NULL)) != -1)
     {
       switch (opt)
@@ -942,6 +947,9 @@ main(int argc, char **argv)
 	  break;
 	case 'y':
 	  STR2AVAL(playpath, optarg);
+	  break;
+	case 'Y':
+	  RTMP_SetOpt(&rtmp, &av_playlist, (AVal *)&av_true);
 	  break;
 	case 'r':
 	  {

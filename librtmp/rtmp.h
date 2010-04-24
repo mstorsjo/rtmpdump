@@ -145,11 +145,7 @@ extern "C"
 #define RTMP_LF_SWFV	0x0004
 #define RTMP_LF_PLST	0x0008
     int lFlags;
-#if 0
-    bool authflag;
-    bool bLiveStream;
-    bool swfVfy;
-#endif
+
     int swfAge;
 
     int protocol;

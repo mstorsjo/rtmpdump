@@ -447,6 +447,8 @@ static struct urlopt {
   	"Append arbitrary AMF data to Connect message" },
   { AVC("playpath"),  OFF(Link.playpath),      OPT_STR, 0,
   	"Path to target media on server" },
+  { AVC("playlist"),  OFF(Link.lFlags),        OPT_BOOL, RTMP_LF_PLST,
+  	"Set playlist before play command" },
   { AVC("live"),      OFF(Link.lFlags),        OPT_BOOL, RTMP_LF_LIVE,
   	"Stream is live, no seeking possible" },
   { AVC("subscribe"), OFF(Link.subscribepath), OPT_STR, 0,
@@ -1977,6 +1979,47 @@ SendPlay(RTMP *r)
   return RTMP_SendPacket(r, &packet, true);
 }
 
+SAVC(set_playlist);
+SAVC(0);
+
+static bool
+SendPlaylist(RTMP *r)
+{
+  RTMPPacket packet;
+  char pbuf[1024], *pend = pbuf + sizeof(pbuf);
+  char *enc;
+
+  packet.m_nChannel = 0x08;	/* we make 8 our stream channel */
+  packet.m_headerType = RTMP_PACKET_SIZE_LARGE;
+  packet.m_packetType = 0x14;	/* INVOKE */
+  packet.m_nTimeStamp = 0;
+  packet.m_nInfoField2 = r->m_stream_id;	/*0x01000000; */
+  packet.m_hasAbsTimestamp = 0;
+  packet.m_body = pbuf + RTMP_MAX_HEADER_SIZE;
+
+  enc = packet.m_body;
+  enc = AMF_EncodeString(enc, pend, &av_set_playlist);
+  enc = AMF_EncodeNumber(enc, pend, 0);
+  *enc++ = AMF_NULL;
+  *enc++ = AMF_ECMA_ARRAY;
+  *enc++ = 0;
+  *enc++ = 0;
+  *enc++ = 0;
+  *enc++ = AMF_OBJECT;
+  enc = AMF_EncodeNamedString(enc, pend, &av_0, &r->Link.playpath);
+  if (!enc)
+    return false;
+  if (enc + 3 >= pend)
+    return false;
+  *enc++ = 0;
+  *enc++ = 0;
+  *enc++ = AMF_OBJECT_END;
+
+  packet.m_nBodySize = enc - packet.m_body;
+
+  return RTMP_SendPacket(r, &packet, true);
+}
+
 static bool
 SendSecureTokenResponse(RTMP *r, AVal *resp)
 {
@@ -2127,6 +2170,7 @@ SAVC(close);
 SAVC(code);
 SAVC(level);
 SAVC(onStatus);
+SAVC(playlist_ready);
 static const AVal av_NetStream_Failed = AVC("NetStream.Failed");
 static const AVal av_NetStream_Play_Failed = AVC("NetStream.Play.Failed");
 static const AVal av_NetStream_Play_StreamNotFound =
@@ -2219,6 +2263,8 @@ HandleInvoke(RTMP *r, const char *body, unsigned int nBodySize)
 	    }
 	  else
 	    {
+	      if (r->Link.lFlags & RTMP_LF_PLST)
+	        SendPlaylist(r);
 	      SendPlay(r);
 	      RTMP_SendCtrl(r, 3, r->m_stream_id, r->m_nBufferMS);
 	    }
@@ -2335,6 +2381,18 @@ HandleInvoke(RTMP *r, const char *body, unsigned int nBodySize)
 	    r->m_pausing = 3;
 	  }
 	}
+    }
+  else if (AVMATCH(&method, &av_playlist_ready))
+    {
+      int i;
+      for (i = 0; i < r->m_numCalls; i++)
+        {
+          if (AVMATCH(&r->m_methodCalls[i], &av_set_playlist))
+	    {
+	      AV_erase(r->m_methodCalls, &r->m_numCalls, i, true);
+	      break;
+	    }
+        }
     }
   else
     {

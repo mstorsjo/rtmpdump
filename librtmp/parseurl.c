@@ -241,12 +241,20 @@ void RTMP_ParsePlaypath(AVal *in, AVal *out) {
 		return;
 
 	destptr = streamname;
-	if (addMP4 && (strncmp(ppstart, "mp4:", 4) != 0)) {
-		strcpy(destptr, "mp4:");
-		destptr += 4;
-	} else if (addMP3 && (strncmp(ppstart, "mp3:", 4) != 0)) {
-		strcpy(destptr, "mp3:");
-		destptr += 4;
+	if (addMP4) {
+		if (strncmp(ppstart, "mp4:", 4)) {
+			strcpy(destptr, "mp4:");
+			destptr += 4;
+		} else {
+			subExt = 0;
+		}
+	} else if (addMP3) {
+		if (strncmp(ppstart, "mp3:", 4)) {
+			strcpy(destptr, "mp3:");
+			destptr += 4;
+		} else {
+			subExt = 0;
+		}
 	}
 
  	for (p=(char *)ppstart; pplen >0;) {

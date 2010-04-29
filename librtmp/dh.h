@@ -26,10 +26,60 @@
 #include <assert.h>
 #include <limits.h>
 
-#ifdef USE_GNUTLS
+#ifdef USE_POLARSSL
+#include <polarssl/dhm.h>
+typedef mpi * MP_t;
+#define MP_new(m)	m = malloc(sizeof(mpi)); mpi_init(m, NULL)
+#define MP_set_w(mpi, w)	mpi_lset(mpi, w)
+#define MP_cmp(u, v)	mpi_cmp_mpi(u, v)
+#define MP_set(u, v)	mpi_copy(u, v)
+#define MP_sub_w(mpi, w)	mpi_sub_int(mpi, mpi, w)
+#define MP_cmp_1(mpi)	mpi_cmp_int(mpi, 1)
+#define MP_modexp(r, y, q, p)	mpi_exp_mod(r, y, q, p, NULL)
+#define MP_free(mpi)	mpi_free(mpi, NULL); free(mpi)
+#define MP_gethex(u, hex, res)	MP_new(u); res = mpi_read_string(u, 16, hex) == 0
+#define MP_bytes(u)	mpi_size(u)
+#define MP_setbin(u,buf,len)	mpi_write_binary(u,buf,len)
+#define MP_getbin(u,buf,len)	MP_new(u); mpi_read_binary(u,buf,len)
+
+typedef struct MDH {
+  MP_t p;
+  MP_t g;
+  MP_t pub_key;
+  MP_t priv_key;
+  long length;
+  dhm_context ctx;
+} MDH;
+
+#define MDH_new()	calloc(1,sizeof(MDH))
+#define MDH_free(vp)	{MDH *dh = vp; dhm_free(&dh->ctx); MP_free(dh->p); MP_free(dh->g); MP_free(dh->pub_key); MP_free(dh->priv_key); free(dh);}
+
+static int MDH_generate_key(MDH *dh)
+{
+  unsigned char out[2];
+  MP_set(&dh->ctx.P, dh->p);
+  MP_set(&dh->ctx.G, dh->g);
+  dh->ctx.len = 128;
+  dhm_make_public(&dh->ctx, 1024, out, 1, havege_rand, &RTMP_TLS_ctx->hs);
+  MP_new(dh->pub_key);
+  MP_new(dh->priv_key);
+  MP_set(dh->pub_key, &dh->ctx.GX);
+  MP_set(dh->priv_key, &dh->ctx.X);
+  return 1;
+}
+
+static int MDH_compute_key(uint8_t *secret, size_t len, MP_t pub, MDH *dh)
+{
+  int n = len;
+  MP_set(&dh->ctx.GY, pub);
+  dhm_calc_secret(&dh->ctx, secret, &n);
+  return 0;
+}
+
+#elif defined(USE_GNUTLS)
 #include <gcrypt.h>
 typedef gcry_mpi_t MP_t;
-#define MP_new()	gcry_mpi_new(1)
+#define MP_new(m)	m = gcry_mpi_new(1)
 #define MP_set_w(mpi, w)	gcry_mpi_set_ui(mpi, w)
 #define MP_cmp(u, v)	gcry_mpi_cmp(u, v)
 #define MP_set(u, v)	gcry_mpi_set(u, v)
@@ -37,7 +87,7 @@ typedef gcry_mpi_t MP_t;
 #define MP_cmp_1(mpi)	gcry_mpi_cmp_ui(mpi, 1)
 #define MP_modexp(r, y, q, p)	gcry_mpi_powm(r, y, q, p)
 #define MP_free(mpi)	gcry_mpi_release(mpi)
-#define MP_gethex(u, hex, res)	res = (gcry_mpi_scan(u, GCRYMPI_FMT_HEX, hex, 0, 0) == 0)
+#define MP_gethex(u, hex, res)	res = (gcry_mpi_scan(&u, GCRYMPI_FMT_HEX, hex, 0, 0) == 0)
 #define MP_bytes(u)	(gcry_mpi_get_nbits(u) + 7) / 8
 #define MP_setbin(u,buf,len)	gcry_mpi_print(GCRYMPI_FMT_USG,buf,len,NULL,u)
 #define MP_getbin(u,buf,len)	gcry_mpi_scan(&u,GCRYMPI_FMT_USG,buf,len,NULL)
@@ -56,7 +106,6 @@ typedef struct MDH {
 extern MP_t gnutls_calc_dh_secret(MP_t *priv, MP_t g, MP_t p);
 extern MP_t gnutls_calc_dh_key(MP_t y, MP_t x, MP_t p);
 
-
 #define MDH_generate_key(dh)	(dh->pub_key = gnutls_calc_dh_secret(&dh->priv_key, dh->g, dh->p))
 static int MDH_compute_key(uint8_t *secret, size_t len, MP_t pub, MDH *dh)
 {
@@ -71,12 +120,12 @@ static int MDH_compute_key(uint8_t *secret, size_t len, MP_t pub, MDH *dh)
     return -1;
 }
 
-#else
+#else /* USE_OPENSSL */
 #include <openssl/bn.h>
 #include <openssl/dh.h>
 
 typedef BIGNUM * MP_t;
-#define MP_new()	BN_new()
+#define MP_new(m)	m = BN_new()
 #define MP_set_w(mpi, w)	BN_set_word(mpi, w)
 #define MP_cmp(u, v)	BN_cmp(u, v)
 #define MP_set(u, v)	BN_copy(u, v)
@@ -84,7 +133,7 @@ typedef BIGNUM * MP_t;
 #define MP_cmp_1(mpi)	BN_cmp(mpi, BN_value_one())
 #define MP_modexp(r, y, q, p)	do {BN_CTX *ctx = BN_CTX_new(); BN_mod_exp(r, y, q, p, ctx); BN_CTX_free(ctx);} while(0)
 #define MP_free(mpi)	BN_free(mpi)
-#define MP_gethex(u, hex, res)	res = BN_hex2bn(u, hex)
+#define MP_gethex(u, hex, res)	res = BN_hex2bn(&u, hex)
 #define MP_bytes(u)	BN_num_bytes(u)
 #define MP_setbin(u,buf,len)	BN_bn2bin(u,buf)
 #define MP_getbin(u,buf,len)	u = BN_bin2bn(buf,len,0)
@@ -100,27 +149,6 @@ typedef BIGNUM * MP_t;
 #include "log.h"
 #include "dhgroups.h"
 
-/*
-MP_t dh_shared_p = 0; // shared prime
-MP_t dh_shared_g = 0; // shared base
-
-void dh_pg_init()
-{
-	int res;
-	if(dh_shared_p || dh_shared_g)
-		return;
-
-	dh_shared_p = MP_new();
-	dh_shared_g = MP_new();
-	assert(dh_shared_p && dh_shared_g);
-
-	MP_gethex(&dh_shared_p, P1024, res);	// prime P1024, see dhgroups.h
-	assert(res);
-
-	assert(MP_set_w(dh_shared_g, 2));	// base 2
-}
-*/
-
 /* RFC 2631, Section 2.1.5, http://www.ietf.org/rfc/rfc2631.txt */
 static bool
 isValidPublicKey(MP_t y, MP_t p, MP_t q)
@@ -129,7 +157,7 @@ isValidPublicKey(MP_t y, MP_t p, MP_t q)
   MP_t bn;
   assert(y);
 
-  bn = MP_new();
+  MP_new(bn);
   assert(bn);
 
   /* y must lie in [2,p-1] */
@@ -182,21 +210,18 @@ DHInit(int nKeyBits)
   if (!dh)
     goto failed;
 
-  dh->g = MP_new();
+  MP_new(dh->g);
 
   if (!dh->g)
     goto failed;
 
-  MP_gethex(&dh->p, P1024, res);	/* prime P1024, see dhgroups.h */
+  MP_gethex(dh->p, P1024, res);	/* prime P1024, see dhgroups.h */
   if (!res)
     {
       goto failed;
     }
 
-  if (!MP_set_w(dh->g, 2))	/* base 2 */
-    {
-      goto failed;
-    }
+  MP_set_w(dh->g, 2);	/* base 2 */
 
   dh->length = nKeyBits;
   return dh;
@@ -222,7 +247,7 @@ DHGenerateKey(MDH *dh)
       if (!MDH_generate_key(dh))
 	return 0;
 
-      MP_gethex(&q1, Q1024, res);
+      MP_gethex(q1, Q1024, res);
       assert(res);
 
       res = isValidPublicKey(dh->pub_key, dh->p, q1);
@@ -293,7 +318,7 @@ DHComputeSharedSecretKey(MDH *dh, uint8_t *pubkey, size_t nPubkeyLen,
   if (!pubkeyBn)
     return -1;
 
-  MP_gethex(&q1, Q1024, len);
+  MP_gethex(q1, Q1024, len);
   assert(len);
 
   if (isValidPublicKey(pubkeyBn, dh->p, q1))

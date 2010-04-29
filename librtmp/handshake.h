@@ -23,7 +23,24 @@
 
 /* This file is #included in rtmp.c, it is not meant to be compiled alone */
 
-#ifdef USE_GNUTLS
+#ifdef USE_POLARSSL
+#include <polarssl/sha2.h>
+#include <polarssl/arc4.h>
+#ifndef SHA256_DIGEST_LENGTH
+#define SHA256_DIGEST_LENGTH	32
+#endif
+#define HMAC_CTX	sha2_context
+#define HMAC_setup(ctx, key, len)	sha2_hmac_starts(&ctx, (unsigned char *)key, len, 0)
+#define HMAC_crunch(ctx, buf, len)	sha2_hmac_update(&ctx, buf, len)
+#define HMAC_finish(ctx, dig, dlen)	dlen = SHA256_DIGEST_LENGTH; sha2_hmac_finish(&ctx, dig)
+
+typedef arc4_context *	RC4_handle;
+#define RC4_setup(h)	*h = malloc(sizeof(arc4_context))
+#define RC4_setkey(h,l,k)	arc4_setup(h,k,l)
+#define RC4_encrypt(h,l,d)	arc4_crypt(h,l,(unsigned char *)d,(unsigned char *)d)
+#define RC4_encrypt2(h,l,s,d)	arc4_crypt(h,l,(unsigned char *)s,(unsigned char *)d)
+
+#elif defined(USE_GNUTLS)
 #include <gcrypt.h>
 #ifndef SHA256_DIGEST_LENGTH
 #define SHA256_DIGEST_LENGTH	32
@@ -39,7 +56,7 @@ typedef gcry_cipher_hd_t	RC4_handle;
 #define RC4_encrypt(h,l,d)	gcry_cipher_encrypt(h,(void *)d,l,NULL,0)
 #define RC4_encrypt2(h,l,s,d)	gcry_cipher_encrypt(h,(void *)d,l,(void *)s,l)
 
-#else
+#else	/* USE_OPENSSL */
 #include <openssl/sha.h>
 #include <openssl/hmac.h>
 #include <openssl/rc4.h>
@@ -414,7 +431,7 @@ HandShake(RTMP * r, bool FP9HandShake)
       if (encrypted)
 	{
 	  /* generate Diffie-Hellmann parameters */
-	  r->Link.dh = DHInit(128);	/* 1024 */
+	  r->Link.dh = DHInit(1024);
 	  if (!r->Link.dh)
 	    {
 	      RTMP_Log(RTMP_LOGERROR, "%s: Couldn't initialize Diffie-Hellmann!",
@@ -806,7 +823,7 @@ SHandShake(RTMP * r)
       if (encrypted)
 	{
 	  /* generate Diffie-Hellmann parameters */
-	  r->Link.dh = DHInit(128);
+	  r->Link.dh = DHInit(1024);
 	  if (!r->Link.dh)
 	    {
 	      RTMP_Log(RTMP_LOGERROR, "%s: Couldn't initialize Diffie-Hellmann!",

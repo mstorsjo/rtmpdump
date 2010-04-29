@@ -31,9 +31,11 @@
 #include "log.h"
 
 #ifdef CRYPTO
-#ifdef USE_GNUTLS
+#ifdef USE_POLARSSL
+#include <polarssl/havege.h>
+#elif defined(USE_GNUTLS)
 #include <gnutls/gnutls.h>
-#else
+#else	/* USE_OPENSSL */
 #include <openssl/ssl.h>
 #include <openssl/rc4.h>
 #endif
@@ -196,14 +198,17 @@ void
 RTMP_TLS_Init()
 {
 #ifdef CRYPTO
-#ifdef USE_GNUTLS
+#ifdef USE_POLARSSL
+  RTMP_TLS_ctx = calloc(1,sizeof(struct tls_ctx));
+  havege_init(&RTMP_TLS_ctx->hs);
+#elif defined(USE_GNUTLS)
   gnutls_global_init();
   RTMP_TLS_ctx = malloc(sizeof(struct tls_ctx));
   gnutls_certificate_allocate_credentials(&RTMP_TLS_ctx->cred);
   gnutls_priority_init(&RTMP_TLS_ctx->prios, "NORMAL", NULL);
   gnutls_certificate_set_x509_trust_file(RTMP_TLS_ctx->cred,
   	"ca.pem", GNUTLS_X509_FMT_PEM);
-#else
+#else /* USE_OPENSSL */
   SSL_load_error_strings();
   SSL_library_init();
   OpenSSL_add_all_digests();

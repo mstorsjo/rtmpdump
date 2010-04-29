@@ -30,7 +30,17 @@
 #include "http.h"
 
 #ifdef CRYPTO
-#ifdef USE_GNUTLS
+#ifdef USE_POLARSSL
+#include <polarssl/sha2.h>
+#ifndef SHA256_DIGEST_LENGTH
+#define SHA256_DIGEST_LENGTH	32
+#endif
+#define HMAC_CTX	sha2_context
+#define HMAC_setup(ctx, key, len)	sha2_hmac_starts(&ctx, (unsigned char *)key, len, 0)
+#define HMAC_crunch(ctx, buf, len)	sha2_hmac_update(&ctx, buf, len)
+#define HMAC_finish(ctx, dig, dlen)	dlen = SHA256_DIGEST_LENGTH; sha2_hmac_finish(&ctx, dig)
+#define HMAC_close(ctx)
+#elif defined(USE_GNUTLS)
 #include <gnutls/gnutls.h>
 #include <gcrypt.h>
 #ifndef SHA256_DIGEST_LENGTH
@@ -41,7 +51,7 @@
 #define HMAC_crunch(ctx, buf, len)	gcry_md_write(ctx, buf, len)
 #define HMAC_finish(ctx, dig, dlen)	dlen = SHA256_DIGEST_LENGTH; memcpy(dig, gcry_md_read(ctx, 0), dlen)
 #define HMAC_close(ctx)	gcry_md_close(ctx)
-#else
+#else	/* USE_OPENSSL */
 #include <openssl/ssl.h>
 #include <openssl/sha.h>
 #include <openssl/hmac.h>

@@ -201,14 +201,14 @@ RTMP_TLS_Init()
 #ifdef USE_POLARSSL
   RTMP_TLS_ctx = calloc(1,sizeof(struct tls_ctx));
   havege_init(&RTMP_TLS_ctx->hs);
-#elif defined(USE_GNUTLS)
+#elif defined(USE_GNUTLS) && !defined(NO_SSL)
   gnutls_global_init();
   RTMP_TLS_ctx = malloc(sizeof(struct tls_ctx));
   gnutls_certificate_allocate_credentials(&RTMP_TLS_ctx->cred);
   gnutls_priority_init(&RTMP_TLS_ctx->prios, "NORMAL", NULL);
   gnutls_certificate_set_x509_trust_file(RTMP_TLS_ctx->cred,
   	"ca.pem", GNUTLS_X509_FMT_PEM);
-#else /* USE_OPENSSL */
+#elif !defined(NO_SSL) /* USE_OPENSSL */
   SSL_load_error_strings();
   SSL_library_init();
   OpenSSL_add_all_digests();
@@ -811,7 +811,7 @@ RTMP_Connect1(RTMP *r, RTMPPacket *cp)
 {
   if (r->Link.protocol & RTMP_FEATURE_SSL)
     {
-#ifdef CRYPTO
+#if defined(CRYPTO) && !defined(NO_SSL)
       TLS_client(RTMP_TLS_ctx, r->m_sb.sb_ssl);
       TLS_setfd(r->m_sb.sb_ssl, r->m_sb.sb_socket);
       if (TLS_connect(r->m_sb.sb_ssl) < 0)
@@ -821,7 +821,7 @@ RTMP_Connect1(RTMP *r, RTMPPacket *cp)
 	  return false;
 	}
 #else
-      RTMP_Log(RTMP_LOGERROR, "%s, no CRYPTO support", __FUNCTION__);
+      RTMP_Log(RTMP_LOGERROR, "%s, no SSL/TLS support", __FUNCTION__);
       RTMP_Close(r);
       return false;
 
@@ -3303,7 +3303,7 @@ RTMPSockBuf_Fill(RTMPSockBuf *sb)
   while (1)
     {
       nBytes = sizeof(sb->sb_buf) - sb->sb_size - (sb->sb_start - sb->sb_buf);
-#ifdef CRYPTO
+#if defined(CRYPTO) && !defined(NO_SSL)
       if (sb->sb_ssl)
 	{
 	  nBytes = TLS_read(sb->sb_ssl, sb->sb_start + sb->sb_size, nBytes);
@@ -3346,7 +3346,7 @@ RTMPSockBuf_Send(RTMPSockBuf *sb, const char *buf, int len)
   fwrite(buf, 1, len, netstackdump);
 #endif
 
-#ifdef CRYPTO
+#if defined(CRYPTO) && !defined(NO_SSL)
   if (sb->sb_ssl)
     {
       rc = TLS_write(sb->sb_ssl, buf, len);
@@ -3362,7 +3362,7 @@ RTMPSockBuf_Send(RTMPSockBuf *sb, const char *buf, int len)
 int
 RTMPSockBuf_Close(RTMPSockBuf *sb)
 {
-#ifdef CRYPTO
+#if defined(CRYPTO) && !defined(NO_SSL)
   if (sb->sb_ssl)
     {
       TLS_shutdown(sb->sb_ssl);

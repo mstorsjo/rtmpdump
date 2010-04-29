@@ -155,6 +155,11 @@ HTTP_get(struct HTTP_ctx *http, const char *url, HTTP_read_callback *cb)
 #ifdef CRYPTO
   if (ssl)
     {
+#ifdef NO_SSL
+      RTMP_Log(RTMP_LOGERROR, "%s, No SSL/TLS support", __FUNCTION__);
+      ret = HTTPRES_BAD_REQUEST;
+      goto leave;
+#else
       TLS_client(RTMP_TLS_ctx, sb.sb_ssl);
       TLS_setfd(sb.sb_ssl, sb.sb_socket);
       if ((i = TLS_connect(sb.sb_ssl)) < 0)
@@ -163,6 +168,7 @@ HTTP_get(struct HTTP_ctx *http, const char *url, HTTP_read_callback *cb)
 	  ret = HTTPRES_LOST_CONNECTION;
 	  goto leave;
 	}
+#endif
     }
 #endif
   RTMPSockBuf_Send(&sb, sb.sb_buf, i);

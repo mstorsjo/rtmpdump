@@ -4,6 +4,16 @@ Copyright 2009-2010 Howard Chu
 Copyright 2009 The Flvstreamer Team
 http://rtmpdump.mplayerhq.hu/
 
+29 April 2010, v2.2d
+- add RTMP_Alloc, RTMP_Free APIs
+- add optional support for polarssl instead of OpenSSL
+- add option to build crypto support without SSL/TLS
+- tweak handshake offset checking
+- add RTMP set_playlist command
+- check for (and fix) broken timestamps in FLV packets
+- fix tcUrl and playpath parsing in rtmpsrv and rtmpsuck
+- change internal boolean flags to bitmasks
+
 14 April 2010, v2.2c
 - internal restructuring, fix #undef CRYPTO builds
 - add RTMP_SetupURL, RTMP_SetOpt APIs

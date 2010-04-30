@@ -1,4 +1,4 @@
-RTMP Dump v2.2c
+RTMP Dump v2.2d
 (C) 2009 Andrej Stepanchuk
 (C) 2009-2010 Howard Chu
 (C) 2010 2a665470ced7adb7156fcef47f8199a6371c117b8a79e399a2771e0b36384090
@@ -25,8 +25,22 @@ but you may need to override the CROSS_COMPILE and INC variables, e.g.
 
 Please read the Makefile to see what other make variables are used.
 
-This code also requires you to have OpenSSL and zlib installed. (You may
-optionally use GnuTLS instead of OpenSSL if desired.)
+This code also requires you to have OpenSSL and zlib installed. You may
+optionally use GnuTLS or polarssl instead of OpenSSL if desired. You may
+also build with just rtmpe support, and no rtmps/https support, by
+specifying -DNO_SSL in the XDEF macro, e.g.
+
+  $ make posix XDEF=-DNO_SSL
+
+or
+
+  $ make posix CRYPTO=POLARSSL XDEF=-DNO_SSL
+
+You may also turn off all crypto support if desired
+
+  $ make posix CRYPTO=
+
+Note that if using OpenSSL, you must have version 0.9.8 or newer.
 
 Credit goes to team boxee for the XBMC RTMP code originally used in RTMPDumper.
 The current code is based on the XBMC code but rewritten in C by Howard Chu.

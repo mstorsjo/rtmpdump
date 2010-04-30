@@ -6,7 +6,7 @@
 <tr><td>RTMPDUMP(1)<td align="center"><td align="right">RTMPDUMP(1)
 </thead>
 <tfoot>
-<tr><td>RTMPDump v2.2b<td align="center">2010-03-22<td align="right">RTMPDUMP(1)
+<tr><td>RTMPDump v2.2d<td align="center">2010-04-29<td align="right">RTMPDUMP(1)
 </tfoot>
 <tbody><tr><td colspan="3"><br><br><ul>
 <!-- Copyright 2010 Howard Chu.
@@ -32,6 +32,7 @@ rtmpdump &minus; RTMP streaming media client
 [<b>&minus;u</b><i>&nbsp;auth</i>]
 [<b>&minus;C</b><i>&nbsp;conndata</i>]
 [<b>&minus;y</b><i>&nbsp;playpath</i>]
+[<b>&minus;Y</b>]
 [<b>&minus;v</b>]
 [<b>&minus;d</b><i>&nbsp;subscription</i>]
 [<b>&minus;e</b>]
@@ -191,6 +192,13 @@ These options take effect after the Connect request has succeeded.
 Overrides the playpath parsed from the RTMP URL. Sometimes the
 rtmpdump URL parser cannot determine the correct playpath
 automatically, so it must be given explicitly using this option.
+</dl>
+<p>
+<dl compact><dt>
+<b>&minus;&minus;playlist &minus;Y</b>
+<dd>
+Issue a set_playlist command before sending the play command. The
+playlist will just contain the current playpath.
 </dl>
 <p>
 <dl compact><dt>

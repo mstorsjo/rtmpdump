@@ -1,4 +1,4 @@
-.TH RTMPDUMP 1 "2010-03-22" "RTMPDump v2.2b"
+.TH RTMPDUMP 1 "2010-04-29" "RTMPDump v2.2d"
 .\" Copyright 2010 Howard Chu.
 .\" Copying permitted according to the GNU General Public License V2.
 .SH NAME
@@ -30,6 +30,8 @@ rtmpdump \- RTMP streaming media client
 .BI \-C \ conndata\fR]
 [\c
 .BI \-y \ playpath\fR]
+[\c
+.BR \-Y ]
 [\c
 .BR \-v ]
 [\c
@@ -159,6 +161,10 @@ These options take effect after the Connect request has succeeded.
 Overrides the playpath parsed from the RTMP URL. Sometimes the
 rtmpdump URL parser cannot determine the correct playpath
 automatically, so it must be given explicitly using this option.
+.TP
+.B \-\-playlist		\-Y
+Issue a set_playlist command before sending the play command. The
+playlist will just contain the current playpath.
 .TP
 .B \-\-live		\-v
 Specify that the media is a live stream. No resuming or seeking in

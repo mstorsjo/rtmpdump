@@ -136,7 +136,7 @@ HTTP_get(struct HTTP_ctx *http, const char *url, HTTP_read_callback *cb)
     }
   sa.sin_port = htons(port);
   sb.sb_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-  if (sb.sb_socket < 0)
+  if (sb.sb_socket == -1)
     return HTTPRES_LOST_CONNECTION;
   i =
     sprintf(sb.sb_buf,
@@ -464,12 +464,19 @@ RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash,
   AVal home, hpre;
 
   date[0] = '\0';
-#ifdef WIN32
+#if defined(WIN32) || defined(_XBOX)
+#ifdef _XBOX
+  hpre.av_val = "Q:";
+  hpre.av_len = 2;
+  home.av_val = "\\UserData\\cache";
+#else
   hpre.av_val = getenv("HOMEDRIVE");
   hpre.av_len = strlen(hpre.av_val);
   home.av_val = getenv("HOMEPATH");
+#endif
 #define DIRSEP	"\\"
-#else
+
+#else /* !WIN32 */
   hpre.av_val = "";
   hpre.av_len = 0;
   home.av_val = getenv("HOME");

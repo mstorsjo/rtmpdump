@@ -58,4 +58,5 @@ RTMP_LogLevel RTMP_LogGetLevel(void);
 #ifdef __cplusplus
 }
 #endif
+
 #endif

@@ -21,16 +21,28 @@
  *  http://www.gnu.org/copyleft/lgpl.html
  */
 
-#ifdef WIN32
+#if defined(WIN32) || defined(_XBOX)
+
+#ifdef _XBOX
+#include <xtl.h>
+#include <winsockx.h>
+#define snprintf _snprintf
+#define strcasecmp stricmp
+#define strncasecmp strnicmp
+#define vsnprintf _vsnprintf
+
+#else /* !_XBOX */
 #include <winsock2.h>
 #include <ws2tcpip.h>
+#endif
+
 #define GetSockError()	WSAGetLastError()
 #define setsockopt(a,b,c,d,e)	(setsockopt)(a,b,c,(const char *)d,(int)e)
 #define EWOULDBLOCK	WSAETIMEDOUT	/* we don't use nonblocking, but we do use timeouts */
 #define sleep(n)	Sleep(n*1000)
 #define msleep(n)	Sleep(n)
 #define SET_RCVTIMEO(tv,s)	int tv = s*1000
-#else
+#else /* !WIN32 && !_XBOX */
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/times.h>

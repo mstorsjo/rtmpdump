@@ -26,6 +26,7 @@
 #include <assert.h>
 #include <ctype.h>
 
+#include "rtmp_sys.h"
 #include "log.h"
 
 #define MAX_PRINT_LEN	2048

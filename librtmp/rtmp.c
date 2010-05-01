@@ -807,7 +807,7 @@ RTMP_Connect0(RTMP *r, struct sockaddr * service)
       }
   }
 
-  setsockopt(r->m_sb.sb_socket, IPPROTO_TCP, TCP_NODELAY, &on, sizeof(on));
+  setsockopt(r->m_sb.sb_socket, IPPROTO_TCP, TCP_NODELAY, (char *) &on, sizeof(on));
 
   return true;
 }
@@ -3524,7 +3524,7 @@ HTTP_read(RTMP *r, int fill)
  * packets, 0 if ignorable error, >0 if there is a media packet
  */
 static int
-Read_1_Packet(RTMP *r, char *buf, int buflen)
+Read_1_Packet(RTMP *r, char *buf, unsigned int buflen)
 {
   uint32_t prevTagSize = 0;
   int rtnGetNextMediaPacket = 0, ret = RTMP_READ_EOF;

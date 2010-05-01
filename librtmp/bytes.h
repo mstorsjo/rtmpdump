@@ -27,7 +27,7 @@
 
 #include <stdint.h>
 
-#ifdef WIN32
+#if defined(WIN32) || defined(_XBOX)
 /* Windows is little endian only */
 #define __LITTLE_ENDIAN 1234
 #define __BIG_ENDIAN    4321

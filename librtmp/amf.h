@@ -25,7 +25,19 @@
  */
 
 #include <stdint.h>
+
+#ifdef _XBOX
+
+#ifndef __cplusplus
+#define bool _Bool
+typedef unsigned char _Bool;
+#define false 0
+#define true  1
+#endif
+
+#else
 #include <stdbool.h>
+#endif
 
 #ifdef __cplusplus
 extern "C"

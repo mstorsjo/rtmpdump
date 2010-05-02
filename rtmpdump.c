@@ -939,7 +939,7 @@ main(int argc, char **argv)
 	  break;
 	case 'l':
 	  protocol = atoi(optarg);
-	  if (protocol < RTMP_PROTOCOL_RTMP || protocol > RTMP_PROTOCOL_RTMPS)
+	  if (protocol < RTMP_PROTOCOL_RTMP || protocol > RTMP_PROTOCOL_RTMPTS)
 	    {
 	      RTMP_Log(RTMP_LOGERROR, "Unknown protocol specified: %d", protocol);
 	      return RD_FAILED;

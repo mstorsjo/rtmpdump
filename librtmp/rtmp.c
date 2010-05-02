@@ -54,8 +54,8 @@ const char RTMPProtocolStrings[][7] = {
   "RTMPT",
   "RTMPE",
   "RTMPTE",
-  "",
   "RTMPS",
+  "RTMPTS",
   "",
   "",
   "RTMFP"
@@ -66,8 +66,8 @@ const char RTMPProtocolStringsLower[][7] = {
   "rtmpt",
   "rtmpe",
   "rtmpte",
-  "",
   "rtmps",
+  "rtmpts",
   "",
   "",
   "rtmfp"

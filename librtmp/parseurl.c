@@ -66,6 +66,8 @@ bool RTMP_ParseURL(const char *url, int *protocol, AVal *host, unsigned int *por
 	        *protocol = RTMP_PROTOCOL_RTMFP;
 	else if(len == 6 && strncasecmp(url, "rtmpte", 6)==0)
 	        *protocol = RTMP_PROTOCOL_RTMPTE;
+	else if(len == 6 && strncasecmp(url, "rtmpts", 6)==0)
+	        *protocol = RTMP_PROTOCOL_RTMPTS;
 	else {
 		RTMP_Log(RTMP_LOGWARNING, "Unknown protocol!\n");
 		goto parsehost;

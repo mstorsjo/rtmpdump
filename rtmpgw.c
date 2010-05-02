@@ -858,7 +858,7 @@ ParseOption(char opt, char *arg, RTMP_REQUEST * req)
     case 'l':
       {
 	int protocol = atoi(arg);
-	if (protocol != RTMP_PROTOCOL_RTMP && protocol != RTMP_PROTOCOL_RTMPE)
+	if (protocol < RTMP_PROTOCOL_RTMP || protocol > RTMP_PROTOCOL_RTMPTS)
 	  {
 	    RTMP_Log(RTMP_LOGERROR, "Unknown protocol specified: %d, using default",
 		protocol);

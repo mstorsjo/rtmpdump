@@ -3505,6 +3505,7 @@ HTTP_read(RTMP *r, int fill)
         return -1;
       r->m_clientID.av_val[0] = '/';
       memcpy(r->m_clientID.av_val+1, ptr, hlen-1);
+	  r->m_clientID.av_val[hlen] = 0;
       r->m_sb.sb_size = 0;
     }
   else

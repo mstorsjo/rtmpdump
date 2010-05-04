@@ -464,7 +464,7 @@ RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash,
   AVal home, hpre;
 
   date[0] = '\0';
-#if defined(WIN32) || defined(_XBOX)
+#ifdef _WIN32
 #ifdef _XBOX
   hpre.av_val = "Q:";
   hpre.av_len = 2;
@@ -476,7 +476,7 @@ RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash,
 #endif
 #define DIRSEP	"\\"
 
-#else /* !WIN32 */
+#else /* !_WIN32 */
   hpre.av_val = "";
   hpre.av_len = 0;
   home.av_val = getenv("HOME");

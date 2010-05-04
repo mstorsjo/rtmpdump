@@ -21,7 +21,7 @@
  *  http://www.gnu.org/copyleft/lgpl.html
  */
 
-#if defined(WIN32) || defined(_XBOX)
+#ifdef _WIN32
 
 #ifdef _XBOX
 #include <xtl.h>
@@ -42,7 +42,7 @@
 #define sleep(n)	Sleep(n*1000)
 #define msleep(n)	Sleep(n)
 #define SET_RCVTIMEO(tv,s)	int tv = s*1000
-#else /* !WIN32 && !_XBOX */
+#else /* !_WIN32 */
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/times.h>

@@ -27,7 +27,7 @@
 
 #include <stdint.h>
 
-#if defined(WIN32) || defined(_XBOX)
+#ifdef _WIN32
 /* Windows is little endian only */
 #define __LITTLE_ENDIAN 1234
 #define __BIG_ENDIAN    4321
@@ -36,7 +36,7 @@
 
 typedef unsigned char uint8_t;
 
-#else /* !WIN32 */
+#else /* !_WIN32 */
 
 #include <sys/param.h>
 
@@ -52,7 +52,7 @@ typedef unsigned char uint8_t;
 #define __LITTLE_ENDIAN	LITTLE_ENDIAN
 #endif
 
-#endif /* !WIN32 */
+#endif /* !_WIN32 */
 
 /* define default endianness */
 #ifndef __LITTLE_ENDIAN

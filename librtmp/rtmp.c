@@ -117,7 +117,7 @@ static void DecodeTEA(AVal *key, AVal *text);
 static int HTTP_Post(RTMP *r, RTMPTCmd cmd, const char *buf, int len);
 static int HTTP_read(RTMP *r, int fill);
 
-#ifndef WIN32
+#ifndef _WIN32
 static int clk_tck;
 #endif
 
@@ -130,7 +130,7 @@ RTMP_GetTime()
 {
 #ifdef _DEBUG
   return 0;
-#elif defined(WIN32)
+#elif defined(_WIN32)
   return timeGetTime();
 #else
   struct tms t;
@@ -290,7 +290,7 @@ RTMP_UpdateBufferMS(RTMP *r)
 }
 
 #undef OSS
-#ifdef WIN32
+#ifdef _WIN32
 #define OSS	"WIN"
 #elif defined(__sun__)
 #define OSS	"SOL"

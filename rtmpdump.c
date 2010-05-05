@@ -1168,6 +1168,10 @@ main(int argc, char **argv)
 		   &tcUrl, &swfUrl, &pageUrl, &app, &auth, &swfHash, swfSize,
 		   &flashVer, &subscribepath, dSeek, dStopOffset, bLiveStream, timeout);
 
+  /* Try to keep the stream moving if it pauses on us */
+  if (!bLiveStream && !(protocol & RTMP_FEATURE_HTTP))
+    rtmp.Link.lFlags |= RTMP_LF_BUFX;
+
   off_t size = 0;
 
   // ok, we have to get the timestamp of the last keyframe (only keyframes are seekable) / last audio frame (audio only streams)

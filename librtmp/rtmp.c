@@ -2595,7 +2595,7 @@ HandleCtrl(RTMP *r, const RTMPPacket *packet)
 	case 31:
 	  tmp = AMF_DecodeInt32(packet->m_body + 2);
 	  RTMP_Log(RTMP_LOGDEBUG, "%s, Stream BufferEmpty %d", __FUNCTION__, tmp);
-	  if ((r->Link.lFlags & RTMP_LF_LIVE) || (r->Link.protocol & RTMP_FEATURE_HTTP))
+	  if (!(r->Link.lFlags & RTMP_LF_BUFX))
 	    break;
 	  if (!r->m_pausing)
 	    {

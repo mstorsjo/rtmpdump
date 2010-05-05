@@ -141,10 +141,11 @@ extern "C"
     int seekTime;
     int stopTime;
 
-#define RTMP_LF_AUTH	0x0001
-#define RTMP_LF_LIVE	0x0002
-#define RTMP_LF_SWFV	0x0004
-#define RTMP_LF_PLST	0x0008
+#define RTMP_LF_AUTH	0x0001	/* using auth param */
+#define RTMP_LF_LIVE	0x0002	/* stream is live */
+#define RTMP_LF_SWFV	0x0004	/* do SWF verification */
+#define RTMP_LF_PLST	0x0008	/* send playlist before play */
+#define RTMP_LF_BUFX	0x0010	/* toggle stream on BufferEmpty msg */
     int lFlags;
 
     int swfAge;

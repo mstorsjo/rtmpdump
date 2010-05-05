@@ -468,7 +468,7 @@ RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash,
 #ifdef _XBOX
   hpre.av_val = "Q:";
   hpre.av_len = 2;
-  home.av_val = "\\UserData\\cache";
+  home.av_val = "\\UserData";
 #else
   hpre.av_val = getenv("HOMEDRIVE");
   hpre.av_len = strlen(hpre.av_val);

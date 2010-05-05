@@ -2592,6 +2592,42 @@ HandleCtrl(RTMP *r, const RTMPPacket *packet)
 	  RTMP_SendCtrl(r, 0x07, tmp, 0);
 	  break;
 
+	/* FMS 3.5 servers send the following two controls to let the client
+	 * know when the server has sent a complete buffer. I.e., when the
+	 * server has sent an amount of data equal to m_nBufferMS in duration.
+	 * The server meters its output so that data arrives at the client
+	 * in realtime and no faster.
+	 *
+	 * The rtmpdump program tries to set m_nBufferMS as large as
+	 * possible, to force the server to send data as fast as possible.
+	 * In practice, the server appears to cap this at about 1 hour's
+	 * worth of data. After the server has sent a complete buffer, and
+	 * sends this BufferEmpty message, it will wait until the play
+	 * duration of that buffer has passed before sending a new buffer.
+	 * The BufferReady message will be sent when the new buffer starts.
+	 * (There is no BufferReady message for the very first buffer;
+	 * presumably the Stream Begin message is sufficient for that
+	 * purpose.)
+	 *
+	 * If the network speed is much faster than the data bitrate, then
+	 * there may be long delays between the end of one buffer and the
+	 * start of the next.
+	 *
+	 * Since usually the network allows data to be sent at
+	 * faster than realtime, and rtmpdump wants to download the data
+	 * as fast as possible, we use this RTMP_LF_BUFX hack: when we
+	 * get the BufferEmpty message, we send a Pause followed by an
+	 * Unpause. This causes the server to send the next buffer immediately
+	 * instead of waiting for the full duration to elapse. (That's
+	 * also the purpose of the ToggleStream function, which rtmpdump
+	 * calls if we get a read timeout.)
+	 *
+	 * Media player apps don't need this hack since they are just
+	 * going to play the data in realtime anyway. It also doesn't work
+	 * for live streams since they obviously can only be sent in
+	 * realtime. And it's all moot if the network speed is actually
+	 * slower than the media bitrate.
+	 */
 	case 31:
 	  tmp = AMF_DecodeInt32(packet->m_body + 2);
 	  RTMP_Log(RTMP_LOGDEBUG, "%s, Stream BufferEmpty %d", __FUNCTION__, tmp);

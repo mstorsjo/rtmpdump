@@ -4039,8 +4039,17 @@ RTMP_Read(RTMP *r, char *buf, int size)
   int nRead = 0, total = 0;
 
   /* can't continue */
-  if (r->m_read.status < 0)
+fail:
+  switch (r->m_read.status < 0) {
+  case RTMP_READ_EOF:
+  case RTMP_READ_COMPLETE:
+    return 0;
+  case RTMP_READ_ERROR:  /* corrupted stream, resume failed */
+    SetSockError(EINVAL);
     return -1;
+  default:
+    break;
+  }
 
   /* first time thru */
   if (!(r->m_read.flags & RTMP_READ_HEADER))
@@ -4064,7 +4073,7 @@ RTMP_Read(RTMP *r, char *buf, int size)
 		  r->m_read.buf = NULL;
 		  r->m_read.buflen = 0;
 		  r->m_read.status = nRead;
-		  return -1;
+		  goto fail;
 		}
 	      r->m_read.buf += nRead;
 	      r->m_read.buflen -= nRead;

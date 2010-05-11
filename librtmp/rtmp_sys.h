@@ -37,6 +37,7 @@
 #endif
 
 #define GetSockError()	WSAGetLastError()
+#define SetSockError(e)	WSASetLastError(e)
 #define setsockopt(a,b,c,d,e)	(setsockopt)(a,b,c,(const char *)d,(int)e)
 #define EWOULDBLOCK	WSAETIMEDOUT	/* we don't use nonblocking, but we do use timeouts */
 #define sleep(n)	Sleep(n*1000)
@@ -52,6 +53,7 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #define GetSockError()	errno
+#define SetSockError(e)	errno = e
 #undef closesocket
 #define closesocket(s)	close(s)
 #define msleep(n)	usleep(n*1000)

@@ -2550,13 +2550,11 @@ HandleMetadata(RTMP *r, char *body, unsigned int len)
 	  r->m_fDuration = prop.p_vu.p_number;
 	  /*RTMP_Log(RTMP_LOGDEBUG, "Set duration: %.2f", m_fDuration); */
 	}
-#if 0
       /* Search for audio or video tags */
       if (RTMP_FindPrefixProperty(&obj, &av_video, &prop))
         r->m_read.dataType |= 1;
       if (RTMP_FindPrefixProperty(&obj, &av_audio, &prop))
         r->m_read.dataType |= 4;
-#endif
       ret = true;
     }
   AMF_Reset(&obj);

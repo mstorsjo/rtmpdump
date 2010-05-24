@@ -2550,11 +2550,13 @@ HandleMetadata(RTMP *r, char *body, unsigned int len)
 	  r->m_fDuration = prop.p_vu.p_number;
 	  /*RTMP_Log(RTMP_LOGDEBUG, "Set duration: %.2f", m_fDuration); */
 	}
+#if 0
       /* Search for audio or video tags */
       if (RTMP_FindPrefixProperty(&obj, &av_video, &prop))
         r->m_read.dataType |= 1;
       if (RTMP_FindPrefixProperty(&obj, &av_audio, &prop))
         r->m_read.dataType |= 4;
+#endif
       ret = true;
     }
   AMF_Reset(&obj);
@@ -4089,9 +4091,10 @@ fail:
     {
       if (!(r->m_read.flags & RTMP_READ_RESUME))
 	{
-	  char *mybuf = malloc(HEADERBUF);
+	  char *mybuf = malloc(HEADERBUF), *end = mybuf + HEADERBUF;
 	  r->m_read.buf = mybuf;
 	  r->m_read.buflen = HEADERBUF;
+	  int cnt = 0;
 
 	  memcpy(mybuf, flvHeader, sizeof(flvHeader));
 	  r->m_read.buf += sizeof(flvHeader);
@@ -4108,6 +4111,14 @@ fail:
 		  r->m_read.status = nRead;
 		  goto fail;
 		}
+	      /* buffer overflow, fix buffer and give up */
+	      if (r->m_read.buf < mybuf || r->m_read.buf > end) {
+	      	mybuf = realloc(mybuf, cnt + nRead);
+		memcpy(mybuf+cnt, r->m_read.buf, nRead);
+		r->m_read.buf = mybuf+cnt+nRead;
+	        break;
+	      }
+	      cnt += nRead;
 	      r->m_read.buf += nRead;
 	      r->m_read.buflen -= nRead;
 	      if (r->m_read.dataType == 5)

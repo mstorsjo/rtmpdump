@@ -4162,7 +4162,7 @@ fail:
       size -= nRead;
     }
 
-  while (size > 0 && (nRead = Read_1_Packet(r, buf, size)) >= 0)
+  if (size > 0 && (nRead = Read_1_Packet(r, buf, size)) >= 0)
     {
       buf += nRead;
       total += nRead;

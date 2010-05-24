@@ -4090,9 +4090,9 @@ fail:
       if (!(r->m_read.flags & RTMP_READ_RESUME))
 	{
 	  char *mybuf = malloc(HEADERBUF), *end = mybuf + HEADERBUF;
+	  int cnt = 0;
 	  r->m_read.buf = mybuf;
 	  r->m_read.buflen = HEADERBUF;
-	  int cnt = 0;
 
 	  memcpy(mybuf, flvHeader, sizeof(flvHeader));
 	  r->m_read.buf += sizeof(flvHeader);

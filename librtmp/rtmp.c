@@ -2438,6 +2438,32 @@ RTMP_FindFirstMatchingProperty(AMFObject *obj, const AVal *name,
   return false;
 }
 
+/* Like above, but only check if name is a prefix of property */
+bool
+RTMP_FindPrefixProperty(AMFObject *obj, const AVal *name,
+			       AMFObjectProperty * p)
+{
+  int n;
+  for (n = 0; n < obj->o_num; n++)
+    {
+      AMFObjectProperty *prop = AMF_GetProp(obj, NULL, n);
+
+      if (prop->p_name.av_len > name->av_len &&
+      	  !memcmp(prop->p_name.av_val, name->av_val, name->av_len))
+	{
+	  *p = *prop;
+	  return true;
+	}
+
+      if (prop->p_type == AMF_OBJECT)
+	{
+	  if (RTMP_FindPrefixProperty(&prop->p_vu.p_object, name, p))
+	    return true;
+	}
+    }
+  return false;
+}
+
 static bool
 DumpMetaData(AMFObject *obj)
 {
@@ -2490,6 +2516,8 @@ DumpMetaData(AMFObject *obj)
 
 SAVC(onMetaData);
 SAVC(duration);
+SAVC(video);
+SAVC(audio);
 
 static bool
 HandleMetadata(RTMP *r, char *body, unsigned int len)
@@ -2522,6 +2550,11 @@ HandleMetadata(RTMP *r, char *body, unsigned int len)
 	  r->m_fDuration = prop.p_vu.p_number;
 	  /*RTMP_Log(RTMP_LOGDEBUG, "Set duration: %.2f", m_fDuration); */
 	}
+      /* Search for audio or video tags */
+      if (RTMP_FindPrefixProperty(&obj, &av_video, &prop))
+        r->m_read.dataType |= 1;
+      if (RTMP_FindPrefixProperty(&obj, &av_audio, &prop))
+        r->m_read.dataType |= 4;
       ret = true;
     }
   AMF_Reset(&obj);

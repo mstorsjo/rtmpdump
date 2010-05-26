@@ -4052,9 +4052,10 @@ Read_1_Packet(RTMP *r, char *buf, unsigned int buflen)
 
   if (recopy)
     {
-      memcpy(buf, r->m_read.buf, buflen);
-      r->m_read.bufpos = r->m_read.buf + buflen;
-      r->m_read.buflen = ret - buflen;
+      len = ret > buflen ? buflen : ret;
+      memcpy(buf, r->m_read.buf, len);
+      r->m_read.bufpos = r->m_read.buf + len;
+      r->m_read.buflen = ret - len;
     }
   return ret;
 }
@@ -4162,11 +4163,13 @@ fail:
       size -= nRead;
     }
 
-  if (size > 0 && (nRead = Read_1_Packet(r, buf, size)) >= 0)
+  while (size > 0 && (nRead = Read_1_Packet(r, buf, size)) >= 0)
     {
+      if (!nRead) continue;
       buf += nRead;
       total += nRead;
       size -= nRead;
+      break;
     }
   if (nRead < 0)
     r->m_read.status = nRead;

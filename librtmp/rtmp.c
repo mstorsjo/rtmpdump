@@ -2130,17 +2130,18 @@ RTMP_SendCtrl(RTMP *r, short nType, unsigned int nObject, unsigned int nTime)
 }
 
 static void
-AV_erase(AVal *vals, int *num, int i, bool freeit)
+AV_erase(RTMP_METHOD *vals, int *num, int i, bool freeit)
 {
   if (freeit)
-    free(vals[i].av_val);
+    free(vals[i].name.av_val);
   (*num)--;
   for (; i < *num; i++)
     {
       vals[i] = vals[i + 1];
     }
-  vals[i].av_val = NULL;
-  vals[i].av_len = 0;
+  vals[i].name.av_val = NULL;
+  vals[i].name.av_len = 0;
+  vals[i].num = 0;
 }
 
 void
@@ -2150,24 +2151,25 @@ RTMP_DropRequest(RTMP *r, int i, bool freeit)
 }
 
 static void
-AV_queue(AVal **vals, int *num, AVal *av)
+AV_queue(RTMP_METHOD **vals, int *num, AVal *av, int txn)
 {
   char *tmp;
   if (!(*num & 0x0f))
-    *vals = realloc(*vals, (*num + 16) * sizeof(AVal));
+    *vals = realloc(*vals, (*num + 16) * sizeof(RTMP_METHOD));
   tmp = malloc(av->av_len + 1);
   memcpy(tmp, av->av_val, av->av_len);
   tmp[av->av_len] = '\0';
-  (*vals)[*num].av_len = av->av_len;
-  (*vals)[(*num)++].av_val = tmp;
+  (*vals)[*num].num = txn;
+  (*vals)[*num].name.av_len = av->av_len;
+  (*vals)[(*num)++].name.av_val = tmp;
 }
 
 static void
-AV_clear(AVal *vals, int num)
+AV_clear(RTMP_METHOD *vals, int num)
 {
   int i;
   for (i = 0; i < num; i++)
-    free(vals[i].av_val);
+    free(vals[i].name.av_val);
   free(vals);
 }
 
@@ -2203,7 +2205,7 @@ HandleInvoke(RTMP *r, const char *body, unsigned int nBodySize)
 {
   AMFObject obj;
   AVal method;
-  double txn;
+  int txn;
   int ret = 0, nRes;
   if (body[0] != 0x02)		/* make sure it is a string method name we start with */
     {
@@ -2221,13 +2223,26 @@ HandleInvoke(RTMP *r, const char *body, unsigned int nBodySize)
 
   AMF_Dump(&obj);
   AMFProp_GetString(AMF_GetProp(&obj, NULL, 0), &method);
-  txn = AMFProp_GetNumber(AMF_GetProp(&obj, NULL, 1));
+  txn = (int)AMFProp_GetNumber(AMF_GetProp(&obj, NULL, 1));
   RTMP_Log(RTMP_LOGDEBUG, "%s, server invoking <%s>", __FUNCTION__, method.av_val);
 
   if (AVMATCH(&method, &av__result))
     {
-      AVal methodInvoked = r->m_methodCalls[0];
-      AV_erase(r->m_methodCalls, &r->m_numCalls, 0, false);
+      AVal methodInvoked = {0};
+      int i;
+
+      for (i=0; i<r->m_numCalls; i++) {
+  	if (r->m_methodCalls[i].num == txn) {
+	  methodInvoked = r->m_methodCalls[i].name;
+	  AV_erase(r->m_methodCalls, &r->m_numCalls, i, false);
+	  break;
+	}
+      }
+      if (!methodInvoked.av_val) {
+        RTMP_Log(RTMP_LOGDEBUG, "%s, received result id %d without matching request",
+	  __FUNCTION__, txn);
+	goto leave;
+      }
 
       RTMP_Log(RTMP_LOGDEBUG, "%s, received result for method call <%s>", __FUNCTION__,
 	  methodInvoked.av_val);
@@ -2308,7 +2323,7 @@ HandleInvoke(RTMP *r, const char *body, unsigned int nBodySize)
     {
       int i;
       for (i = 0; i < r->m_numCalls; i++)
-	if (AVMATCH(&r->m_methodCalls[i], &av__checkbw))
+	if (AVMATCH(&r->m_methodCalls[i].name, &av__checkbw))
 	  {
 	    AV_erase(r->m_methodCalls, &r->m_numCalls, i, true);
 	    break;
@@ -2348,7 +2363,7 @@ HandleInvoke(RTMP *r, const char *body, unsigned int nBodySize)
 	  r->m_bPlaying = true;
 	  for (i = 0; i < r->m_numCalls; i++)
 	    {
-	      if (AVMATCH(&r->m_methodCalls[i], &av_play))
+	      if (AVMATCH(&r->m_methodCalls[i].name, &av_play))
 		{
 		  AV_erase(r->m_methodCalls, &r->m_numCalls, i, true);
 		  break;
@@ -2362,7 +2377,7 @@ HandleInvoke(RTMP *r, const char *body, unsigned int nBodySize)
 	  r->m_bPlaying = true;
 	  for (i = 0; i < r->m_numCalls; i++)
 	    {
-	      if (AVMATCH(&r->m_methodCalls[i], &av_publish))
+	      if (AVMATCH(&r->m_methodCalls[i].name, &av_publish))
 		{
 		  AV_erase(r->m_methodCalls, &r->m_numCalls, i, true);
 		  break;
@@ -2398,7 +2413,7 @@ HandleInvoke(RTMP *r, const char *body, unsigned int nBodySize)
       int i;
       for (i = 0; i < r->m_numCalls; i++)
         {
-          if (AVMATCH(&r->m_methodCalls[i], &av_set_playlist))
+          if (AVMATCH(&r->m_methodCalls[i].name, &av_set_playlist))
 	    {
 	      AV_erase(r->m_methodCalls, &r->m_numCalls, i, true);
 	      break;
@@ -2409,6 +2424,7 @@ HandleInvoke(RTMP *r, const char *body, unsigned int nBodySize)
     {
 
     }
+leave:
   AMF_Reset(&obj);
   return ret;
 }
@@ -3257,11 +3273,17 @@ RTMP_SendPacket(RTMP *r, RTMPPacket *packet, bool queue)
   if (packet->m_packetType == 0x14)
     {
       AVal method;
-      AMF_DecodeString(packet->m_body + 1, &method);
+      char *ptr;
+      ptr = packet->m_body + 1;
+      AMF_DecodeString(ptr, &method);
       RTMP_Log(RTMP_LOGDEBUG, "Invoking %s", method.av_val);
       /* keep it in call queue till result arrives */
-      if (queue)
-	AV_queue(&r->m_methodCalls, &r->m_numCalls, &method);
+      if (queue) {
+        int txn;
+        ptr += 3 + method.av_len;
+        txn = (int)AMF_DecodeNumber(ptr);
+	AV_queue(&r->m_methodCalls, &r->m_numCalls, &method, txn);
+      }
     }
 
   if (!r->m_vecChannelsOut[packet->m_nChannel])

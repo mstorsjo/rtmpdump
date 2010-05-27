@@ -200,6 +200,12 @@ extern "C"
     uint32_t nIgnoredFlvFrameCounter;
   } RTMP_READ;
 
+  typedef struct RTMP_METHOD
+  {
+    AVal name;
+    int num;
+  } RTMP_METHOD;
+
   typedef struct RTMP
   {
     int m_inChunkSize;
@@ -222,7 +228,7 @@ extern "C"
 
     int m_numInvokes;
     int m_numCalls;
-    AVal *m_methodCalls;	/* remote method calls queue */
+    RTMP_METHOD *m_methodCalls;	/* remote method calls queue */
 
     RTMPPacket *m_vecChannelsIn[RTMP_CHANNELS];
     RTMPPacket *m_vecChannelsOut[RTMP_CHANNELS];

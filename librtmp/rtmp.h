@@ -302,6 +302,7 @@ extern "C"
   void RTMP_Close(RTMP *r);
   RTMP *RTMP_Alloc(void);
   void RTMP_Free(RTMP *r);
+  void RTMP_EnableWrite(RTMP *r);
 
   int RTMP_LibVersion(void);
   void RTMP_UserInterrupt(void);	/* user typed Ctrl-C */

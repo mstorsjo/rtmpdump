@@ -259,6 +259,12 @@ RTMP_Init(RTMP *r)
   r->Link.swfAge = 30;
 }
 
+void
+RTMP_EnableWrite(RTMP *r)
+{
+  r->Link.protocol |= RTMP_FEATURE_WRITE;
+}
+
 double
 RTMP_GetDuration(RTMP *r)
 {

@@ -23,8 +23,13 @@ OPT=-O2
 CFLAGS=-Wall $(XCFLAGS) $(INC) $(DEF) $(OPT)
 LDFLAGS=-Wall $(XLDFLAGS)
 
-BINDIR=$(DESTDIR)$(prefix)/bin
-MANDIR=$(DESTDIR)$(prefix)/man
+bindir=$(prefix)/bin
+sbindir=$(prefix)/sbin
+mandir=$(prefix)/man
+
+BINDIR=$(DESTDIR)$(bindir)
+SBINDIR=$(DESTDIR)$(sbindir)
+MANDIR=$(DESTDIR)$(mandir)
 
 LIBS_posix=
 LIBS_mingw=-lws2_32 -lwinmm -lgdi32
@@ -47,8 +52,9 @@ all:	$(LIBRTMP) progs
 progs:	rtmpdump rtmpgw rtmpsrv rtmpsuck
 
 install:	progs
-	-mkdir -p $(BINDIR) $(MANDIR)/man1 $(MANDIR)/man8
-	cp rtmpdump$(EXT) rtmpgw$(EXT) rtmpsrv$(EXT) rtmpsuck$(EXT) $(BINDIR)
+	-mkdir -p $(BINDIR) $(SBINDIR) $(MANDIR)/man1 $(MANDIR)/man8
+	cp rtmpdump$(EXT) $(BINDIR)
+	cp rtmpgw$(EXT) rtmpsrv$(EXT) rtmpsuck$(EXT) $(SBINDIR)
 	cp rtmpdump.1 $(MANDIR)/man1
 	cp rtmpgw.8 $(MANDIR)/man8
 	@cd librtmp; $(MAKE) install $(MAKEFLAGS)

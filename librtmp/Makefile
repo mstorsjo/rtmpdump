@@ -21,9 +21,12 @@ DEF=-DRTMPDUMP_VERSION=\"$(VERSION)\" $(CRYPTO_DEF) $(XDEF)
 OPT=-O2
 CFLAGS=-Wall $(XCFLAGS) $(INC) $(DEF) $(OPT)
 
-INCDIR=$(DESTDIR)$(prefix)/include/librtmp
-LIBDIR=$(DESTDIR)$(prefix)/lib
-MANDIR=$(DESTDIR)$(prefix)/man
+incdir=$(prefix)/include/librtmp
+libdir=$(prefix)/lib
+mandir=$(prefix)/man
+INCDIR=$(DESTDIR)$(incdir)
+LIBDIR=$(DESTDIR)$(libdir)
+MANDIR=$(DESTDIR)$(mandir)
 
 all:	librtmp.a
 

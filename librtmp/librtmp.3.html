@@ -6,7 +6,7 @@
 <tr><td>LIBRTMP(3)<td align="center"><td align="right">LIBRTMP(3)
 </thead>
 <tfoot>
-<tr><td>RTMPDump v2.2e<td align="center">2010-05-04<td align="right">LIBRTMP(3)
+<tr><td>RTMPDump v2.2e<td align="center">2010-05-29<td align="right">LIBRTMP(3)
 </tfoot>
 <tbody><tr><td colspan="3"><br><br><ul>
 <!-- Copyright 2010 Howard Chu.
@@ -31,8 +31,8 @@ multimedia content across a TCP/IP network. This API provides most client
 functions and a few server functions needed to support RTMP, RTMP tunneled
 in HTTP (RTMPT), encrypted RTMP (RTMPE), RTMP over SSL/TLS (RTMPS) and
 tunneled variants of these encrypted types (RTMPTE, RTMPTS). The basic
-RTMP specification has been published by Adobe but this API was reverse-
-engineered without use of the Adobe specification. As such, it may
+RTMP specification has been published by Adobe but this API was
+reverse-engineered without use of the Adobe specification. As such, it may
 deviate from any published specifications but it usually duplicates the
 actual behavior of the original Adobe clients.
 <p>
@@ -41,7 +41,8 @@ in
 <a href="../man1/rtmpdump.1"><b>rtmpdump</b></a>(1),
 some sample servers, and a library used to provide programmatic access
 to the RTMP protocol. This man page gives an overview of the RTMP
-library routines. These routines are found in the -lrtmp library.
+library routines. These routines are found in the -lrtmp library. Many
+other routines are also available, but they are not documented yet.
 <p>
 The basic interaction is as follows. A session handle is created using
 <b>RTMP_Alloc</b>()
@@ -55,8 +56,13 @@ and then the RTMP session is established using
 <b>RTMP_ConnectStream</b>().
 The stream is read using
 <b>RTMP_Read</b>().
-A client can publish a stream using
-<b>RTMP_Write</b>().
+A client can publish a stream by calling
+<b>RTMP_EnableWrite</b>()
+before the
+<b>RTMP_Connect</b>()
+call, and then using
+<b>RTMP_Write</b>()
+after the session is established.
 While a stream is playing it may be paused and unpaused using
 <b>RTMP_Pause</b>().
 The stream playback position can be moved using

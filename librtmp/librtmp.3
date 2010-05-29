@@ -1,4 +1,4 @@
-.TH LIBRTMP 3 "2010-05-04" "RTMPDump v2.2e"
+.TH LIBRTMP 3 "2010-05-29" "RTMPDump v2.2e"
 .\" Copyright 2010 Howard Chu.
 .\" Copying permitted according to the GNU General Public License V2.
 .SH NAME
@@ -13,8 +13,8 @@ multimedia content across a TCP/IP network. This API provides most client
 functions and a few server functions needed to support RTMP, RTMP tunneled
 in HTTP (RTMPT), encrypted RTMP (RTMPE), RTMP over SSL/TLS (RTMPS) and
 tunneled variants of these encrypted types (RTMPTE, RTMPTS). The basic
-RTMP specification has been published by Adobe but this API was reverse-
-engineered without use of the Adobe specification. As such, it may
+RTMP specification has been published by Adobe but this API was
+reverse-engineered without use of the Adobe specification. As such, it may
 deviate from any published specifications but it usually duplicates the
 actual behavior of the original Adobe clients.
 
@@ -23,7 +23,8 @@ in
 .BR rtmpdump (1),
 some sample servers, and a library used to provide programmatic access
 to the RTMP protocol. This man page gives an overview of the RTMP
-library routines. These routines are found in the -lrtmp library.
+library routines. These routines are found in the -lrtmp library. Many
+other routines are also available, but they are not documented yet.
 
 The basic interaction is as follows. A session handle is created using
 .BR RTMP_Alloc ()
@@ -37,8 +38,13 @@ and then the RTMP session is established using
 .BR RTMP_ConnectStream ().
 The stream is read using
 .BR RTMP_Read ().
-A client can publish a stream using
-.BR RTMP_Write ().
+A client can publish a stream by calling
+.BR RTMP_EnableWrite ()
+before the
+.BR RTMP_Connect ()
+call, and then using
+.BR RTMP_Write ()
+after the session is established.
 While a stream is playing it may be paused and unpaused using
 .BR RTMP_Pause ().
 The stream playback position can be moved using

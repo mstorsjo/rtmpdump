@@ -4,6 +4,17 @@ Copyright 2009-2010 Howard Chu
 Copyright 2009 The Flvstreamer Team
 http://rtmpdump.mplayerhq.hu/
 
+29 May 2010, v2.2e
+- port to Xbox
+- add explicit URL scheme for rtmpts
+- fix rtmpt clientID NUL-termination
+- use BufferEmpty trick in rtmpdump but not by default in librtmp
+- add librtmp manpage
+- fix RTMP_Read, return 0 on EOF, not -1
+- change RTMP_Read to return 1 packet at a time, fix buffer mgmt
+- fix request/result queue, fix server compatibility for Publishing
+- add RTMP_EnableWrite to enable Publishing
+
 29 April 2010, v2.2d
 - add RTMP_Alloc, RTMP_Free APIs
 - add optional support for polarssl instead of OpenSSL

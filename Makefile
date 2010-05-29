@@ -1,5 +1,7 @@
 VERSION=v2.2e
 
+prefix=/usr/local
+
 CC=$(CROSS_COMPILE)gcc
 LD=$(CROSS_COMPILE)ld
 
@@ -21,6 +23,9 @@ OPT=-O2
 CFLAGS=-Wall $(XCFLAGS) $(INC) $(DEF) $(OPT)
 LDFLAGS=-Wall $(XLDFLAGS)
 
+BINDIR=$(DESTDIR)$(prefix)/bin
+MANDIR=$(DESTDIR)$(prefix)/man
+
 LIBS_posix=
 LIBS_mingw=-lws2_32 -lwinmm -lgdi32
 LIBS=$(CRYPTO_LIB) -lz $(LIBS_$(SYS))
@@ -40,6 +45,13 @@ EXT=$(EXT_$(SYS))
 all:	$(LIBRTMP) progs
 
 progs:	rtmpdump rtmpgw rtmpsrv rtmpsuck
+
+install:	progs
+	-mkdir -p $(BINDIR) $(MANDIR)/man1 $(MANDIR)/man8
+	cp rtmpdump$(EXT) rtmpgw$(EXT) rtmpsrv$(EXT) rtmpsuck$(EXT) $(BINDIR)
+	cp rtmpdump.1 $(MANDIR)/man1
+	cp rtmpgw.8 $(MANDIR)/man8
+	@cd librtmp; $(MAKE) install $(MAKEFLAGS)
 
 clean:
 	rm -f *.o rtmpdump$(EXT) rtmpgw$(EXT) rtmpsrv$(EXT) rtmpsuck$(EXT)

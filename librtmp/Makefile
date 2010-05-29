@@ -22,6 +22,7 @@ OPT=-O2
 CFLAGS=-Wall $(XCFLAGS) $(INC) $(DEF) $(OPT)
 
 INCDIR=$(DESTDIR)$(prefix)/include/librtmp
+LIBDIR=$(DESTDIR)$(prefix)/lib
 
 all:	librtmp.a
 
@@ -42,7 +43,7 @@ librtmp.pc: librtmp.pc.in Makefile
 		-e "s;@CRYPTO_REQ@;$(CRYPTO_REQ);" librtmp.pc.in > $@
 
 install:	librtmp.a librtmp.pc
-	-mkdir -p $(INCDIR) $(DESTDIR)$(prefix)/lib/pkgconfig
+	-mkdir -p $(INCDIR) $(LIBDIR)/pkgconfig
 	cp amf.h http.h log.h rtmp.h $(INCDIR)
-	cp librtmp.a $(DESTDIR)$(prefix)/lib
-	cp librtmp.pc $(DESTDIR)$(prefix)/lib/pkgconfig
+	cp librtmp.a $(LIBDIR)
+	cp librtmp.pc $(LIBDIR)/pkgconfig

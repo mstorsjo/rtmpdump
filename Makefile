@@ -3,6 +3,9 @@ VERSION=v2.2e
 CC=$(CROSS_COMPILE)gcc
 LD=$(CROSS_COMPILE)ld
 
+SYS=posix
+#SYS=mingw
+
 CRYPTO=OPENSSL
 #CRYPTO=POLARSSL
 #CRYPTO=GNUTLS
@@ -18,33 +21,25 @@ OPT=-O2
 CFLAGS=-Wall $(XCFLAGS) $(INC) $(DEF) $(OPT)
 LDFLAGS=-Wall $(XLDFLAGS)
 
-LIBS=$(CRYPTO_LIB) -lz
-THREADLIB=-lpthread
+LIBS_posix=
+LIBS_mingw=-lws2_32 -lwinmm -lgdi32
+LIBS=$(CRYPTO_LIB) -lz $(LIBS_$(SYS))
+
+THREADLIB_posix=-lpthread
+THREADLIB_mingw=
+THREADLIB=$(THREADLIB_$(SYS))
 SLIBS=$(THREADLIB) $(LIBS)
 
 LIBRTMP=librtmp/librtmp.a
 INCRTMP=librtmp/rtmp_sys.h librtmp/rtmp.h librtmp/log.h librtmp/amf.h
 
-EXT=
+EXT_posix=
+EXT_mingw=.exe
+EXT=$(EXT_$(SYS))
 
-all:
-	@echo 'use "make posix" for a native Linux/Unix build, or'
-	@echo '    "make mingw" for a MinGW32 build'
-	@echo 'use commandline overrides if you want anything else'
+all:	$(LIBRTMP) progs
 
 progs:	rtmpdump rtmpgw rtmpsrv rtmpsuck
-
-posix linux unix osx:
-	@$(MAKE) $(MAKEFLAGS) MF="$(MAKEFLAGS)" progs
-
-mingw:
-	@$(MAKE) CROSS_COMPILE=mingw32- LIBS="$(LIBS) -lws2_32 -lwinmm -lgdi32" THREADLIB= EXT=.exe $(MAKEFLAGS) progs
-
-cygwin:
-	@$(MAKE) XCFLAGS=-static XLDFLAGS="-static-libgcc -static" EXT=.exe $(MAKEFLAGS) progs
-
-cross:
-	@$(MAKE) CROSS_COMPILE=armv7a-angstrom-linux-gnueabi- INC=-I$(STAGING)/usr/include $(MAKEFLAGS) progs
 
 clean:
 	rm -f *.o rtmpdump$(EXT) rtmpgw$(EXT) rtmpsrv$(EXT) rtmpsuck$(EXT)

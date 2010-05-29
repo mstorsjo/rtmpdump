@@ -1,27 +1,23 @@
-RTMP Dump v2.2d
+RTMP Dump v2.2e
 (C) 2009 Andrej Stepanchuk
 (C) 2009-2010 Howard Chu
 (C) 2010 2a665470ced7adb7156fcef47f8199a6371c117b8a79e399a2771e0b36384090
 License: GPLv2
 http://rtmpdump.mplayerhq.hu/
 
-To compile type "make" with platform name, e.g.
+To compile type "make" with SYS=<platform name>, e.g.
 
-  $ make posix
+  $ make SYS=posix
 
 for Linux, MacOSX, Unix, etc. or
 
-  $ make mingw
+  $ make SYS=mingw
 
 for Windows.
 
-You can cross-compile for other platforms using
+You can cross-compile for other platforms using the CROSS_COMPILE variable:
 
-  $ make cross
-
-but you may need to override the CROSS_COMPILE and INC variables, e.g.
-
-  $ make arm CROSS_COMPILE=arm-none-linux- INC=-I/my/cross/includes
+  $ make CROSS_COMPILE=arm-none-linux- INC=-I/my/cross/includes
 
 Please read the Makefile to see what other make variables are used.
 
@@ -30,15 +26,15 @@ optionally use GnuTLS or polarssl instead of OpenSSL if desired. You may
 also build with just rtmpe support, and no rtmps/https support, by
 specifying -DNO_SSL in the XDEF macro, e.g.
 
-  $ make posix XDEF=-DNO_SSL
+  $ make XDEF=-DNO_SSL
 
 or
 
-  $ make posix CRYPTO=POLARSSL XDEF=-DNO_SSL
+  $ make CRYPTO=POLARSSL XDEF=-DNO_SSL
 
 You may also turn off all crypto support if desired
 
-  $ make posix CRYPTO=
+  $ make CRYPTO=
 
 Note that if using OpenSSL, you must have version 0.9.8 or newer.
 

@@ -3384,12 +3384,12 @@ RTMP_Close(RTMP *r)
     }
   if (r->Link.rc4keyIn)
     {
-      free(r->Link.rc4keyIn);
+      RC4_free(r->Link.rc4keyIn);
       r->Link.rc4keyIn = NULL;
     }
   if (r->Link.rc4keyOut)
     {
-      free(r->Link.rc4keyOut);
+      RC4_free(r->Link.rc4keyOut);
       r->Link.rc4keyOut = NULL;
     }
 #endif

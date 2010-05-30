@@ -35,10 +35,11 @@
 #define HMAC_finish(ctx, dig, dlen)	dlen = SHA256_DIGEST_LENGTH; sha2_hmac_finish(&ctx, dig)
 
 typedef arc4_context *	RC4_handle;
-#define RC4_setup(h)	*h = malloc(sizeof(arc4_context))
+#define RC4_alloc(h)	*h = malloc(sizeof(arc4_context))
 #define RC4_setkey(h,l,k)	arc4_setup(h,k,l)
 #define RC4_encrypt(h,l,d)	arc4_crypt(h,l,(unsigned char *)d,(unsigned char *)d)
 #define RC4_encrypt2(h,l,s,d)	arc4_crypt(h,l,(unsigned char *)s,(unsigned char *)d)
+#define RC4_free(h)	free(h)
 
 #elif defined(USE_GNUTLS)
 #include <gcrypt.h>
@@ -51,10 +52,11 @@ typedef arc4_context *	RC4_handle;
 #define HMAC_finish(ctx, dig, dlen)	dlen = SHA256_DIGEST_LENGTH; memcpy(dig, gcry_md_read(ctx, 0), dlen); gcry_md_close(ctx)
 
 typedef gcry_cipher_hd_t	RC4_handle;
-#define	RC4_setup(h)	gcry_cipher_open(h, GCRY_CIPHER_ARCFOUR, GCRY_CIPHER_MODE_STREAM, 0)
+#define	RC4_alloc(h)	gcry_cipher_open(h, GCRY_CIPHER_ARCFOUR, GCRY_CIPHER_MODE_STREAM, 0)
 #define RC4_setkey(h,l,k)	gcry_cipher_setkey(h,k,l)
 #define RC4_encrypt(h,l,d)	gcry_cipher_encrypt(h,(void *)d,l,NULL,0)
 #define RC4_encrypt2(h,l,s,d)	gcry_cipher_encrypt(h,(void *)d,l,(void *)s,l)
+#define RC4_free(h)	gcry_cipher_close(h)
 
 #else	/* USE_OPENSSL */
 #include <openssl/sha.h>
@@ -68,10 +70,11 @@ typedef gcry_cipher_hd_t	RC4_handle;
 #define HMAC_finish(ctx, dig, dlen)	HMAC_Final(&ctx, dig, &dlen); HMAC_CTX_cleanup(&ctx)
 
 typedef RC4_KEY *	RC4_handle;
-#define RC4_setup(h)	*h = malloc(sizeof(RC4_KEY))
+#define RC4_alloc(h)	*h = malloc(sizeof(RC4_KEY))
 #define RC4_setkey(h,l,k)	RC4_set_key(h,l,k)
 #define RC4_encrypt(h,l,d)	RC4(h,l,(uint8_t *)d,(uint8_t *)d)
 #define RC4_encrypt2(h,l,s,d)	RC4(h,l,(uint8_t *)s,(uint8_t *)d)
+#define RC4_free(h)	free(h)
 #endif
 
 #define FP10
@@ -112,8 +115,8 @@ static void InitRC4Encryption
   unsigned int digestLen = 0;
   HMAC_CTX ctx;
 
-  RC4_setup(rc4keyIn);
-  RC4_setup(rc4keyOut);
+  RC4_alloc(rc4keyIn);
+  RC4_alloc(rc4keyOut);
 
   HMAC_setup(ctx, secretKey, 128);
   HMAC_crunch(ctx, pubKeyIn, 128);

@@ -323,7 +323,7 @@ extern "C"
   bool RTMP_SendClientBW(RTMP *r);
   void RTMP_DropRequest(RTMP *r, int i, bool freeit);
   int RTMP_Read(RTMP *r, char *buf, int size);
-  int RTMP_Write(RTMP *r, char *buf, int size);
+  int RTMP_Write(RTMP *r, const char *buf, int size);
 
 /* hashswf.c */
   int RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash,

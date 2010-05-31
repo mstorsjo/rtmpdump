@@ -4210,7 +4210,7 @@ fail:
 static const AVal av_setDataFrame = AVC("@setDataFrame");
 
 int
-RTMP_Write(RTMP *r, char *buf, int size)
+RTMP_Write(RTMP *r, const char *buf, int size)
 {
   RTMPPacket *pkt = &r->m_write;
   char *pend, *enc;

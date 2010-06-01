@@ -57,7 +57,7 @@ install:	progs
 	cp rtmpgw$(EXT) rtmpsrv$(EXT) rtmpsuck$(EXT) $(SBINDIR)
 	cp rtmpdump.1 $(MANDIR)/man1
 	cp rtmpgw.8 $(MANDIR)/man8
-	@cd librtmp; $(MAKE) install $(MAKEFLAGS)
+	@cd librtmp; $(MAKE) install
 
 clean:
 	rm -f *.o rtmpdump$(EXT) rtmpgw$(EXT) rtmpsrv$(EXT) rtmpsuck$(EXT)

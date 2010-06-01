@@ -66,7 +66,7 @@ clean:
 FORCE:
 
 $(LIBRTMP): FORCE
-	@cd librtmp; $(MAKE) $(MF) all
+	@cd librtmp; $(MAKE) all
 
 # note: $^ is GNU Make's equivalent to BSD $>
 # we use both since either make will ignore the one it doesn't recognize

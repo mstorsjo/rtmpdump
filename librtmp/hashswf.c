@@ -186,7 +186,7 @@ HTTP_get(struct HTTP_ctx *http, const char *url, HTTP_read_callback *cb)
   }
 
   sb.sb_size = 0;
-  sb.sb_timedout = false;
+  sb.sb_timedout = FALSE;
   if (RTMPSockBuf_Fill(&sb) < 1)
     {
       ret = HTTPRES_LOST_CONNECTION;

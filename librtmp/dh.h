@@ -150,10 +150,10 @@ typedef BIGNUM * MP_t;
 #include "dhgroups.h"
 
 /* RFC 2631, Section 2.1.5, http://www.ietf.org/rfc/rfc2631.txt */
-static bool
+static int
 isValidPublicKey(MP_t y, MP_t p, MP_t q)
 {
-  int ret = true;
+  int ret = TRUE;
   MP_t bn;
   assert(y);
 
@@ -165,7 +165,7 @@ isValidPublicKey(MP_t y, MP_t p, MP_t q)
   if (MP_cmp(y, bn) < 0)
     {
       RTMP_Log(RTMP_LOGERROR, "DH public key must be at least 2");
-      ret = false;
+      ret = FALSE;
       goto failed;
     }
 
@@ -175,7 +175,7 @@ isValidPublicKey(MP_t y, MP_t p, MP_t q)
   if (MP_cmp(y, bn) > 0)
     {
       RTMP_Log(RTMP_LOGERROR, "DH public key must be at most p-2");
-      ret = false;
+      ret = FALSE;
       goto failed;
     }
 

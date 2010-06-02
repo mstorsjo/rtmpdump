@@ -170,7 +170,7 @@ ServeInvoke(STREAMING_SERVER *server, int which, RTMPPacket *pack, const char *b
     }
 
   AMFObject obj;
-  nRes = AMF_Decode(&obj, body, nBodySize, false);
+  nRes = AMF_Decode(&obj, body, nBodySize, FALSE);
   if (nRes < 0)
     {
       RTMP_Log(RTMP_LOGERROR, "%s, error decoding invoke packet", __FUNCTION__);
@@ -280,7 +280,7 @@ ServeInvoke(STREAMING_SERVER *server, int which, RTMPPacket *pack, const char *b
           else if (AVMATCH(&pname, &av_objectEncoding))
             {
               server->rc.m_fEncoding = cobj.o_props[i].p_vu.p_number;
-              server->rc.m_bSendEncoding = true;
+              server->rc.m_bSendEncoding = TRUE;
             }
           /* Dup'd a string we didn't recognize? */
           if (pval.av_val)
@@ -301,7 +301,7 @@ ServeInvoke(STREAMING_SERVER *server, int which, RTMPPacket *pack, const char *b
           /* failed */
           return 1;
         }
-      server->rc.m_bSendCounter = false;
+      server->rc.m_bSendCounter = FALSE;
     }
   else if (AVMATCH(&method, &av_play))
     {
@@ -426,7 +426,7 @@ ServeInvoke(STREAMING_SERVER *server, int which, RTMPPacket *pack, const char *b
               for (server->f_cur = server->f_head; server->f_cur &&
                     !server->f_cur->f_file; server->f_cur = server->f_cur->f_next) ;
             }
-	  server->rc.m_bPlaying = true;
+	  server->rc.m_bPlaying = TRUE;
 	}
 
       // Return 1 if this is a Play.Complete or Play.Stop
@@ -725,7 +725,7 @@ void doServe(STREAMING_SERVER * server,	// server socket and state (our listenin
   RTMPChunk rk = { 0 };
   char *buf = NULL;
   unsigned int buflen = 131072;
-  bool paused = false;
+  int paused = FALSE;
 
   // timeout for http requests
   fd_set rfds;
@@ -807,7 +807,7 @@ void doServe(STREAMING_SERVER * server,	// server socket and state (our listenin
                   server->rc.m_pauseStamp = server->rc.m_channelTimestamp[server->rc.m_mediaChannel];
                   if (RTMP_ToggleStream(&server->rc))
                     {
-                      paused = true;
+                      paused = TRUE;
                       continue;
                     }
                 }
@@ -881,7 +881,7 @@ void doServe(STREAMING_SERVER * server,	// server socket and state (our listenin
                       server->f_cur->f_file = NULL;
                       server->f_cur = NULL;
                     }
-                RTMP_SendPacket(&server->rc, &ps, false);
+                RTMP_SendPacket(&server->rc, &ps, FALSE);
                 RTMPPacket_Free(&ps);
                 break;
               }
@@ -1107,7 +1107,7 @@ stopStreaming(STREAMING_SERVER * server)
 void
 sigIntHandler(int sig)
 {
-  RTMP_ctrlC = true;
+  RTMP_ctrlC = TRUE;
   RTMP_LogPrintf("Caught signal: %d, cleaning up, just a second...\n", sig);
   if (rtmpServer)
     stopStreaming(rtmpServer);

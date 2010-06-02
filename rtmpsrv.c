@@ -96,7 +96,7 @@ typedef struct
   char *hostname;
   int rtmpport;
   int protocol;
-  bool bLiveStream;		// is it a live stream? then we can't seek/resume
+  int bLiveStream;		// is it a live stream? then we can't seek/resume
 
   long int timeout;		// timeout connection afte 300 seconds
   uint32_t bufferTime;
@@ -159,7 +159,7 @@ SAVC(code);
 SAVC(description);
 SAVC(secureToken);
 
-static bool
+static int
 SendConnectResult(RTMP *r, double txn)
 {
   RTMPPacket packet;
@@ -220,10 +220,10 @@ SendConnectResult(RTMP *r, double txn)
 
   packet.m_nBodySize = enc - packet.m_body;
 
-  return RTMP_SendPacket(r, &packet, false);
+  return RTMP_SendPacket(r, &packet, FALSE);
 }
 
-static bool
+static int
 SendResultNumber(RTMP *r, double txn, double ID)
 {
   RTMPPacket packet;
@@ -245,7 +245,7 @@ SendResultNumber(RTMP *r, double txn, double ID)
 
   packet.m_nBodySize = enc - packet.m_body;
 
-  return RTMP_SendPacket(r, &packet, false);
+  return RTMP_SendPacket(r, &packet, FALSE);
 }
 
 SAVC(onStatus);
@@ -257,7 +257,7 @@ static const AVal av_Stopped_playing = AVC("Stopped playing");
 SAVC(details);
 SAVC(clientid);
 
-static bool
+static int
 SendPlayStart(RTMP *r)
 {
   RTMPPacket packet;
@@ -286,10 +286,10 @@ SendPlayStart(RTMP *r)
   *enc++ = AMF_OBJECT_END;
 
   packet.m_nBodySize = enc - packet.m_body;
-  return RTMP_SendPacket(r, &packet, false);
+  return RTMP_SendPacket(r, &packet, FALSE);
 }
 
-static bool
+static int
 SendPlayStop(RTMP *r)
 {
   RTMPPacket packet;
@@ -318,7 +318,7 @@ SendPlayStop(RTMP *r)
   *enc++ = AMF_OBJECT_END;
 
   packet.m_nBodySize = enc - packet.m_body;
-  return RTMP_SendPacket(r, &packet, false);
+  return RTMP_SendPacket(r, &packet, FALSE);
 }
 
 static void
@@ -470,7 +470,7 @@ ServeInvoke(STREAMING_SERVER *server, RTMP * r, RTMPPacket *packet, unsigned int
     }
 
   AMFObject obj;
-  nRes = AMF_Decode(&obj, body, nBodySize, false);
+  nRes = AMF_Decode(&obj, body, nBodySize, FALSE);
   if (nRes < 0)
     {
       RTMP_Log(RTMP_LOGERROR, "%s, error decoding invoke packet", __FUNCTION__);
@@ -1012,7 +1012,7 @@ stopStreaming(STREAMING_SERVER * server)
 void
 sigIntHandler(int sig)
 {
-  RTMP_ctrlC = true;
+  RTMP_ctrlC = TRUE;
   RTMP_LogPrintf("Caught signal: %d, cleaning up, just a second...\n", sig);
   if (rtmpServer)
     stopStreaming(rtmpServer);
@@ -1043,7 +1043,7 @@ main(int argc, char **argv)
 
   defaultRTMPRequest.rtmpport = -1;
   defaultRTMPRequest.protocol = RTMP_PROTOCOL_UNDEFINED;
-  defaultRTMPRequest.bLiveStream = false;	// is it a live stream? then we can't seek/resume
+  defaultRTMPRequest.bLiveStream = FALSE;	// is it a live stream? then we can't seek/resume
 
   defaultRTMPRequest.timeout = 300;	// timeout connection afte 300 seconds
   defaultRTMPRequest.bufferTime = 20 * 1000;

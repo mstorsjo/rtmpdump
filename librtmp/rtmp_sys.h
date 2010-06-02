@@ -60,6 +60,12 @@
 #define SET_RCVTIMEO(tv,s)	struct timeval tv = {s,0}
 #endif
 
+/* macros for people who don't understand C */
+#undef TRUE
+#undef FALSE
+#define TRUE	1
+#define FALSE	0
+
 #include "rtmp.h"
 
 #ifdef USE_POLARSSL

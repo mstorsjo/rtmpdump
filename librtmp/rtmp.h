@@ -66,7 +66,7 @@ extern "C"
 
   extern const char RTMPProtocolStringsLower[][7];
   extern const AVal RTMP_DefaultFlashVer;
-  extern bool RTMP_ctrlC;
+  extern int RTMP_ctrlC;
 
   uint32_t RTMP_GetTime(void);
 
@@ -109,13 +109,13 @@ extern "C"
     int sb_size;		/* number of unprocessed bytes in buffer */
     char *sb_start;		/* pointer into sb_pBuffer of next byte to process */
     char sb_buf[RTMP_BUFFER_CACHE_SIZE];	/* data read from socket */
-    bool sb_timedout;
+    int sb_timedout;
     void *sb_ssl;
   } RTMPSockBuf;
 
   void RTMPPacket_Reset(RTMPPacket *p);
   void RTMPPacket_Dump(RTMPPacket *p);
-  bool RTMPPacket_Alloc(RTMPPacket *p, int nSize);
+  int RTMPPacket_Alloc(RTMPPacket *p, int nSize);
   void RTMPPacket_Free(RTMPPacket *p);
 
 #define RTMPPacket_IsReady(a)	((a)->m_nBytesRead == (a)->m_nBodySize)
@@ -252,15 +252,15 @@ extern "C"
     RTMP_LNK Link;
   } RTMP;
 
-  bool RTMP_ParseURL(const char *url, int *protocol, AVal *host,
+  int RTMP_ParseURL(const char *url, int *protocol, AVal *host,
 		     unsigned int *port, AVal *playpath, AVal *app);
 
   void RTMP_ParsePlaypath(AVal *in, AVal *out);
   void RTMP_SetBufferMS(RTMP *r, int size);
   void RTMP_UpdateBufferMS(RTMP *r);
 
-  bool RTMP_SetOpt(RTMP *r, const AVal *opt, AVal *arg);
-  bool RTMP_SetupURL(RTMP *r, char *url);
+  int RTMP_SetOpt(RTMP *r, const AVal *opt, AVal *arg);
+  int RTMP_SetupURL(RTMP *r, char *url);
   void RTMP_SetupStream(RTMP *r, int protocol,
 			AVal *hostname,
 			unsigned int port,
@@ -276,24 +276,24 @@ extern "C"
 			AVal *flashVer,
 			AVal *subscribepath,
 			int dStart,
-			int dStop, bool bLiveStream, long int timeout);
+			int dStop, int bLiveStream, long int timeout);
 
-  bool RTMP_Connect(RTMP *r, RTMPPacket *cp);
+  int RTMP_Connect(RTMP *r, RTMPPacket *cp);
   struct sockaddr;
-  bool RTMP_Connect0(RTMP *r, struct sockaddr *svc);
-  bool RTMP_Connect1(RTMP *r, RTMPPacket *cp);
-  bool RTMP_Serve(RTMP *r);
+  int RTMP_Connect0(RTMP *r, struct sockaddr *svc);
+  int RTMP_Connect1(RTMP *r, RTMPPacket *cp);
+  int RTMP_Serve(RTMP *r);
 
-  bool RTMP_ReadPacket(RTMP *r, RTMPPacket *packet);
-  bool RTMP_SendPacket(RTMP *r, RTMPPacket *packet, bool queue);
-  bool RTMP_SendChunk(RTMP *r, RTMPChunk *chunk);
-  bool RTMP_IsConnected(RTMP *r);
-  bool RTMP_IsTimedout(RTMP *r);
+  int RTMP_ReadPacket(RTMP *r, RTMPPacket *packet);
+  int RTMP_SendPacket(RTMP *r, RTMPPacket *packet, int queue);
+  int RTMP_SendChunk(RTMP *r, RTMPChunk *chunk);
+  int RTMP_IsConnected(RTMP *r);
+  int RTMP_IsTimedout(RTMP *r);
   double RTMP_GetDuration(RTMP *r);
-  bool RTMP_ToggleStream(RTMP *r);
+  int RTMP_ToggleStream(RTMP *r);
 
-  bool RTMP_ConnectStream(RTMP *r, int seekTime);
-  bool RTMP_ReconnectStream(RTMP *r, int seekTime);
+  int RTMP_ConnectStream(RTMP *r, int seekTime);
+  int RTMP_ReconnectStream(RTMP *r, int seekTime);
   void RTMP_DeleteStream(RTMP *r);
   int RTMP_GetNextMediaPacket(RTMP *r, RTMPPacket *packet);
   int RTMP_ClientPacket(RTMP *r, RTMPPacket *packet);
@@ -307,21 +307,21 @@ extern "C"
   int RTMP_LibVersion(void);
   void RTMP_UserInterrupt(void);	/* user typed Ctrl-C */
 
-  bool RTMP_SendCtrl(RTMP *r, short nType, unsigned int nObject,
+  int RTMP_SendCtrl(RTMP *r, short nType, unsigned int nObject,
 		     unsigned int nTime);
-  bool RTMP_SendPause(RTMP *r, bool DoPause, int dTime);
-  bool RTMP_FindFirstMatchingProperty(AMFObject *obj, const AVal *name,
+  int RTMP_SendPause(RTMP *r, int DoPause, int dTime);
+  int RTMP_FindFirstMatchingProperty(AMFObject *obj, const AVal *name,
 				      AMFObjectProperty * p);
 
   int RTMPSockBuf_Fill(RTMPSockBuf *sb);
   int RTMPSockBuf_Send(RTMPSockBuf *sb, const char *buf, int len);
   int RTMPSockBuf_Close(RTMPSockBuf *sb);
 
-  bool RTMP_SendCreateStream(RTMP *r);
-  bool RTMP_SendSeek(RTMP *r, int dTime);
-  bool RTMP_SendServerBW(RTMP *r);
-  bool RTMP_SendClientBW(RTMP *r);
-  void RTMP_DropRequest(RTMP *r, int i, bool freeit);
+  int RTMP_SendCreateStream(RTMP *r);
+  int RTMP_SendSeek(RTMP *r, int dTime);
+  int RTMP_SendServerBW(RTMP *r);
+  int RTMP_SendClientBW(RTMP *r);
+  void RTMP_DropRequest(RTMP *r, int i, int freeit);
   int RTMP_Read(RTMP *r, char *buf, int size);
   int RTMP_Write(RTMP *r, const char *buf, int size);
 

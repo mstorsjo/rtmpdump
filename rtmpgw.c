@@ -78,7 +78,7 @@ typedef struct
   AVal hostname;
   int rtmpport;
   int protocol;
-  bool bLiveStream;		// is it a live stream? then we can't seek/resume
+  int bLiveStream;		// is it a live stream? then we can't seek/resume
 
   long int timeout;		// timeout connection after 120 seconds
   uint32_t bufferTime;
@@ -207,7 +207,7 @@ parseAMF(AMFObject *obj, const char *arg, int *depth)
  * parameters in the GET request. */
 RTMP_REQUEST defaultRTMPRequest;
 
-bool ParseOption(char opt, char *arg, RTMP_REQUEST * req);
+int ParseOption(char opt, char *arg, RTMP_REQUEST * req);
 
 #ifdef _DEBUG
 uint32_t debugTS = 0;
@@ -310,15 +310,15 @@ ssize_t readHTTPLine(int sockfd, char *buffer, size_t length)
 	return i;
 }
 
-bool isHTTPRequestEOF(char *line, size_t length)
+int isHTTPRequestEOF(char *line, size_t length)
 {
 	if(length < 2)
-		return true;
+		return TRUE;
 
 	if(line[0]=='\r' && line[1]=='\n')
-		return true;
+		return TRUE;
 
-	return false;
+	return FALSE;
 }
 */
 
@@ -746,7 +746,7 @@ stopStreaming(STREAMING_SERVER * server)
 void
 sigIntHandler(int sig)
 {
-  RTMP_ctrlC = true;
+  RTMP_ctrlC = TRUE;
   RTMP_LogPrintf("Caught signal: %d, cleaning up, just a second...\n", sig);
   if (httpServer)
     stopStreaming(httpServer);
@@ -777,7 +777,7 @@ int hex2bin(char *str, char **hex)
 
 // Return values: true (option parsing ok)
 //                false (option not parsed/invalid)
-bool
+int
 ParseOption(char opt, char *arg, RTMP_REQUEST * req)
 {
   switch (opt)
@@ -844,7 +844,7 @@ ParseOption(char opt, char *arg, RTMP_REQUEST * req)
 	break;
       }
     case 'v':
-      req->bLiveStream = true;	// no seeking or resuming possible!
+      req->bLiveStream = TRUE;	// no seeking or resuming possible!
       break;
     case 'd':
       STR2AVAL(req->subscribepath, arg);
@@ -862,7 +862,7 @@ ParseOption(char opt, char *arg, RTMP_REQUEST * req)
 	  {
 	    RTMP_Log(RTMP_LOGERROR, "Unknown protocol specified: %d, using default",
 		protocol);
-	    return false;
+	    return FALSE;
 	  }
 	else
 	  {
@@ -954,9 +954,9 @@ ParseOption(char opt, char *arg, RTMP_REQUEST * req)
       break;
     default:
       RTMP_LogPrintf("unknown option: %c, arg: %s\n", opt, arg);
-      return false;
+      return FALSE;
     }
-  return true;
+  return TRUE;
 }
 
 int
@@ -978,7 +978,7 @@ main(int argc, char **argv)
 
   defaultRTMPRequest.rtmpport = -1;
   defaultRTMPRequest.protocol = RTMP_PROTOCOL_UNDEFINED;
-  defaultRTMPRequest.bLiveStream = false;	// is it a live stream? then we can't seek/resume
+  defaultRTMPRequest.bLiveStream = FALSE;	// is it a live stream? then we can't seek/resume
 
   defaultRTMPRequest.timeout = 120;	// timeout connection after 120 seconds
   defaultRTMPRequest.bufferTime = 20 * 1000;

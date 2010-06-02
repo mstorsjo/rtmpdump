@@ -29,7 +29,7 @@
 #include "rtmp_sys.h"
 #include "log.h"
 
-bool RTMP_ParseURL(const char *url, int *protocol, AVal *host, unsigned int *port,
+int RTMP_ParseURL(const char *url, int *protocol, AVal *host, unsigned int *port,
 	AVal *playpath, AVal *app)
 {
 	char *p, *end, *col, *ques, *slash;
@@ -49,7 +49,7 @@ bool RTMP_ParseURL(const char *url, int *protocol, AVal *host, unsigned int *por
 	p = strstr(url, "://");
 	if(!p) {
 		RTMP_Log(RTMP_LOGERROR, "RTMP URL: No :// in url!");
-		return false;
+		return FALSE;
 	}
 	{
 	int len = (int)(p-url);
@@ -83,7 +83,7 @@ parsehost:
 	/* check for sudden death */
 	if(*p==0) {
 		RTMP_Log(RTMP_LOGWARNING, "No hostname in URL!");
-		return false;
+		return FALSE;
 	}
 
 	end   = p + strlen(p);
@@ -125,7 +125,7 @@ parsehost:
 
 	if(!slash) {
 		RTMP_Log(RTMP_LOGWARNING, "No application or playpath in URL!");
-		return true;
+		return TRUE;
 	}
 	p = slash+1;
 
@@ -178,7 +178,7 @@ parsehost:
 		RTMP_ParsePlaypath(&av, playpath);
 	}
 
-	return true;
+	return TRUE;
 }
 
 /*

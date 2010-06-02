@@ -33,7 +33,7 @@ MANDIR=$(DESTDIR)$(mandir)
 
 LIBS_posix=
 LIBS_mingw=-lws2_32 -lwinmm -lgdi32
-LIBS=$(CRYPTO_LIB) -lz $(LIBS_$(SYS))
+LIBS=$(CRYPTO_LIB) -lz $(LIBS_$(SYS)) $(XLIBS)
 
 THREADLIB_posix=-lpthread
 THREADLIB_mingw=

@@ -149,7 +149,7 @@ prefixing the type with 'N' and specifying the name before the value, e.g.
 NB:myFlag:1. This option may be used multiple times to construct arbitrary
 AMF sequences. E.g.
 .nf
-  -C B:1 -C S:authMe -C O:1 -C NN:code:1.23 -C NS:flag:ok -C O:0
+  \-C B:1 \-C S:authMe \-C O:1 \-C NN:code:1.23 \-C NS:flag:ok \-C O:0
 .fi
 .SS "Session Parameters"
 These options take effect after the Connect request has succeeded.
@@ -260,7 +260,7 @@ is equivalent to the
 .BR rtrmpdump (1)
 invocation
 .nf
-	rtmpdump -r rtmp://server/myapp -y somefile
+	rtmpdump \-r rtmp://server/myapp \-y somefile
 .fi
 
 Note that only the shortform (single letter) options are supported.

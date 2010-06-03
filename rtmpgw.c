@@ -1085,7 +1085,7 @@ main(int argc, char **argv)
 	  RTMP_LogPrintf
 	    ("--live|-v               Get a live stream, no --resume (seeking) of live streams possible\n");
 	  RTMP_LogPrintf
-	    ("--subscribe|-d string   Stream name to subscribe to (otherwise defaults to playpath if live is specifed)\n");
+	    ("--subscribe|-d string   Stream name to subscribe to (otherwise defaults to playpath if live is specified)\n");
 	  RTMP_LogPrintf
 	    ("--timeout|-m num        Timeout connection num seconds (default: %lu)\n",
 	     defaultRTMPRequest.timeout);

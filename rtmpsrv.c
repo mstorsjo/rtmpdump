@@ -687,8 +687,12 @@ ServeInvoke(STREAMING_SERVER *server, RTMP * r, RTMPPacket *packet, unsigned int
 	  /* Add extension if none present */
 	  if (file[av.av_len - 4] != '.')
 	    {
-	      strcpy(file+av.av_len, ".flv");
 	      av.av_len += 4;
+	    }
+	  /* Always use flv extension, regardless of original */
+	  if (strcmp(file+av.av_len-4, ".flv"))
+	    {
+	      strcpy(file+av.av_len-4, ".flv");
 	    }
 	  argv[argc].av_val = ptr + 1;
 	  argv[argc++].av_len = 2;

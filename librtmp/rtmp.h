@@ -289,6 +289,7 @@ extern "C"
   int RTMP_SendPacket(RTMP *r, RTMPPacket *packet, int queue);
   int RTMP_SendChunk(RTMP *r, RTMPChunk *chunk);
   int RTMP_IsConnected(RTMP *r);
+  int RTMP_Socket(RTMP *r);
   int RTMP_IsTimedout(RTMP *r);
   double RTMP_GetDuration(RTMP *r);
   int RTMP_ToggleStream(RTMP *r);
@@ -310,7 +311,13 @@ extern "C"
 
   int RTMP_SendCtrl(RTMP *r, short nType, unsigned int nObject,
 		     unsigned int nTime);
+
+  /* caller probably doesn't know current timestamp, should
+   * just use RTMP_Pause instead
+   */
   int RTMP_SendPause(RTMP *r, int DoPause, int dTime);
+  int RTMP_Pause(RTMP *r, int DoPause);
+
   int RTMP_FindFirstMatchingProperty(AMFObject *obj, const AVal *name,
 				      AMFObjectProperty * p);
 

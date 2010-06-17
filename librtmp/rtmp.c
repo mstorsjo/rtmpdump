@@ -279,6 +279,12 @@ RTMP_IsConnected(RTMP *r)
 }
 
 int
+RTMP_Socket(RTMP *r)
+{
+  return r->m_sb.sb_socket;
+}
+
+int
 RTMP_IsTimedout(RTMP *r)
 {
   return r->m_sb.sb_timedout;
@@ -1777,6 +1783,13 @@ RTMP_SendPause(RTMP *r, int DoPause, int iTime)
 
   RTMP_Log(RTMP_LOGDEBUG, "%s, %d, pauseTime=%d", __FUNCTION__, DoPause, iTime);
   return RTMP_SendPacket(r, &packet, TRUE);
+}
+
+int RTMP_Pause(RTMP *r, int DoPause)
+{
+  if (DoPause)
+    r->m_pauseStamp = r->m_channelTimestamp[r->m_mediaChannel];
+  return RTMP_SendPause(r, DoPause, r->m_pauseStamp);
 }
 
 SAVC(seek);

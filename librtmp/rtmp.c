@@ -1943,6 +1943,34 @@ SendCheckBWResult(RTMP *r, double txn)
   return RTMP_SendPacket(r, &packet, FALSE);
 }
 
+SAVC(ping);
+SAVC(pong);
+
+static int
+SendPong(RTMP *r, double txn)
+{
+  RTMPPacket packet;
+  char pbuf[256], *pend = pbuf + sizeof(pbuf);
+  char *enc;
+
+  packet.m_nChannel = 0x03;	/* control channel (invoke) */
+  packet.m_headerType = RTMP_PACKET_SIZE_MEDIUM;
+  packet.m_packetType = 0x14;	/* INVOKE */
+  packet.m_nTimeStamp = 0x16 * r->m_nBWCheckCounter;	/* temp inc value. till we figure it out. */
+  packet.m_nInfoField2 = 0;
+  packet.m_hasAbsTimestamp = 0;
+  packet.m_body = pbuf + RTMP_MAX_HEADER_SIZE;
+
+  enc = packet.m_body;
+  enc = AMF_EncodeString(enc, pend, &av_pong);
+  enc = AMF_EncodeNumber(enc, pend, txn);
+  *enc++ = AMF_NULL;
+
+  packet.m_nBodySize = enc - packet.m_body;
+
+  return RTMP_SendPacket(r, &packet, FALSE);
+}
+
 SAVC(play);
 
 static int
@@ -2334,6 +2362,10 @@ HandleInvoke(RTMP *r, const char *body, unsigned int nBodySize)
     {
       RTMP_Close(r);
       ret = 1;
+    }
+  else if (AVMATCH(&method, &av_ping))
+    {
+      SendPong(r, txn);
     }
   else if (AVMATCH(&method, &av__onbwcheck))
     {

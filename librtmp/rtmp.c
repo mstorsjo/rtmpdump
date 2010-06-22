@@ -2830,13 +2830,14 @@ EncodeInt32LE(char *output, int nVal)
 int
 RTMP_ReadPacket(RTMP *r, RTMPPacket *packet)
 {
-  char hbuf[RTMP_MAX_HEADER_SIZE] = { 0 }, *header = hbuf;
+  uint8_t hbuf[RTMP_MAX_HEADER_SIZE] = { 0 };
+  char *header = (char *)hbuf;
   int nSize, hSize, nToRead, nChunk;
   int didAlloc = FALSE;
 
   RTMP_Log(RTMP_LOGDEBUG2, "%s: fd=%d", __FUNCTION__, r->m_sb.sb_socket);
 
-  if (ReadN(r, hbuf, 1) == 0)
+  if (ReadN(r, (char *)hbuf, 1) == 0)
     {
       RTMP_Log(RTMP_LOGERROR, "%s, failed to read RTMP packet header", __FUNCTION__);
       return FALSE;
@@ -2847,26 +2848,26 @@ RTMP_ReadPacket(RTMP *r, RTMPPacket *packet)
   header++;
   if (packet->m_nChannel == 0)
     {
-      if (ReadN(r, &hbuf[1], 1) != 1)
+      if (ReadN(r, (char *)&hbuf[1], 1) != 1)
 	{
 	  RTMP_Log(RTMP_LOGERROR, "%s, failed to read RTMP packet header 2nd byte",
 	      __FUNCTION__);
 	  return FALSE;
 	}
-      packet->m_nChannel = (unsigned)hbuf[1];
+      packet->m_nChannel = hbuf[1];
       packet->m_nChannel += 64;
       header++;
     }
   else if (packet->m_nChannel == 1)
     {
       int tmp;
-      if (ReadN(r, &hbuf[1], 2) != 2)
+      if (ReadN(r, (char *)&hbuf[1], 2) != 2)
 	{
 	  RTMP_Log(RTMP_LOGERROR, "%s, failed to read RTMP packet header 3nd byte",
 	      __FUNCTION__);
 	  return FALSE;
 	}
-      tmp = (((unsigned)hbuf[2]) << 8) + (unsigned)hbuf[1];
+      tmp = (hbuf[2] << 8) + hbuf[1];
       packet->m_nChannel = tmp + 64;
       RTMP_Log(RTMP_LOGDEBUG, "%s, m_nChannel: %0x", __FUNCTION__, packet->m_nChannel);
       header += 2;
@@ -2893,7 +2894,7 @@ RTMP_ReadPacket(RTMP *r, RTMPPacket *packet)
       return FALSE;
     }
 
-  hSize = nSize + (header - hbuf);
+  hSize = nSize + (header - (char *)hbuf);
 
   if (nSize >= 3)
     {

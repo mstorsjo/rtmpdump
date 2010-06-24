@@ -3382,8 +3382,10 @@ RTMP_Close(RTMP *r)
   r->m_nBytesIn = 0;
   r->m_nBytesInSent = 0;
 
-  free(r->m_read.buf);
-  r->m_read.buf = NULL;
+  if (r->m_read.flags & RTMP_READ_HEADER) {
+    free(r->m_read.buf);
+    r->m_read.buf = NULL;
+  }
   r->m_read.dataType = 0;
   r->m_read.flags = 0;
   r->m_read.status = 0;

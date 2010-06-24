@@ -265,6 +265,7 @@ void RTMP_ParsePlaypath(AVal *in, AVal *out) {
 		if (subExt && p == ext) {
 			p += 4;
 			pplen -= 4;
+			continue;
 		}
 		if (*p == '%') {
 			unsigned int c;

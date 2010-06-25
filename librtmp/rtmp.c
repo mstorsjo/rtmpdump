@@ -4151,7 +4151,7 @@ RTMP_Read(RTMP *r, char *buf, int size)
 
   /* can't continue */
 fail:
-  switch (r->m_read.status < 0) {
+  switch (r->m_read.status) {
   case RTMP_READ_EOF:
   case RTMP_READ_COMPLETE:
     return 0;

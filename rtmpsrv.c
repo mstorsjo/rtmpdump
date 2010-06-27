@@ -68,6 +68,8 @@
 #define	CleanupSockets()
 #endif
 
+#define DUPTIME	5000	/* interval we disallow duplicate requests, in msec */
+
 enum
 {
   STREAMING_ACCEPTING,
@@ -83,6 +85,8 @@ typedef struct
   int streamID;
   int arglen;
   int argc;
+  uint32_t filetime;	/* time of last download we started */
+  AVal filename;	/* name of last download */
   char *connect;
 
 } STREAMING_SERVER;
@@ -576,6 +580,7 @@ ServeInvoke(STREAMING_SERVER *server, RTMP * r, RTMPPacket *packet, unsigned int
       char *file, *p, *q, *cmd, *ptr;
       AVal *argv, av;
       int len, argc;
+      uint32_t now;
       RTMPPacket pc = {0};
       AMFProp_GetString(AMF_GetProp(&obj, NULL, 3), &r->Link.playpath);
       /*
@@ -697,13 +702,24 @@ ServeInvoke(STREAMING_SERVER *server, RTMP * r, RTMPPacket *packet, unsigned int
 	  argv[argc].av_val = ptr + 1;
 	  argv[argc++].av_len = 2;
 	  argv[argc].av_val = file;
-	  argv[argc++].av_len = av.av_len;
+	  argv[argc].av_len = av.av_len;
 	  ptr += sprintf(ptr, " -o %s", file);
+	  now = RTMP_GetTime();
+	  if (now - server->filetime < DUPTIME && AVMATCH(&argv[argc], &server->filename))
+	    {
+	      printf("Duplicate request, skipping.\n");
+	      free(file);
+	    }
+	  else
+	    {
+	      printf("\n%s\n\n", cmd);
+	      fflush(stdout);
+	      server->filetime = now;
+	      free(server->filename.av_val);
+	      server->filename = argv[argc++];
+	      spawn_dumper(argc, argv, cmd);
+	    }
 
-	  printf("\n%s\n\n", cmd);
-	  fflush(stdout);
-	  spawn_dumper(argc, argv, cmd);
-	  free(file);
 	  free(cmd);
 	}
       pc.m_body = server->connect;

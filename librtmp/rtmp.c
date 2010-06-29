@@ -2377,7 +2377,8 @@ HandleInvoke(RTMP *r, const char *body, unsigned int nBodySize)
     }
   else if (AVMATCH(&method, &av_onBWDone))
     {
-      SendCheckBW(r);
+	  if (!r->m_nBWCheckCounter)
+        SendCheckBW(r);
     }
   else if (AVMATCH(&method, &av_onFCSubscribe))
     {

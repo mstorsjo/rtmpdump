@@ -715,27 +715,32 @@ int RTMP_SetupURL(RTMP *r, char *url)
   if (!r->Link.tcUrl.av_len)
     {
       r->Link.tcUrl.av_val = url;
-      if (r->Link.app.av_len) {
-        if (r->Link.app.av_val < url + len)
-    	  {
-    	    /* if app is part of original url, just use it */
-            r->Link.tcUrl.av_len = r->Link.app.av_len + (r->Link.app.av_val - url);
-    	  }
-    	else
-    	  {
-    	    len = r->Link.hostname.av_len + r->Link.app.av_len +
+      if (r->Link.app.av_len)
+        {
+          if (r->Link.app.av_val < url + len)
+    	    {
+    	      /* if app is part of original url, just use it */
+              r->Link.tcUrl.av_len = r->Link.app.av_len + (r->Link.app.av_val - url);
+    	    }
+    	  else
+    	    {
+    	      len = r->Link.hostname.av_len + r->Link.app.av_len +
     		  sizeof("rtmpte://:65535/");
-	    r->Link.tcUrl.av_val = malloc(len);
-	    r->Link.tcUrl.av_len = snprintf(r->Link.tcUrl.av_val, len,
+	      r->Link.tcUrl.av_val = malloc(len);
+	      r->Link.tcUrl.av_len = snprintf(r->Link.tcUrl.av_val, len,
 		"%s://%.*s:%d/%.*s",
 		RTMPProtocolStringsLower[r->Link.protocol],
 		r->Link.hostname.av_len, r->Link.hostname.av_val,
 		r->Link.port,
 		r->Link.app.av_len, r->Link.app.av_val);
-	    r->Link.lFlags |= RTMP_LF_FTCU;
-	    tcUrl.av_len = strlen(url);
-	  }
+	      r->Link.lFlags |= RTMP_LF_FTCU;
+	    }
+        }
+      else
+        {
+	  r->Link.tcUrl.av_len = strlen(url);
 	}
+    }
 
 #ifdef CRYPTO
   if ((r->Link.lFlags & RTMP_LF_SWFV) && r->Link.swfUrl.av_len)

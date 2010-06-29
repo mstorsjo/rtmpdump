@@ -147,6 +147,7 @@ extern "C"
 #define RTMP_LF_SWFV	0x0004	/* do SWF verification */
 #define RTMP_LF_PLST	0x0008	/* send playlist before play */
 #define RTMP_LF_BUFX	0x0010	/* toggle stream on BufferEmpty msg */
+#define RTMP_LF_FTCU	0x0020	/* free tcUrl on close */
     int lFlags;
 
     int swfAge;

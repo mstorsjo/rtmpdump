@@ -681,6 +681,9 @@ int RTMP_SetupURL(RTMP *r, char *url)
     if (ptr) {
       *ptr = '\0';
       arg.av_len = ptr - p2;
+      /* skip repeated spaces */
+      while(ptr[1] == ' ')
+      	*ptr++ = '\0';
     } else {
       arg.av_len = strlen(p2);
     }

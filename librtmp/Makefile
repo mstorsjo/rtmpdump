@@ -14,10 +14,13 @@ DEF_GNUTLS=-DUSE_GNUTLS
 DEF_=-DNO_CRYPTO
 REQ_GNUTLS=gnutls
 REQ_OPENSSL=libssl,libcrypto
-LIB_GNUTLS=-lgnutls -lgcrypt
-LIB_OPENSSL=-lssl -lcrypto
-LIB_POLARSSL=-lpolarssl
-CRYPTO_LIB=$(LIB_$(CRYPTO))
+LIBZ=-lz
+LIBS_posix=
+LIBS_mingw=-lws2_32 -lwinmm -lgdi32
+LIB_GNUTLS=-lgnutls -lgcrypt $(LIBZ)
+LIB_OPENSSL=-lssl -lcrypto $(LIBZ)
+LIB_POLARSSL=-lpolarssl $(LIBZ)
+CRYPTO_LIB=$(LIB_$(CRYPTO)) $(LIBS_$(SYS))
 CRYPTO_REQ=$(REQ_$(CRYPTO))
 CRYPTO_DEF=$(DEF_$(CRYPTO))
 

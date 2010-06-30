@@ -1,4 +1,4 @@
-VERSION=v2.2f
+VERSION=v2.3
 
 prefix=/usr/local
 

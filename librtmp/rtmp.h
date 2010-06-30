@@ -40,7 +40,7 @@ extern "C"
 {
 #endif
 
-#define RTMP_LIB_VERSION	0x020206	/* 2.2f */
+#define RTMP_LIB_VERSION	0x020300	/* 2.3 */
 
 #define RTMP_FEATURE_HTTP	0x01
 #define RTMP_FEATURE_ENC	0x02

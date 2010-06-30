@@ -4,7 +4,7 @@ Copyright 2009-2010 Howard Chu
 Copyright 2009 The Flvstreamer Team
 http://rtmpdump.mplayerhq.hu/
 
-26 June 2010, v2.2f
+30 June 2010, v2.3
 - fix RC4 cleanup for GnuTLS/gcrypt
 - declare RTMP_Write buf as const
 - cleanup Makefile
@@ -18,6 +18,9 @@ http://rtmpdump.mplayerhq.hu/
 - fix crash on socket failure while RTMP_Read() is reading header
 - fix RTMP_ReadPacket signed/unsigned chars for m_nChannel
 - license cleanup, use current FSF address
+- fix RTMP_SetupURL tcUrl generation
+- ignore multiple spaces between URL options
+- only send CheckBW request once per session
 
 29 May 2010, v2.2e
 - port to Xbox

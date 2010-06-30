@@ -1,4 +1,4 @@
-RTMP Dump v2.2e
+RTMP Dump v2.3
 (C) 2009 Andrej Stepanchuk
 (C) 2009-2010 Howard Chu
 (C) 2010 2a665470ced7adb7156fcef47f8199a6371c117b8a79e399a2771e0b36384090
@@ -36,6 +36,13 @@ or
 You may also turn off all crypto support if desired
 
   $ make CRYPTO=
+
+A shared library is now built by default, in addition to the static
+library. You can also turn it off if desired
+
+  $ make SHARED=
+
+The rtmpdump programs still link to the static library, regardless.
 
 Note that if using OpenSSL, you must have version 0.9.8 or newer.
 

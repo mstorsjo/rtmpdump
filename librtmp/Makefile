@@ -24,13 +24,14 @@ CRYPTO_LIB=$(LIB_$(CRYPTO)) $(LIBS_$(SYS))
 CRYPTO_REQ=$(REQ_$(CRYPTO))
 CRYPTO_DEF=$(DEF_$(CRYPTO))
 
-SHARED=SO
-SODEF_=
-SODEF_SO=-fPIC
-SOLIB_=
-SOLIB_SO=librtmp.so
-SOINST_=
-SOINST_SO=install_so
+SO_posix=so.0
+SO_mingw=dll
+SO_EXT=$(SO_$(SYS))
+
+SHARED=yes
+SODEF_yes=-fPIC
+SOLIB_yes=librtmp.$(SO_EXT)
+SOINST_yes=install_$(SO_EXT)
 SO_DEF=$(SODEF_$(SHARED))
 SO_LIB=$(SOLIB_$(SHARED))
 SO_INST=$(SOINST_$(SHARED))
@@ -40,8 +41,10 @@ OPT=-O2
 CFLAGS=-Wall $(XCFLAGS) $(INC) $(DEF) $(OPT) $(SO_DEF)
 
 incdir=$(prefix)/include/librtmp
+bindir=$(prefix)/bin
 libdir=$(prefix)/lib
 mandir=$(prefix)/man
+BINDIR=$(DESTDIR)$(bindir)
 INCDIR=$(DESTDIR)$(incdir)
 LIBDIR=$(DESTDIR)$(libdir)
 MANDIR=$(DESTDIR)$(mandir)
@@ -56,11 +59,9 @@ clean:
 librtmp.a: $(OBJS)
 	$(AR) rs $@ $?
 
-librtmp.so.0: $(OBJS)
+librtmp.$(SO_EXT): $(OBJS)
 	$(CC) -shared -Wl,-soname,$@ $(LDFLAGS) -o $@ $^ $> $(CRYPTO_LIB)
-
-librtmp.so: librtmp.so.0
-	ln -sf $? $@
+	ln -sf $@ librtmp.so
 
 log.o: log.c log.h Makefile
 rtmp.o: rtmp.c rtmp.h rtmp_sys.h handshake.h dh.h log.h amf.h Makefile
@@ -81,6 +82,9 @@ install_base:	librtmp.a librtmp.pc
 	cp librtmp.pc $(LIBDIR)/pkgconfig
 	cp librtmp.3 $(MANDIR)/man3
 
-install_so:	librtmp.so.0
+install_so.0:	librtmp.so.0
 	cp librtmp.so.0 $(LIBDIR)
 	cd $(LIBDIR); ln -sf librtmp.so.0 librtmp.so
+
+install_dll:	librtmp.dll
+	cp librtmp.dll $(BINDIR)

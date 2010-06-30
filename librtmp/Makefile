@@ -54,7 +54,7 @@ OBJS=rtmp.o log.o amf.o hashswf.o parseurl.o
 all:	librtmp.a $(SO_LIB)
 
 clean:
-	rm -f *.o *.a
+	rm -f *.o *.a *.so *.$(SO_EXT)
 
 librtmp.a: $(OBJS)
 	$(AR) rs $@ $?

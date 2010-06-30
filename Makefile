@@ -11,9 +11,10 @@ SYS=posix
 CRYPTO=OPENSSL
 #CRYPTO=POLARSSL
 #CRYPTO=GNUTLS
-LIB_GNUTLS=-lgnutls -lgcrypt
-LIB_OPENSSL=-lssl -lcrypto
-LIB_POLARSSL=-lpolarssl
+LIBZ=-lz
+LIB_GNUTLS=-lgnutls -lgcrypt $(LIBZ)
+LIB_OPENSSL=-lssl -lcrypto$ (LIBZ)
+LIB_POLARSSL=-lpolarssl $(LIBZ)
 CRYPTO_LIB=$(LIB_$(CRYPTO))
 DEF_=-DNO_CRYPTO
 CRYPTO_DEF=$(DEF_$(CRYPTO))
@@ -33,7 +34,7 @@ MANDIR=$(DESTDIR)$(mandir)
 
 LIBS_posix=
 LIBS_mingw=-lws2_32 -lwinmm -lgdi32
-LIBS=$(CRYPTO_LIB) -lz $(LIBS_$(SYS)) $(XLIBS)
+LIBS=$(CRYPTO_LIB) $(LIBS_$(SYS)) $(XLIBS)
 
 THREADLIB_posix=-lpthread
 THREADLIB_mingw=

@@ -66,9 +66,9 @@
 extern void RTMP_TLS_Init();
 extern TLS_CTX RTMP_TLS_ctx;
 
-#endif /* CRYPTO */
-
 #include <zlib.h>
+
+#endif /* CRYPTO */
 
 #define	AGENT	"Mozilla/5.0"
 

@@ -6,7 +6,7 @@
 <tr><td>LIBRTMP(3)<td align="center"><td align="right">LIBRTMP(3)
 </thead>
 <tfoot>
-<tr><td>RTMPDump v2.2e<td align="center">2010-05-29<td align="right">LIBRTMP(3)
+<tr><td>RTMPDump v2.3<td align="center">2010-07-03<td align="right">LIBRTMP(3)
 </tfoot>
 <tbody><tr><td colspan="3"><br><br><ul>
 <!-- Copyright 2010 Howard Chu.
@@ -75,14 +75,19 @@ The session handle is freed using
 <b>RTMP_Free</b>().
 <p>
 All data is transferred using FLV format. The basic session requires
-an RTMP URL. Additional options may be specified by appending
-space-separated key=value pairs to the URL. The RTMP URL format
-is of the form
+an RTMP URL.  The RTMP URL format is of the form
 <pre>
   rtmp[t][e|s]://hostname[:port][/app[/playpath]]
 </pre>
 <p>
 Plain rtmp, as well as tunneled and encrypted sessions are supported.
+<p>
+Additional options may be specified by appending space-separated
+key=value pairs to the URL. Special characters in values may need
+to be escaped to prevent misinterpretation by the option parser.
+The escape encoding uses a backslash followed by two hexadecimal digits
+representing the ASCII value of the character. E.g., spaces must
+be escaped as <b>\20</b> and backslashes must be escaped as <b>\5c</b>.
 </ul>
 
 <h3>OPTIONS</h3><ul>

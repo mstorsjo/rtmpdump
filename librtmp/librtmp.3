@@ -57,14 +57,19 @@ The session handle is freed using
 .BR RTMP_Free ().
 
 All data is transferred using FLV format. The basic session requires
-an RTMP URL. Additional options may be specified by appending
-space-separated key=value pairs to the URL. The RTMP URL format
-is of the form
+an RTMP URL.  The RTMP URL format is of the form
 .nf
   rtmp[t][e|s]://hostname[:port][/app[/playpath]]
 .fi
 
 Plain rtmp, as well as tunneled and encrypted sessions are supported.
+
+Additional options may be specified by appending space-separated
+key=value pairs to the URL. Special characters in values may need
+to be escaped to prevent misinterpretation by the option parser.
+The escape encoding uses a backslash followed by two hexadecimal digits
+representing the ASCII value of the character. E.g., spaces must
+be escaped as \fB\\20\fP and backslashes must be escaped as \fB\\5c\fP.
 .SH OPTIONS
 .SS "Network Parameters"
 These options define how to connect to the media server.

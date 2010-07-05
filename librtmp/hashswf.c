@@ -466,7 +466,7 @@ RTMP_HashSWF(const char *url, unsigned int *size, unsigned char *hash,
 
   date[0] = '\0';
 #ifdef _WIN32
-#ifdef _XBOX
+#ifdef XBMC4XBOX
   hpre.av_val = "Q:";
   hpre.av_len = 2;
   home.av_val = "\\UserData";

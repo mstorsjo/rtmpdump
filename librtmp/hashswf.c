@@ -435,7 +435,7 @@ make_unix_time(char *s)
 /* Convert a Unix time to a network time string
  * Weekday, DD-MMM-YYYY HH:MM:SS GMT
  */
-void
+static void
 strtime(time_t * t, char *s)
 {
   struct tm *tm;

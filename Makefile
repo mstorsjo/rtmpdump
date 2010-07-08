@@ -34,7 +34,7 @@ MANDIR=$(DESTDIR)$(mandir)
 
 LIBS_posix=
 LIBS_mingw=-lws2_32 -lwinmm -lgdi32
-LIBS=$(CRYPTO_LIB) $(LIBS_$(SYS)) $(XLIBS)
+LIBS=-L librtmp -lrtmp $(CRYPTO_LIB) $(LIBS_$(SYS)) $(XLIBS)
 
 THREADLIB_posix=-lpthread
 THREADLIB_mingw=
@@ -48,9 +48,11 @@ EXT_posix=
 EXT_mingw=.exe
 EXT=$(EXT_$(SYS))
 
-all:	$(LIBRTMP) progs
+PROGS=rtmpdump rtmpgw rtmpsrv rtmpsuck
 
-progs:	rtmpdump rtmpgw rtmpsrv rtmpsuck
+all:	$(LIBRTMP) $(PROGS)
+
+$(PROGS): $(LIBRTMP)
 
 install:	progs
 	-mkdir -p $(BINDIR) $(SBINDIR) $(MANDIR)/man1 $(MANDIR)/man8
@@ -69,20 +71,17 @@ FORCE:
 $(LIBRTMP): FORCE
 	@cd librtmp; $(MAKE) all
 
-# note: $^ is GNU Make's equivalent to BSD $>
-# we use both since either make will ignore the one it doesn't recognize
+rtmpdump: rtmpdump.o
+	$(CC) $(LDFLAGS) -o $@$(EXT) $@.o $(LIBS)
 
-rtmpdump: rtmpdump.o $(LIBRTMP)
-	$(CC) $(LDFLAGS) $^ $> -o $@$(EXT) $(LIBS)
+rtmpsrv: rtmpsrv.o thread.o
+	$(CC) $(LDFLAGS) -o $@$(EXT) $@.o thread.o $(SLIBS)
 
-rtmpsrv: rtmpsrv.o thread.o $(LIBRTMP)
-	$(CC) $(LDFLAGS) $^ $> -o $@$(EXT) $(SLIBS)
+rtmpsuck: rtmpsuck.o thread.o
+	$(CC) $(LDFLAGS) -o $@$(EXT) $@.o thread.o $(SLIBS)
 
-rtmpsuck: rtmpsuck.o thread.o $(LIBRTMP)
-	$(CC) $(LDFLAGS) $^ $> -o $@$(EXT) $(SLIBS)
-
-rtmpgw: rtmpgw.o thread.o $(LIBRTMP)
-	$(CC) $(LDFLAGS) $^ $> -o $@$(EXT) $(SLIBS)
+rtmpgw: rtmpgw.o thread.o
+	$(CC) $(LDFLAGS) -o $@$(EXT) $@.o thread.o $(SLIBS)
 
 rtmpgw.o: rtmpgw.c $(INCRTMP) Makefile
 rtmpdump.o: rtmpdump.c $(INCRTMP) Makefile

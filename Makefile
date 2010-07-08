@@ -54,7 +54,7 @@ all:	$(LIBRTMP) $(PROGS)
 
 $(PROGS): $(LIBRTMP)
 
-install:	progs
+install:	$(PROGS)
 	-mkdir -p $(BINDIR) $(SBINDIR) $(MANDIR)/man1 $(MANDIR)/man8
 	cp rtmpdump$(EXT) $(BINDIR)
 	cp rtmpgw$(EXT) rtmpsrv$(EXT) rtmpsuck$(EXT) $(SBINDIR)

@@ -10,7 +10,11 @@ To compile type "make" with SYS=<platform name>, e.g.
 
   $ make SYS=posix
 
-for Linux, MacOSX, Unix, etc. or
+for Linux, Unix, etc. or
+
+  $ make SYS=darwin
+
+for MacOSX or
 
   $ make SYS=mingw
 

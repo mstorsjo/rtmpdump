@@ -17,6 +17,7 @@ REQ_GNUTLS=gnutls
 REQ_OPENSSL=libssl,libcrypto
 LIBZ=-lz
 LIBS_posix=
+LIBS_darwin=
 LIBS_mingw=-lws2_32 -lwinmm -lgdi32
 LIB_GNUTLS=-lgnutls -lgcrypt $(LIBZ)
 LIB_OPENSSL=-lssl -lcrypto $(LIBZ)
@@ -26,8 +27,15 @@ CRYPTO_REQ=$(REQ_$(CRYPTO))
 CRYPTO_DEF=$(DEF_$(CRYPTO))
 
 SO_posix=so.0
+SO_darwin=so.0
 SO_mingw=dll
 SO_EXT=$(SO_$(SYS))
+
+SO_LDFLAGS_posix=-shared -Wl,-soname,$@
+SO_LDFLAGS_darwin=-bundle -flat_namespace -undefined suppress -fno-common \
+	-headerpad_max_install_names
+SO_LDFLAGS_mingw=
+SO_LDFLAGS=$(SO_LDFLAGS_$(SYS))
 
 SHARED=yes
 SODEF_yes=-fPIC
@@ -40,6 +48,7 @@ SO_INST=$(SOINST_$(SHARED))
 DEF=-DRTMPDUMP_VERSION=\"$(VERSION)\" $(CRYPTO_DEF) $(XDEF)
 OPT=-O2
 CFLAGS=-Wall $(XCFLAGS) $(INC) $(DEF) $(OPT) $(SO_DEF)
+LDFLAGS=$(XLDFLAGS)
 
 incdir=$(prefix)/include/librtmp
 bindir=$(prefix)/bin
@@ -61,7 +70,7 @@ librtmp.a: $(OBJS)
 	$(AR) rs $@ $?
 
 librtmp.$(SO_EXT): $(OBJS)
-	$(CC) -shared -Wl,-soname,$@ $(LDFLAGS) -o $@ $^ $> $(CRYPTO_LIB)
+	$(CC) $(SO_LDFLAGS) $(LDFLAGS) -o $@ $^ $> $(CRYPTO_LIB)
 	ln -sf $@ librtmp.so
 
 log.o: log.c log.h Makefile

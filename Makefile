@@ -33,10 +33,12 @@ SBINDIR=$(DESTDIR)$(sbindir)
 MANDIR=$(DESTDIR)$(mandir)
 
 LIBS_posix=
+LIBS_darwin=
 LIBS_mingw=-lws2_32 -lwinmm -lgdi32
 LIBS=-L librtmp -lrtmp $(CRYPTO_LIB) $(LIBS_$(SYS)) $(XLIBS)
 
 THREADLIB_posix=-lpthread
+THREADLIB_darwin=-lpthread
 THREADLIB_mingw=
 THREADLIB=$(THREADLIB_$(SYS))
 SLIBS=$(THREADLIB) $(LIBS)
@@ -45,6 +47,7 @@ LIBRTMP=librtmp/librtmp.a
 INCRTMP=librtmp/rtmp_sys.h librtmp/rtmp.h librtmp/log.h librtmp/amf.h
 
 EXT_posix=
+EXT_darwin=
 EXT_mingw=.exe
 EXT=$(EXT_$(SYS))
 

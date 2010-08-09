@@ -26,13 +26,14 @@ CRYPTO_LIB=$(LIB_$(CRYPTO)) $(LIBS_$(SYS))
 CRYPTO_REQ=$(REQ_$(CRYPTO))
 CRYPTO_DEF=$(DEF_$(CRYPTO))
 
-SO_posix=so.0
-SO_darwin=so.0
+SO_VERSION=0
+SO_posix=so.$(SO_VERSION)
+SO_darwin=$(SO_VERSION).dylib
 SO_mingw=dll
 SO_EXT=$(SO_$(SYS))
 
 SO_LDFLAGS_posix=-shared -Wl,-soname,$@
-SO_LDFLAGS_darwin=-bundle -flat_namespace -undefined suppress -fno-common \
+SO_LDFLAGS_darwin=-dynamiclib -flat_namespace -undefined suppress -fno-common \
 	-headerpad_max_install_names
 SO_LDFLAGS_mingw=
 SO_LDFLAGS=$(SO_LDFLAGS_$(SYS))
@@ -92,9 +93,13 @@ install_base:	librtmp.a librtmp.pc
 	cp librtmp.pc $(LIBDIR)/pkgconfig
 	cp librtmp.3 $(MANDIR)/man3
 
-install_so.0:	librtmp.so.0
-	cp librtmp.so.0 $(LIBDIR)
-	cd $(LIBDIR); ln -sf librtmp.so.0 librtmp.so
+install_so.$(SO_VERSION):	librtmp.$(SO_EXT)
+	cp librtmp.$(SO_EXT) $(LIBDIR)
+	cd $(LIBDIR); ln -sf librtmp.$(SO_EXT) librtmp.so
+
+install_$(SO_VERSION).dylib:	librtmp.$(SO_EXT)
+	cp librtmp.$(SO_EXT) $(LIBDIR)
+	cd $(LIBDIR); ln -sf librtmp.$(SO_EXT) librtmp.dylib
 
 install_dll:	librtmp.dll
 	cp librtmp.dll $(BINDIR)

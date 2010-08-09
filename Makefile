@@ -35,7 +35,7 @@ MANDIR=$(DESTDIR)$(mandir)
 LIBS_posix=
 LIBS_darwin=
 LIBS_mingw=-lws2_32 -lwinmm -lgdi32
-LIBS=-L librtmp -lrtmp $(CRYPTO_LIB) $(LIBS_$(SYS)) $(XLIBS)
+LIBS=-Llibrtmp -lrtmp $(CRYPTO_LIB) $(LIBS_$(SYS)) $(XLIBS)
 
 THREADLIB_posix=-lpthread
 THREADLIB_darwin=-lpthread

@@ -3664,11 +3664,15 @@ HTTP_read(RTMP *r, int fill)
     return -1;
   if (strncmp(r->m_sb.sb_start, "HTTP/1.1 200 ", 13))
     return -1;
-  ptr = strstr(r->m_sb.sb_start, "Content-Length:");
+  ptr = r->m_sb.sb_start + sizeof("HTTP/1.1 200");
+  while ((ptr = strstr(ptr, "Content-"))) {
+    if (!strncasecmp(ptr+8, "length:", 7)) break;
+    ptr += 8;
+  }
   if (!ptr)
     return -1;
   hlen = atoi(ptr+16);
-  ptr = strstr(ptr, "\r\n\r\n");
+  ptr = strstr(ptr+16, "\r\n\r\n");
   if (!ptr)
     return -1;
   ptr += 4;

@@ -91,7 +91,8 @@ hashswf.o: hashswf.c http.h rtmp.h rtmp_sys.h Makefile
 parseurl.o: parseurl.c rtmp.h rtmp_sys.h log.h Makefile
 
 librtmp.pc: librtmp.pc.in Makefile
-	sed -e "s;@prefix@;$(prefix);" -e "s;@VERSION@;$(VERSION);" \
+	sed -e "s;@prefix@;$(prefix);" -e "s;@libdir@;$(libdir);" \
+		-e "s;@VERSION@;$(VERSION);" \
 		-e "s;@CRYPTO_REQ@;$(CRYPTO_REQ);" librtmp.pc.in > $@
 
 install:	install_base $(SO_INST)

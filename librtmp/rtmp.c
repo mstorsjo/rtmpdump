@@ -1019,6 +1019,9 @@ RTMP_ToggleStream(RTMP *r)
 
   if (!r->m_pausing)
     {
+      if (RTMP_IsTimedout(r) && r->m_read.status == RTMP_READ_EOF)
+        r->m_read.status = 0;
+
       res = RTMP_SendPause(r, TRUE, r->m_pauseStamp);
       if (!res)
 	return res;

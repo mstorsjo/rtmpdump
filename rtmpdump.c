@@ -583,7 +583,7 @@ Download(RTMP * rtmp,		// connected RTMP object
 #endif
 
     }
-  while (!RTMP_ctrlC && nRead > -1 && RTMP_IsConnected(rtmp));
+  while (!RTMP_ctrlC && nRead > -1 && RTMP_IsConnected(rtmp) && !RTMP_IsTimedout(rtmp));
   free(buffer);
   if (nRead < 0)
     nRead = rtmp->m_read.status;

@@ -3395,10 +3395,10 @@ RTMP_Close(RTMP *r)
     {
       if (r->m_stream_id > 0)
         {
-          if ((r->Link.protocol & RTMP_FEATURE_WRITE))
-	    SendFCUnpublish(r);
 	  i = r->m_stream_id;
 	  r->m_stream_id = 0;
+          if ((r->Link.protocol & RTMP_FEATURE_WRITE))
+	    SendFCUnpublish(r);
 	  SendDeleteStream(r, i);
 	}
       if (r->m_clientID.av_val)

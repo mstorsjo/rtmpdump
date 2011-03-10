@@ -31,7 +31,8 @@ LIBS_mingw=-lws2_32 -lwinmm -lgdi32
 LIB_GNUTLS=-lgnutls -lgcrypt $(LIBZ)
 LIB_OPENSSL=-lssl -lcrypto $(LIBZ)
 LIB_POLARSSL=-lpolarssl $(LIBZ)
-CRYPTO_LIB=$(LIB_$(CRYPTO)) $(LIBS_$(SYS))
+PRIVATE_LIBS=$(LIBS_$(SYS))
+CRYPTO_LIB=$(LIB_$(CRYPTO)) $(PRIVATE_LIBS)
 CRYPTO_REQ=$(REQ_$(CRYPTO))
 CRYPTO_DEF=$(DEF_$(CRYPTO))
 
@@ -93,7 +94,8 @@ parseurl.o: parseurl.c rtmp.h rtmp_sys.h log.h Makefile
 librtmp.pc: librtmp.pc.in Makefile
 	sed -e "s;@prefix@;$(prefix);" -e "s;@libdir@;$(libdir);" \
 		-e "s;@VERSION@;$(VERSION);" \
-		-e "s;@CRYPTO_REQ@;$(CRYPTO_REQ);" librtmp.pc.in > $@
+		-e "s;@CRYPTO_REQ@;$(CRYPTO_REQ);" \
+		-e "s;@PRIVATE_LIBS@;$(PRIVATE_LIBS));" librtmp.pc.in > $@
 
 install:	install_base $(SO_INST)
 

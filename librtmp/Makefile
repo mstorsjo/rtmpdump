@@ -95,7 +95,7 @@ librtmp.pc: librtmp.pc.in Makefile
 	sed -e "s;@prefix@;$(prefix);" -e "s;@libdir@;$(libdir);" \
 		-e "s;@VERSION@;$(VERSION);" \
 		-e "s;@CRYPTO_REQ@;$(CRYPTO_REQ);" \
-		-e "s;@PRIVATE_LIBS@;$(PRIVATE_LIBS));" librtmp.pc.in > $@
+		-e "s;@PRIVATE_LIBS@;$(PRIVATE_LIBS);" librtmp.pc.in > $@
 
 install:	install_base $(SO_INST)
 

@@ -877,7 +877,13 @@ RTMP_Connect1(RTMP *r, RTMPPacket *cp)
       r->m_clientID.av_val = NULL;
       r->m_clientID.av_len = 0;
       HTTP_Post(r, RTMPT_OPEN, "", 1);
-      HTTP_read(r, 1);
+      if (HTTP_read(r, 1) != 0)
+	{
+	  r->m_msgCounter = 0;
+	  RTMP_Log(RTMP_LOGDEBUG, "%s, Could not connect for handshake", __FUNCTION__);
+	  RTMP_Close(r);
+	  return 0;
+	}
       r->m_msgCounter = 0;
     }
   RTMP_Log(RTMP_LOGDEBUG, "%s, ... connected, handshaking", __FUNCTION__);
@@ -1284,7 +1290,12 @@ ReadN(RTMP *r, char *buffer, int n)
 		      return 0;
 		    }
 		}
-	      HTTP_read(r, 0);
+	      if (HTTP_read(r, 0) == -1)
+		{
+		  RTMP_Log(RTMP_LOGDEBUG, "%s, No valid HTTP response found", __FUNCTION__);
+		  RTMP_Close(r);
+		  return 0;
+		}
 	    }
 	  if (r->m_resplen && !r->m_sb.sb_size)
 	    RTMPSockBuf_Fill(&r->m_sb);
@@ -3670,7 +3681,7 @@ HTTP_read(RTMP *r, int fill)
   if (fill)
     RTMPSockBuf_Fill(&r->m_sb);
   if (r->m_sb.sb_size < 144)
-    return -1;
+    return -2;
   if (strncmp(r->m_sb.sb_start, "HTTP/1.1 200 ", 13))
     return -1;
   ptr = r->m_sb.sb_start + sizeof("HTTP/1.1 200");

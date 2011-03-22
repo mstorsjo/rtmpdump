@@ -402,8 +402,8 @@ HandShake(RTMP * r, int FP9HandShake)
 	{
 /* 	  clientsig[4] = 128;
 	  clientsig[6] = 3; */
-	  clientsig[4] = 0x7c;
-	  clientsig[6] = 0x2;
+	  clientsig[4] = 9;
+	  clientsig[6] = 0x7c;
 	}
       else
         {

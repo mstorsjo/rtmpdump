@@ -1103,32 +1103,32 @@ RTMP_ClientPacket(RTMP *r, RTMPPacket *packet)
   int bHasMediaPacket = 0;
   switch (packet->m_packetType)
     {
-    case 0x01:
+    case RTMP_PACKET_TYPE_CHUNK_SIZE:
       /* chunk size */
       HandleChangeChunkSize(r, packet);
       break;
 
-    case 0x03:
+    case RTMP_PACKET_TYPE_BYTES_READ_REPORT:
       /* bytes read report */
       RTMP_Log(RTMP_LOGDEBUG, "%s, received: bytes read report", __FUNCTION__);
       break;
 
-    case 0x04:
+    case RTMP_PACKET_TYPE_CONTROL:
       /* ctrl */
       HandleCtrl(r, packet);
       break;
 
-    case 0x05:
+    case RTMP_PACKET_TYPE_SERVER_BW:
       /* server bw */
       HandleServerBW(r, packet);
       break;
 
-    case 0x06:
+    case RTMP_PACKET_TYPE_CLIENT_BW:
       /* client bw */
       HandleClientBW(r, packet);
       break;
 
-    case 0x08:
+    case RTMP_PACKET_TYPE_AUDIO:
       /* audio data */
       /*RTMP_Log(RTMP_LOGDEBUG, "%s, received: audio %lu bytes", __FUNCTION__, packet.m_nBodySize); */
       HandleAudio(r, packet);
@@ -1139,7 +1139,7 @@ RTMP_ClientPacket(RTMP *r, RTMPPacket *packet)
 	r->m_mediaStamp = packet->m_nTimeStamp;
       break;
 
-    case 0x09:
+    case RTMP_PACKET_TYPE_VIDEO:
       /* video data */
       /*RTMP_Log(RTMP_LOGDEBUG, "%s, received: video %lu bytes", __FUNCTION__, packet.m_nBodySize); */
       HandleVideo(r, packet);
@@ -1150,19 +1150,22 @@ RTMP_ClientPacket(RTMP *r, RTMPPacket *packet)
 	r->m_mediaStamp = packet->m_nTimeStamp;
       break;
 
-    case 0x0F:			/* flex stream send */
+    case RTMP_PACKET_TYPE_FLEX_STREAM_SEND:
+      /* flex stream send */
       RTMP_Log(RTMP_LOGDEBUG,
 	  "%s, flex stream send, size %lu bytes, not supported, ignoring",
 	  __FUNCTION__, packet->m_nBodySize);
       break;
 
-    case 0x10:			/* flex shared object */
+    case RTMP_PACKET_TYPE_FLEX_SHARED_OBJECT:
+      /* flex shared object */
       RTMP_Log(RTMP_LOGDEBUG,
 	  "%s, flex shared object, size %lu bytes, not supported, ignoring",
 	  __FUNCTION__, packet->m_nBodySize);
       break;
 
-    case 0x11:			/* flex message */
+    case RTMP_PACKET_TYPE_FLEX_MESSAGE:
+      /* flex message */
       {
 	RTMP_Log(RTMP_LOGDEBUG,
 	    "%s, flex message, size %lu bytes, not fully supported",
@@ -1185,7 +1188,7 @@ RTMP_ClientPacket(RTMP *r, RTMPPacket *packet)
 	  bHasMediaPacket = 2;
 	break;
       }
-    case 0x12:
+    case RTMP_PACKET_TYPE_INFO:
       /* metadata (notify) */
       RTMP_Log(RTMP_LOGDEBUG, "%s, received: notify %lu bytes", __FUNCTION__,
 	  packet->m_nBodySize);
@@ -1193,12 +1196,12 @@ RTMP_ClientPacket(RTMP *r, RTMPPacket *packet)
 	bHasMediaPacket = 1;
       break;
 
-    case 0x13:
+    case RTMP_PACKET_TYPE_SHARED_OBJECT:
       RTMP_Log(RTMP_LOGDEBUG, "%s, shared object, not supported, ignoring",
 	  __FUNCTION__);
       break;
 
-    case 0x14:
+    case RTMP_PACKET_TYPE_INVOKE:
       /* invoke */
       RTMP_Log(RTMP_LOGDEBUG, "%s, received: invoke %lu bytes", __FUNCTION__,
 	  packet->m_nBodySize);
@@ -1208,7 +1211,7 @@ RTMP_ClientPacket(RTMP *r, RTMPPacket *packet)
 	bHasMediaPacket = 2;
       break;
 
-    case 0x16:
+    case RTMP_PACKET_TYPE_FLASH_VIDEO:
       {
 	/* go through FLV packets and handle metadata packets */
 	unsigned int pos = 0;
@@ -1448,7 +1451,7 @@ SendConnectPacket(RTMP *r, RTMPPacket *cp)
 
   packet.m_nChannel = 0x03;	/* control channel (invoke) */
   packet.m_headerType = RTMP_PACKET_SIZE_LARGE;
-  packet.m_packetType = 0x14;	/* INVOKE */
+  packet.m_packetType = RTMP_PACKET_TYPE_INVOKE;
   packet.m_nTimeStamp = 0;
   packet.m_nInfoField2 = 0;
   packet.m_hasAbsTimestamp = 0;
@@ -1559,7 +1562,7 @@ SendBGHasStream(RTMP *r, double dId, AVal *playpath)
 
   packet.m_nChannel = 0x03;	/* control channel (invoke) */
   packet.m_headerType = RTMP_PACKET_SIZE_MEDIUM;
-  packet.m_packetType = 0x14;	/* INVOKE */
+  packet.m_packetType = RTMP_PACKET_TYPE_INVOKE;
   packet.m_nTimeStamp = 0;
   packet.m_nInfoField2 = 0;
   packet.m_hasAbsTimestamp = 0;
@@ -1591,7 +1594,7 @@ RTMP_SendCreateStream(RTMP *r)
 
   packet.m_nChannel = 0x03;	/* control channel (invoke) */
   packet.m_headerType = RTMP_PACKET_SIZE_MEDIUM;
-  packet.m_packetType = 0x14;	/* INVOKE */
+  packet.m_packetType = RTMP_PACKET_TYPE_INVOKE;
   packet.m_nTimeStamp = 0;
   packet.m_nInfoField2 = 0;
   packet.m_hasAbsTimestamp = 0;
@@ -1617,7 +1620,7 @@ SendFCSubscribe(RTMP *r, AVal *subscribepath)
   char *enc;
   packet.m_nChannel = 0x03;	/* control channel (invoke) */
   packet.m_headerType = RTMP_PACKET_SIZE_MEDIUM;
-  packet.m_packetType = 0x14;	/* INVOKE */
+  packet.m_packetType = RTMP_PACKET_TYPE_INVOKE;
   packet.m_nTimeStamp = 0;
   packet.m_nInfoField2 = 0;
   packet.m_hasAbsTimestamp = 0;
@@ -1649,7 +1652,7 @@ SendReleaseStream(RTMP *r)
 
   packet.m_nChannel = 0x03;	/* control channel (invoke) */
   packet.m_headerType = RTMP_PACKET_SIZE_MEDIUM;
-  packet.m_packetType = 0x14;	/* INVOKE */
+  packet.m_packetType = RTMP_PACKET_TYPE_INVOKE;
   packet.m_nTimeStamp = 0;
   packet.m_nInfoField2 = 0;
   packet.m_hasAbsTimestamp = 0;
@@ -1679,7 +1682,7 @@ SendFCPublish(RTMP *r)
 
   packet.m_nChannel = 0x03;	/* control channel (invoke) */
   packet.m_headerType = RTMP_PACKET_SIZE_MEDIUM;
-  packet.m_packetType = 0x14;	/* INVOKE */
+  packet.m_packetType = RTMP_PACKET_TYPE_INVOKE;
   packet.m_nTimeStamp = 0;
   packet.m_nInfoField2 = 0;
   packet.m_hasAbsTimestamp = 0;
@@ -1709,7 +1712,7 @@ SendFCUnpublish(RTMP *r)
 
   packet.m_nChannel = 0x03;	/* control channel (invoke) */
   packet.m_headerType = RTMP_PACKET_SIZE_MEDIUM;
-  packet.m_packetType = 0x14;	/* INVOKE */
+  packet.m_packetType = RTMP_PACKET_TYPE_INVOKE;
   packet.m_nTimeStamp = 0;
   packet.m_nInfoField2 = 0;
   packet.m_hasAbsTimestamp = 0;
@@ -1741,7 +1744,7 @@ SendPublish(RTMP *r)
 
   packet.m_nChannel = 0x04;	/* source channel (invoke) */
   packet.m_headerType = RTMP_PACKET_SIZE_LARGE;
-  packet.m_packetType = 0x14;	/* INVOKE */
+  packet.m_packetType = RTMP_PACKET_TYPE_INVOKE;
   packet.m_nTimeStamp = 0;
   packet.m_nInfoField2 = r->m_stream_id;
   packet.m_hasAbsTimestamp = 0;
@@ -1776,7 +1779,7 @@ SendDeleteStream(RTMP *r, double dStreamId)
 
   packet.m_nChannel = 0x03;	/* control channel (invoke) */
   packet.m_headerType = RTMP_PACKET_SIZE_MEDIUM;
-  packet.m_packetType = 0x14;	/* INVOKE */
+  packet.m_packetType = RTMP_PACKET_TYPE_INVOKE;
   packet.m_nTimeStamp = 0;
   packet.m_nInfoField2 = 0;
   packet.m_hasAbsTimestamp = 0;
@@ -1805,7 +1808,7 @@ RTMP_SendPause(RTMP *r, int DoPause, int iTime)
 
   packet.m_nChannel = 0x08;	/* video channel */
   packet.m_headerType = RTMP_PACKET_SIZE_MEDIUM;
-  packet.m_packetType = 0x14;	/* invoke */
+  packet.m_packetType = RTMP_PACKET_TYPE_INVOKE;
   packet.m_nTimeStamp = 0;
   packet.m_nInfoField2 = 0;
   packet.m_hasAbsTimestamp = 0;
@@ -1842,7 +1845,7 @@ RTMP_SendSeek(RTMP *r, int iTime)
 
   packet.m_nChannel = 0x08;	/* video channel */
   packet.m_headerType = RTMP_PACKET_SIZE_MEDIUM;
-  packet.m_packetType = 0x14;	/* invoke */
+  packet.m_packetType = RTMP_PACKET_TYPE_INVOKE;
   packet.m_nTimeStamp = 0;
   packet.m_nInfoField2 = 0;
   packet.m_hasAbsTimestamp = 0;
@@ -1870,7 +1873,7 @@ RTMP_SendServerBW(RTMP *r)
 
   packet.m_nChannel = 0x02;	/* control channel (invoke) */
   packet.m_headerType = RTMP_PACKET_SIZE_LARGE;
-  packet.m_packetType = 0x05;	/* Server BW */
+  packet.m_packetType = RTMP_PACKET_TYPE_SERVER_BW;
   packet.m_nTimeStamp = 0;
   packet.m_nInfoField2 = 0;
   packet.m_hasAbsTimestamp = 0;
@@ -1890,7 +1893,7 @@ RTMP_SendClientBW(RTMP *r)
 
   packet.m_nChannel = 0x02;	/* control channel (invoke) */
   packet.m_headerType = RTMP_PACKET_SIZE_LARGE;
-  packet.m_packetType = 0x06;	/* Client BW */
+  packet.m_packetType = RTMP_PACKET_TYPE_CLIENT_BW;
   packet.m_nTimeStamp = 0;
   packet.m_nInfoField2 = 0;
   packet.m_hasAbsTimestamp = 0;
@@ -1911,7 +1914,7 @@ SendBytesReceived(RTMP *r)
 
   packet.m_nChannel = 0x02;	/* control channel (invoke) */
   packet.m_headerType = RTMP_PACKET_SIZE_MEDIUM;
-  packet.m_packetType = 0x03;	/* bytes in */
+  packet.m_packetType = RTMP_PACKET_TYPE_BYTES_READ_REPORT;
   packet.m_nTimeStamp = 0;
   packet.m_nInfoField2 = 0;
   packet.m_hasAbsTimestamp = 0;
@@ -1937,7 +1940,7 @@ SendCheckBW(RTMP *r)
 
   packet.m_nChannel = 0x03;	/* control channel (invoke) */
   packet.m_headerType = RTMP_PACKET_SIZE_LARGE;
-  packet.m_packetType = 0x14;	/* INVOKE */
+  packet.m_packetType = RTMP_PACKET_TYPE_INVOKE;
   packet.m_nTimeStamp = 0;	/* RTMP_GetTime(); */
   packet.m_nInfoField2 = 0;
   packet.m_hasAbsTimestamp = 0;
@@ -1965,7 +1968,7 @@ SendCheckBWResult(RTMP *r, double txn)
 
   packet.m_nChannel = 0x03;	/* control channel (invoke) */
   packet.m_headerType = RTMP_PACKET_SIZE_MEDIUM;
-  packet.m_packetType = 0x14;	/* INVOKE */
+  packet.m_packetType = RTMP_PACKET_TYPE_INVOKE;
   packet.m_nTimeStamp = 0x16 * r->m_nBWCheckCounter;	/* temp inc value. till we figure it out. */
   packet.m_nInfoField2 = 0;
   packet.m_hasAbsTimestamp = 0;
@@ -1994,7 +1997,7 @@ SendPong(RTMP *r, double txn)
 
   packet.m_nChannel = 0x03;	/* control channel (invoke) */
   packet.m_headerType = RTMP_PACKET_SIZE_MEDIUM;
-  packet.m_packetType = 0x14;	/* INVOKE */
+  packet.m_packetType = RTMP_PACKET_TYPE_INVOKE;
   packet.m_nTimeStamp = 0x16 * r->m_nBWCheckCounter;	/* temp inc value. till we figure it out. */
   packet.m_nInfoField2 = 0;
   packet.m_hasAbsTimestamp = 0;
@@ -2021,7 +2024,7 @@ SendPlay(RTMP *r)
 
   packet.m_nChannel = 0x08;	/* we make 8 our stream channel */
   packet.m_headerType = RTMP_PACKET_SIZE_LARGE;
-  packet.m_packetType = 0x14;	/* INVOKE */
+  packet.m_packetType = RTMP_PACKET_TYPE_INVOKE;
   packet.m_nTimeStamp = 0;
   packet.m_nInfoField2 = r->m_stream_id;	/*0x01000000; */
   packet.m_hasAbsTimestamp = 0;
@@ -2089,7 +2092,7 @@ SendPlaylist(RTMP *r)
 
   packet.m_nChannel = 0x08;	/* we make 8 our stream channel */
   packet.m_headerType = RTMP_PACKET_SIZE_LARGE;
-  packet.m_packetType = 0x14;	/* INVOKE */
+  packet.m_packetType = RTMP_PACKET_TYPE_INVOKE;
   packet.m_nTimeStamp = 0;
   packet.m_nInfoField2 = r->m_stream_id;	/*0x01000000; */
   packet.m_hasAbsTimestamp = 0;
@@ -2127,7 +2130,7 @@ SendSecureTokenResponse(RTMP *r, AVal *resp)
 
   packet.m_nChannel = 0x03;	/* control channel (invoke) */
   packet.m_headerType = RTMP_PACKET_SIZE_MEDIUM;
-  packet.m_packetType = 0x14;
+  packet.m_packetType = RTMP_PACKET_TYPE_INVOKE;
   packet.m_nTimeStamp = 0;
   packet.m_nInfoField2 = 0;
   packet.m_hasAbsTimestamp = 0;
@@ -2174,7 +2177,7 @@ RTMP_SendCtrl(RTMP *r, short nType, unsigned int nObject, unsigned int nTime)
 
   packet.m_nChannel = 0x02;	/* control channel (ping) */
   packet.m_headerType = RTMP_PACKET_SIZE_MEDIUM;
-  packet.m_packetType = 0x04;	/* ctrl */
+  packet.m_packetType = RTMP_PACKET_TYPE_CONTROL;
   packet.m_nTimeStamp = 0;	/* RTMP_GetTime(); */
   packet.m_nInfoField2 = 0;
   packet.m_hasAbsTimestamp = 0;
@@ -3372,7 +3375,7 @@ RTMP_SendPacket(RTMP *r, RTMPPacket *packet, int queue)
     }
 
   /* we invoked a remote method */
-  if (packet->m_packetType == 0x14)
+  if (packet->m_packetType == RTMP_PACKET_TYPE_INVOKE)
     {
       AVal method;
       char *ptr;
@@ -3748,8 +3751,8 @@ Read_1_Packet(RTMP *r, char *buf, unsigned int buflen)
       char *packetBody = packet.m_body;
       unsigned int nPacketLen = packet.m_nBodySize;
 
-      /* Return -3 if this was completed nicely with invoke message
-       * Play.Stop or Play.Complete
+      /* Return RTMP_READ_COMPLETE if this was completed nicely with
+       * invoke message Play.Stop or Play.Complete
        */
       if (rtnGetNextMediaPacket == 2)
 	{
@@ -3760,17 +3763,17 @@ Read_1_Packet(RTMP *r, char *buf, unsigned int buflen)
 	  break;
 	}
 
-      r->m_read.dataType |= (((packet.m_packetType == 0x08) << 2) |
-			     (packet.m_packetType == 0x09));
+      r->m_read.dataType |= (((packet.m_packetType == RTMP_PACKET_TYPE_AUDIO) << 2) |
+			     (packet.m_packetType == RTMP_PACKET_TYPE_VIDEO));
 
-      if (packet.m_packetType == 0x09 && nPacketLen <= 5)
+      if (packet.m_packetType == RTMP_PACKET_TYPE_VIDEO && nPacketLen <= 5)
 	{
 	  RTMP_Log(RTMP_LOGDEBUG, "ignoring too small video packet: size: %d",
 	      nPacketLen);
 	  ret = RTMP_READ_IGNORE;
 	  break;
 	}
-      if (packet.m_packetType == 0x08 && nPacketLen <= 1)
+      if (packet.m_packetType == RTMP_PACKET_TYPE_AUDIO && nPacketLen <= 1)
 	{
 	  RTMP_Log(RTMP_LOGDEBUG, "ignoring too small audio packet: size: %d",
 	      nPacketLen);
@@ -3787,7 +3790,7 @@ Read_1_Packet(RTMP *r, char *buf, unsigned int buflen)
       RTMP_Log(RTMP_LOGDEBUG, "type: %02X, size: %d, TS: %d ms, abs TS: %d",
 	  packet.m_packetType, nPacketLen, packet.m_nTimeStamp,
 	  packet.m_hasAbsTimestamp);
-      if (packet.m_packetType == 0x09)
+      if (packet.m_packetType == RTMP_PACKET_TYPE_VIDEO)
 	RTMP_Log(RTMP_LOGDEBUG, "frametype: %02X", (*packetBody & 0xf0));
 #endif
 
@@ -3797,7 +3800,7 @@ Read_1_Packet(RTMP *r, char *buf, unsigned int buflen)
 	  if (packet.m_nTimeStamp == 0)
 	    {
 	      if (r->m_read.nMetaHeaderSize > 0
-		  && packet.m_packetType == 0x12)
+		  && packet.m_packetType == RTMP_PACKET_TYPE_INFO)
 		{
 		  AMFObject metaObj;
 		  int nRes =
@@ -3858,7 +3861,7 @@ Read_1_Packet(RTMP *r, char *buf, unsigned int buflen)
 		   * in the first FLV stream chunk and we have to compare
 		   * it and filter it out !!
 		   */
-		  if (packet.m_packetType == 0x16)
+		  if (packet.m_packetType == RTMP_PACKET_TYPE_FLASH_VIDEO)
 		    {
 		      /* basically we have to find the keyframe with the
 		       * correct TS being nResumeTS
@@ -3970,7 +3973,7 @@ Read_1_Packet(RTMP *r, char *buf, unsigned int buflen)
 	   * (seeking might put us somewhere before it)
 	   */
 	  if (!(r->m_read.flags & RTMP_READ_GOTKF) &&
-	  	packet.m_packetType != 0x16)
+	  	packet.m_packetType != RTMP_PACKET_TYPE_FLASH_VIDEO)
 	    {
 	      RTMP_Log(RTMP_LOGWARNING,
 		  "Stream does not start with requested frame, ignoring data... ");
@@ -3983,7 +3986,7 @@ Read_1_Packet(RTMP *r, char *buf, unsigned int buflen)
 	    }
 	  /* ok, do the same for FLV streams */
 	  if (!(r->m_read.flags & RTMP_READ_GOTFLVK) &&
-	  	packet.m_packetType == 0x16)
+	  	packet.m_packetType == RTMP_PACKET_TYPE_FLASH_VIDEO)
 	    {
 	      RTMP_Log(RTMP_LOGWARNING,
 		  "Stream does not start with requested FLV frame, ignoring data... ");
@@ -4002,9 +4005,11 @@ Read_1_Packet(RTMP *r, char *buf, unsigned int buflen)
 	   * the preceding if clause)
 	   */
 	  if (!(r->m_read.flags & RTMP_READ_NO_IGNORE) &&
-	  	packet.m_packetType != 0x16)
-	    {			/* exclude type 0x16 (FLV) since it can
-				 * contain several FLV packets */
+	  	packet.m_packetType != RTMP_PACKET_TYPE_FLASH_VIDEO)
+	    {
+              /* exclude type RTMP_PACKET_TYPE_FLASH_VIDEO since it can
+               * contain several FLV packets
+               */
 	      if (packet.m_nTimeStamp == 0)
 		{
 		  ret = RTMP_READ_IGNORE;
@@ -4020,9 +4025,10 @@ Read_1_Packet(RTMP *r, char *buf, unsigned int buflen)
 
       /* calculate packet size and allocate slop buffer if necessary */
       size = nPacketLen +
-	((packet.m_packetType == 0x08 || packet.m_packetType == 0x09
-	  || packet.m_packetType == 0x12) ? 11 : 0) +
-	(packet.m_packetType != 0x16 ? 4 : 0);
+	((packet.m_packetType == RTMP_PACKET_TYPE_AUDIO
+          || packet.m_packetType == RTMP_PACKET_TYPE_VIDEO
+	  || packet.m_packetType == RTMP_PACKET_TYPE_INFO) ? 11 : 0) +
+	(packet.m_packetType != RTMP_PACKET_TYPE_FLASH_VIDEO ? 4 : 0);
 
       if (size + 4 > buflen)
 	{
@@ -4048,8 +4054,9 @@ Read_1_Packet(RTMP *r, char *buf, unsigned int buflen)
 
       /* audio (0x08), video (0x09) or metadata (0x12) packets :
        * construct 11 byte header then add rtmp packet's data */
-      if (packet.m_packetType == 0x08 || packet.m_packetType == 0x09
-	  || packet.m_packetType == 0x12)
+      if (packet.m_packetType == RTMP_PACKET_TYPE_AUDIO
+          || packet.m_packetType == RTMP_PACKET_TYPE_VIDEO
+	  || packet.m_packetType == RTMP_PACKET_TYPE_INFO)
 	{
 	  nTimeStamp = r->m_read.nResumeTS + packet.m_nTimeStamp;
 	  prevTagSize = 11 + nPacketLen;
@@ -4059,7 +4066,7 @@ Read_1_Packet(RTMP *r, char *buf, unsigned int buflen)
 	  ptr = AMF_EncodeInt24(ptr, pend, nPacketLen);
 
 #if 0
-	    if(packet.m_packetType == 0x09) { /* video */
+	    if(packet.m_packetType == RTMP_PACKET_TYPE_VIDEO) {
 
 	     /* H264 fix: */
 	     if((packetBody[0] & 0x0f) == 7) { /* CodecId = H264 */
@@ -4089,7 +4096,7 @@ Read_1_Packet(RTMP *r, char *buf, unsigned int buflen)
       len = nPacketLen;
 
       /* correct tagSize and obtain timestamp if we have an FLV stream */
-      if (packet.m_packetType == 0x16)
+      if (packet.m_packetType == RTMP_PACKET_TYPE_FLASH_VIDEO)
 	{
 	  unsigned int pos = 0;
 	  int delta;
@@ -4167,7 +4174,7 @@ Read_1_Packet(RTMP *r, char *buf, unsigned int buflen)
 	}
       ptr += len;
 
-      if (packet.m_packetType != 0x16)
+      if (packet.m_packetType != RTMP_PACKET_TYPE_FLASH_VIDEO)
 	{
 	  /* FLV tag packets contain their own prevTagSize */
 	  AMF_EncodeInt32(ptr, pend, prevTagSize);
@@ -4352,11 +4359,12 @@ RTMP_Write(RTMP *r, const char *buf, int size)
 	  buf += 3;
 	  s2 -= 11;
 
-	  if (((pkt->m_packetType == 0x08 || pkt->m_packetType == 0x09) &&
-	    !pkt->m_nTimeStamp) || pkt->m_packetType == 0x12)
+	  if (((pkt->m_packetType == RTMP_PACKET_TYPE_AUDIO
+                || pkt->m_packetType == RTMP_PACKET_TYPE_VIDEO) &&
+            !pkt->m_nTimeStamp) || pkt->m_packetType == RTMP_PACKET_TYPE_INFO)
 	    {
 	      pkt->m_headerType = RTMP_PACKET_SIZE_LARGE;
-	      if (pkt->m_packetType == 0x12)
+	      if (pkt->m_packetType == RTMP_PACKET_TYPE_INFO)
 		pkt->m_nBodySize += 16;
 	    }
 	  else
@@ -4371,7 +4379,7 @@ RTMP_Write(RTMP *r, const char *buf, int size)
 	    }
 	  enc = pkt->m_body;
 	  pend = enc + pkt->m_nBodySize;
-	  if (pkt->m_packetType == 0x12)
+	  if (pkt->m_packetType == RTMP_PACKET_TYPE_INFO)
 	    {
 	      enc = AMF_EncodeString(enc, pend, &av_setDataFrame);
 	      pkt->m_nBytesRead = enc - pkt->m_body;

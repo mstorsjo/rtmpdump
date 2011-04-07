@@ -718,15 +718,15 @@ controlServerThread(void *unused)
   TFRET();
 }
 
-void doServe(STREAMING_SERVER * server,	// server socket and state (our listening socket)
-  int sockfd	// client connection socket
-  )
+TFTYPE doServe(void *arg)	// server socket and state (our listening socket)
 {
+  STREAMING_SERVER *server = arg;
   RTMPPacket pc = { 0 }, ps = { 0 };
   RTMPChunk rk = { 0 };
   char *buf = NULL;
   unsigned int buflen = 131072;
   int paused = FALSE;
+  int sockfd = server->socket;
 
   // timeout for http requests
   fd_set rfds;
@@ -990,7 +990,7 @@ quit:
   if (server->state == STREAMING_IN_PROGRESS)
     server->state = STREAMING_ACCEPTING;
 
-  return;
+  TFRET();
 }
 
 TFTYPE
@@ -1003,6 +1003,7 @@ serverThread(void *arg)
     {
       struct sockaddr_in addr;
       socklen_t addrlen = sizeof(struct sockaddr_in);
+      STREAMING_SERVER *srv2 = malloc(sizeof(STREAMING_SERVER));
       int sockfd =
 	accept(server->socket, (struct sockaddr *) &addr, &addrlen);
 
@@ -1020,8 +1021,10 @@ serverThread(void *arg)
 	  RTMP_Log(RTMP_LOGDEBUG, "%s: accepted connection from %s\n", __FUNCTION__,
 	      inet_ntoa(addr.sin_addr));
 #endif
+	  *srv2 = *server;
+	  srv2->socket = sockfd;
 	  /* Create a new thread and transfer the control to that */
-	  doServe(server, sockfd);
+	  ThreadCreate(doServe, srv2);
 	  RTMP_Log(RTMP_LOGDEBUG, "%s: processed request\n", __FUNCTION__);
 	}
       else

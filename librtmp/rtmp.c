@@ -2282,6 +2282,8 @@ static const AVal av_NetStream_Play_Complete = AVC("NetStream.Play.Complete");
 static const AVal av_NetStream_Play_Stop = AVC("NetStream.Play.Stop");
 static const AVal av_NetStream_Seek_Notify = AVC("NetStream.Seek.Notify");
 static const AVal av_NetStream_Pause_Notify = AVC("NetStream.Pause.Notify");
+static const AVal av_NetStream_Play_PublishNotify =
+AVC("NetStream.Play.PublishNotify");
 static const AVal av_NetStream_Play_UnpublishNotify =
 AVC("NetStream.Play.UnpublishNotify");
 static const AVal av_NetStream_Publish_Start = AVC("NetStream.Publish.Start");
@@ -2449,7 +2451,8 @@ HandleInvoke(RTMP *r, const char *body, unsigned int nBodySize)
 	  RTMP_Log(RTMP_LOGERROR, "Closing connection: %s", code.av_val);
 	}
 
-      else if (AVMATCH(&code, &av_NetStream_Play_Start))
+      else if (AVMATCH(&code, &av_NetStream_Play_Start)
+           || AVMATCH(&code, &av_NetStream_Play_PublishNotify))
 	{
 	  int i;
 	  r->m_bPlaying = TRUE;

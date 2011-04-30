@@ -54,8 +54,13 @@ SODIR=$(SODIR_$(SYS))
 SO_LDFLAGS_posix=-shared -Wl,-soname,$@
 SO_LDFLAGS_darwin=-dynamiclib -flat_namespace -undefined suppress -fno-common \
 	-headerpad_max_install_names
-SO_LDFLAGS_mingw=-shared
+SO_LDFLAGS_mingw=-shared -Wl,--out-implib,librtmp.dll.a
 SO_LDFLAGS=$(SO_LDFLAGS_$(SYS))
+
+INSTALL_IMPLIB_posix=
+INSTALL_IMPLIB_darwin=
+INSTALL_IMPLIB_mingw=cp librtmp.dll.a $(LIBDIR)
+INSTALL_IMPLIB=$(INSTALL_IMPLIB_$(SYS))
 
 SHARED=yes
 SODEF_yes=-fPIC
@@ -108,5 +113,6 @@ install_base:	librtmp.a librtmp.pc
 
 install_so:	librtmp.$(SO_EXT)
 	cp librtmp.$(SO_EXT) $(SODIR)
+	$(INSTALL_IMPLIB)
 	cd $(SODIR); ln -sf librtmp.$(SO_EXT) librtmp.$(SOX)
 

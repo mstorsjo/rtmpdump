@@ -54,7 +54,7 @@ SODIR=$(SODIR_$(SYS))
 SO_LDFLAGS_posix=-shared -Wl,-soname,$@
 SO_LDFLAGS_darwin=-dynamiclib -flat_namespace -undefined suppress -fno-common \
 	-headerpad_max_install_names
-SO_LDFLAGS_mingw=
+SO_LDFLAGS_mingw=-shared
 SO_LDFLAGS=$(SO_LDFLAGS_$(SYS))
 
 SHARED=yes

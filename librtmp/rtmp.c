@@ -1338,7 +1338,8 @@ ReadN(RTMP *r, char *buffer, int n)
 	  r->m_nBytesIn += nRead;
 	  if (r->m_bSendCounter
 	      && r->m_nBytesIn > r->m_nBytesInSent + r->m_nClientBW / 2)
-	    SendBytesReceived(r);
+	    if (!SendBytesReceived(r))
+	        return FALSE;
 	}
       /*RTMP_Log(RTMP_LOGDEBUG, "%s: %d bytes\n", __FUNCTION__, nBytes); */
 #ifdef _DEBUG

@@ -3626,7 +3626,9 @@ RTMPSockBuf_Close(RTMPSockBuf *sb)
       sb->sb_ssl = NULL;
     }
 #endif
-  return closesocket(sb->sb_socket);
+  if (sb->sb_socket != -1)
+      return closesocket(sb->sb_socket);
+  return 0;
 }
 
 #define HEX2BIN(a)	(((a)&0x40)?((a)&0xf)+9:((a)&0xf))

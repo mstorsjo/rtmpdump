@@ -484,7 +484,7 @@ static struct urlopt {
   { AVC("subscribe"), OFF(Link.subscribepath), OPT_STR, 0,
   	"Stream to subscribe to" },
   { AVC("jtv"), OFF(Link.usherToken),          OPT_STR, 0,
-  	"Justin.tv authentication token" },
+	"Justin.tv authentication token" },
   { AVC("token"),     OFF(Link.token),	       OPT_STR, 0,
   	"Key for SecureToken response" },
   { AVC("swfVfy"),    OFF(Link.lFlags),        OPT_BOOL, RTMP_LF_SWFV,
@@ -1649,8 +1649,8 @@ SendFCSubscribe(RTMP *r, AVal *subscribepath)
   return RTMP_SendPacket(r, &packet, TRUE);
 }
 
-//Justin.tv specific authentication
-static const AVal av_NetStream_Authenticate_UsherToken = AVC("NetStream.Authenticate.UsherToken"); //SAVC() isn't suitable for that
+/* Justin.tv specific authentication */
+static const AVal av_NetStream_Authenticate_UsherToken = AVC("NetStream.Authenticate.UsherToken");
 
 static int
 SendUsherToken(RTMP *r, AVal *usherToken)

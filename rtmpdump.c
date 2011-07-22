@@ -1055,9 +1055,9 @@ main(int argc, char **argv)
 	case 'S':
 	  STR2AVAL(sockshost, optarg);
 	  break;
-    case 'j':
-      STR2AVAL(usherToken, optarg);
-      break;
+	case 'j':
+	  STR2AVAL(usherToken, optarg);
+	  break;
 	default:
 	  RTMP_LogPrintf("unknown option: %c\n", opt);
 	  usage(argv[0]);

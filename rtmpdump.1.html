@@ -6,10 +6,10 @@
 <tr><td>RTMPDUMP(1)<td align="center"><td align="right">RTMPDUMP(1)
 </thead>
 <tfoot>
-<tr><td>RTMPDump v2.2e<td align="center">2010-05-02<td align="right">RTMPDUMP(1)
+<tr><td>RTMPDump v2.4<td align="center">2011-07-20<td align="right">RTMPDUMP(1)
 </tfoot>
 <tbody><tr><td colspan="3"><br><br><ul>
-<!-- Copyright 2010 Howard Chu.
+<!-- Copyright 2011 Howard Chu.
  Copying permitted according to the GNU General Public License V2.-->
 </ul>
 
@@ -42,6 +42,7 @@ rtmpdump &minus; RTMP streaming media client
 [<b>&minus;b</b><i>&nbsp;buffer</i>]
 [<b>&minus;m</b><i>&nbsp;timeout</i>]
 [<b>&minus;T</b><i>&nbsp;key</i>]
+[<b>&minus;j</b><i>&nbsp;JSON</i>]
 [<b>&minus;w</b><i>&nbsp;swfHash</i>]
 [<b>&minus;x</b><i>&nbsp;swfSize</i>]
 [<b>&minus;W</b><i>&nbsp;swfUrl</i>]
@@ -272,6 +273,12 @@ These options handle additional authentication requests from the server.
 <dd>
 Key for SecureToken response, used if the server requires SecureToken
 authentication.
+</dl>
+<p>
+<dl compact><dt>
+<b>&minus;&minus;jtv		&minus;j</b>&nbsp;<i>JSON</i>
+<dd>
+JSON token used by legacy Justin.tv servers. Invokes NetStream.Authenticate.UsherToken
 </dl>
 <p>
 <dl compact><dt>

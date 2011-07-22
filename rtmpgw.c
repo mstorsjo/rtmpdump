@@ -1100,7 +1100,7 @@ main(int argc, char **argv)
 	    ("--stop|-B num           Stop at num seconds into stream\n");
 	  RTMP_LogPrintf
 	    ("--token|-T key          Key for SecureToken response\n");
-      RTMP_LogPrintf
+	  RTMP_LogPrintf
 	    ("--jtv|-j JSON           Authentication token for Justin.tv legacy servers\n");
 	  RTMP_LogPrintf
 	    ("--buffer|-b             Buffer time in milliseconds (default: %lu)\n\n",

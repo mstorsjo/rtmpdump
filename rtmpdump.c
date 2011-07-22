@@ -692,6 +692,8 @@ void usage(char *prog)
 	  RTMP_LogPrintf
 	    ("--token|-T key          Key for SecureToken response\n");
 	  RTMP_LogPrintf
+	    ("--jtv|-j JSON           Authentication token for Justin.tv legacy servers\n");
+	  RTMP_LogPrintf
 	    ("--hashes|-#             Display progress with hashes, not with the byte counter\n");
 	  RTMP_LogPrintf
 	    ("--buffer|-b             Buffer time in milliseconds (default: %lu)\n",
@@ -738,6 +740,7 @@ main(int argc, char **argv)
   AVal hostname = { 0, 0 };
   AVal playpath = { 0, 0 };
   AVal subscribepath = { 0, 0 };
+  AVal usherToken = { 0, 0 }; //Justin.tv auth token
   int port = -1;
   int protocol = RTMP_PROTOCOL_UNDEFINED;
   int retries = 0;
@@ -839,12 +842,13 @@ main(int argc, char **argv)
     {"debug", 0, NULL, 'z'},
     {"quiet", 0, NULL, 'q'},
     {"verbose", 0, NULL, 'V'},
+    {"jtv", 1, NULL, 'j'},
     {0, 0, 0, 0}
   };
 
   while ((opt =
 	  getopt_long(argc, argv,
-		      "hVveqzr:s:t:p:a:b:f:o:u:C:n:c:l:y:Ym:k:d:A:B:T:w:x:W:X:S:#",
+		      "hVveqzr:s:t:p:a:b:f:o:u:C:n:c:l:y:Ym:k:d:A:B:T:w:x:W:X:S:#j:",
 		      longopts, NULL)) != -1)
     {
       switch (opt)
@@ -1051,6 +1055,9 @@ main(int argc, char **argv)
 	case 'S':
 	  STR2AVAL(sockshost, optarg);
 	  break;
+    case 'j':
+      STR2AVAL(usherToken, optarg);
+      break;
 	default:
 	  RTMP_LogPrintf("unknown option: %c\n", opt);
 	  usage(argv[0]);
@@ -1167,7 +1174,7 @@ main(int argc, char **argv)
 
   RTMP_SetupStream(&rtmp, protocol, &hostname, port, &sockshost, &playpath,
 		   &tcUrl, &swfUrl, &pageUrl, &app, &auth, &swfHash, swfSize,
-		   &flashVer, &subscribepath, dSeek, dStopOffset, bLiveStream, timeout);
+		   &flashVer, &subscribepath, &usherToken, dSeek, dStopOffset, bLiveStream, timeout);
 
   /* Try to keep the stream moving if it pauses on us */
   if (!bLiveStream && !(protocol & RTMP_FEATURE_HTTP))

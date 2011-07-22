@@ -1,5 +1,5 @@
-.TH RTMPGW 8 "2010-05-02" "RTMPDump v2.2e"
-.\" Copyright 2010 Howard Chu.
+.TH RTMPGW 8 "2011-07-20" "RTMPDump v2.4"
+.\" Copyright 2011 Howard Chu.
 .\" Copying permitted according to the GNU General Public License V2.
 .SH NAME
 rtmpgw \- RTMP streaming media gateway
@@ -49,6 +49,8 @@ rtmpgw \- RTMP streaming media gateway
 .BI \-m \ timeout\fR]
 [\c
 .BI \-T \ key\fR]
+[\c
+.BI \-j \ JSON\fR]
 [\c
 .BI \-w \ swfHash\fR]
 [\c
@@ -192,6 +194,9 @@ These options handle additional authentication requests from the server.
 \fB\-\-token		\-T\fP\ \fIkey\fP
 Key for SecureToken response, used if the server requires SecureToken
 authentication.
+.TP
+\fB\-\-jtv		\-j\fP\ \fIJSON\fP
+JSON token used by legacy Justin.tv servers. Invokes NetStream.Authenticate.UsherToken
 .TP
 \fB\-\-swfhash		\-w\fP\ \fIhexstring\fP
 SHA256 hash of the decompressed SWF file. This option may be needed if

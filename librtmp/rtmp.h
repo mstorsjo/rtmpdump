@@ -155,6 +155,7 @@ extern "C"
     AVal auth;
     AVal flashVer;
     AVal subscribepath;
+    AVal usherToken;
     AVal token;
     AMFObject extras;
     int edepth;
@@ -297,6 +298,7 @@ extern "C"
 			uint32_t swfSize,
 			AVal *flashVer,
 			AVal *subscribepath,
+			AVal *usherToken,
 			int dStart,
 			int dStop, int bLiveStream, long int timeout);
 

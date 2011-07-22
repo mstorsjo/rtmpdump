@@ -1,5 +1,5 @@
-.TH LIBRTMP 3 "2010-07-03" "RTMPDump v2.3"
-.\" Copyright 2010 Howard Chu.
+.TH LIBRTMP 3 "2011-07-20" "RTMPDump v2.4"
+.\" Copyright 2011 Howard Chu.
 .\" Copying permitted according to the GNU General Public License V2.
 .SH NAME
 librtmp \- RTMPDump Real-Time Messaging Protocol API
@@ -160,6 +160,9 @@ These options handle additional authentication requests from the server.
 .BI token= key
 Key for SecureToken response, used if the server requires SecureToken
 authentication.
+.TP
+.BI jtv= JSON
+JSON token used by legacy Justin.tv servers. Invokes NetStream.Authenticate.UsherToken
 .TP
 .BI swfVfy= 0|1
 If the value is 1 or TRUE, the SWF player is retrieved from the

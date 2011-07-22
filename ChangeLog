@@ -4,6 +4,9 @@ Copyright 2009-2011 Howard Chu
 Copyright 2009 The Flvstreamer Team
 http://rtmpdump.mplayerhq.hu/
 
+20 July 2011
+- add NetStream.Authenticate.UsherToken for Justin.tv
+
 11 July 2011, v2.4
 - add RTMPE type 9 handshake support
 

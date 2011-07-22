@@ -116,6 +116,7 @@ typedef struct
   AVal swfHash;
   AVal flashVer;
   AVal subscribepath;
+  AVal usherToken;
   uint32_t swfSize;
 
   uint32_t dStartOffset;

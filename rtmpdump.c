@@ -444,7 +444,7 @@ Download(RTMP * rtmp,		// connected RTMP object
 {
   int32_t now, lastUpdate;
   int bufferSize = 64 * 1024;
-  char *buffer = (char *) malloc(bufferSize);
+  char *buffer;
   int nRead = 0;
   off_t size = ftello(file);
   unsigned long lastPercent = 0;
@@ -504,6 +504,8 @@ Download(RTMP * rtmp,		// connected RTMP object
   rtmp->m_read.initialFrame = initialFrame;
   rtmp->m_read.nMetaHeaderSize = nMetaHeaderSize;
   rtmp->m_read.nInitialFrameSize = nInitialFrameSize;
+
+  buffer = (char *) malloc(bufferSize);
 
   now = RTMP_GetTime();
   lastUpdate = now - 1000;

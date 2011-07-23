@@ -53,7 +53,7 @@ typedef struct MDH {
 } MDH;
 
 #define MDH_new()	calloc(1,sizeof(MDH))
-#define MDH_free(vp)	{MDH *dh = vp; dhm_free(&dh->ctx); MP_free(dh->p); MP_free(dh->g); MP_free(dh->pub_key); MP_free(dh->priv_key); free(dh);}
+#define MDH_free(vp)	{MDH *_dh = vp; dhm_free(&_dh->ctx); MP_free(_dh->p); MP_free(_dh->g); MP_free(_dh->pub_key); MP_free(_dh->priv_key); free(_dh);}
 
 static int MDH_generate_key(MDH *dh)
 {

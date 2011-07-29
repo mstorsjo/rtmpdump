@@ -52,8 +52,8 @@ SODIR_mingw=$(BINDIR)
 SODIR=$(SODIR_$(SYS))
 
 SO_LDFLAGS_posix=-shared -Wl,-soname,$@
-SO_LDFLAGS_darwin=-dynamiclib -flat_namespace -undefined suppress -fno-common \
-	-headerpad_max_install_names
+SO_LDFLAGS_darwin=-dynamiclib -twolevel_namespace -undefined dynamic_lookup \
+	-fno-common -headerpad_max_install_names -install_name $(libdir)/$@
 SO_LDFLAGS_mingw=-shared -Wl,--out-implib,librtmp.dll.a
 SO_LDFLAGS=$(SO_LDFLAGS_$(SYS))
 

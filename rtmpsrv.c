@@ -95,6 +95,7 @@ STREAMING_SERVER *rtmpServer = 0;	// server structure pointer
 
 STREAMING_SERVER *startStreaming(const char *address, int port);
 void stopStreaming(STREAMING_SERVER * server);
+char *strreplace(char *srcstr, int srclen, char *orig, char *repl);
 
 typedef struct
 {
@@ -261,6 +262,7 @@ static const AVal av_NetStream_Play_Stop = AVC("NetStream.Play.Stop");
 static const AVal av_Stopped_playing = AVC("Stopped playing");
 SAVC(details);
 SAVC(clientid);
+static const AVal av_NetStream_Authenticate_UsherToken = AVC("NetStream.Authenticate.UsherToken");
 
 static int
 SendPlayStart(RTMP *r)
@@ -575,6 +577,13 @@ ServeInvoke(STREAMING_SERVER *server, RTMP * r, RTMPPacket *packet, unsigned int
     {
       SendResultNumber(r, txn, 10.0);
     }
+  else if (AVMATCH(&method, &av_NetStream_Authenticate_UsherToken))
+    {
+      AMFObjectProperty *prop = AMF_GetProp(&obj, NULL, 3);
+      AMFProp_GetString(prop, &r->Link.usherToken);
+      prop->p_vu.p_aval.av_len = 0;
+      prop->p_vu.p_aval.av_val = NULL;
+    }
   else if (AVMATCH(&method, &av_play))
     {
       char *file, *p, *q, *cmd, *ptr;
@@ -591,10 +600,11 @@ ServeInvoke(STREAMING_SERVER *server, RTMP * r, RTMPPacket *packet, unsigned int
       if (r->Link.tcUrl.av_len)
 	{
 	  len = server->arglen + r->Link.playpath.av_len + 4 +
-	    sizeof("rtmpdump") + r->Link.playpath.av_len + 12;
+	    sizeof("rtmpdump") + r->Link.playpath.av_len + 12 +
+	    r->Link.usherToken.av_len + 64;
 	  server->argc += 5;
 
-	  cmd = malloc(len + server->argc * sizeof(AVal));
+	  cmd = malloc(len + (server->argc + 2) * sizeof(AVal));
 	  ptr = cmd;
 	  argv = (AVal *)(cmd + len);
 	  argv[0].av_val = cmd;
@@ -640,6 +650,17 @@ ServeInvoke(STREAMING_SERVER *server, RTMP * r, RTMPPacket *packet, unsigned int
 	      ptr += sprintf(ptr, " -p \"%s\"", r->Link.pageUrl.av_val);
 	      argv[argc++].av_len = r->Link.pageUrl.av_len;
 	    }
+          if (r->Link.usherToken.av_val)
+            {
+              char *usherToken = strreplace(r->Link.usherToken.av_val, r->Link.usherToken.av_len, "\"", "\\\"");
+	      argv[argc].av_val = ptr + 1;
+	      argv[argc++].av_len = 5;
+	      argv[argc].av_val = ptr + 8;
+              ptr += sprintf(ptr, " --jtv \"%s\"", usherToken);
+	      argv[argc++].av_len = strlen(usherToken);
+              server->argc += 2;
+              free(usherToken);
+            }
 	  if (r->Link.extras.o_num) {
 	    ptr = dumpAMF(&r->Link.extras, ptr, argv, &argc);
 	    AMF_Reset(&r->Link.extras);
@@ -1110,4 +1131,40 @@ main(int argc, char **argv)
     fclose(netstackdump_read);
 #endif
   return nStatus;
+}
+
+char *
+strreplace(char *srcstr, int srclen, char *orig, char *repl)
+{
+  char *ptr = NULL, *srcstrstart = srcstr;
+  int origlen = strlen(orig);
+  int repllen = strlen(repl);
+  if (!srclen)
+    srclen = strlen(srcstr);
+  char *srcend = srcstr + srclen;
+  int deststrbuffer = srclen / origlen * repllen;
+  if (deststrbuffer < srclen)
+    deststrbuffer = srclen;
+  char *deststr = calloc(deststrbuffer + 1, sizeof(char));
+  char *deststrstart = deststr;
+
+  if ( (ptr = strstr(srcstr, orig)) )
+  {
+    do
+    {
+      int len = ptr - srcstrstart;
+      memcpy(deststrstart, srcstrstart, len);
+      srcstrstart += len + origlen;
+      deststrstart += len;
+      memcpy(deststrstart, repl, repllen);
+      deststrstart += repllen;
+      ptr = strstr(srcstrstart, orig);
+    }
+    while (ptr && (ptr < srcend));
+    strncpy(deststrstart, srcstrstart, srcend-srcstrstart);
+    return deststr;
+  }
+
+  strncpy(deststr, srcstr, srclen);
+  return deststr;
 }

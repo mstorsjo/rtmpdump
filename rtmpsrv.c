@@ -1,6 +1,6 @@
 /*  Simple RTMP Server
  *  Copyright (C) 2009 Andrej Stepanchuk
- *  Copyright (C) 2009 Howard Chu
+ *  Copyright (C) 2009-2011 Howard Chu
  *
  *  This Program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -95,7 +95,10 @@ STREAMING_SERVER *rtmpServer = 0;	// server structure pointer
 
 STREAMING_SERVER *startStreaming(const char *address, int port);
 void stopStreaming(STREAMING_SERVER * server);
-char *strreplace(char *srcstr, int srclen, char *orig, char *repl);
+void AVreplace(AVal *src, const AVal *orig, const AVal *repl);
+
+static const AVal av_dquote = AVC("\"");
+static const AVal av_escdquote = AVC("\\\"");
 
 typedef struct
 {
@@ -579,10 +582,12 @@ ServeInvoke(STREAMING_SERVER *server, RTMP * r, RTMPPacket *packet, unsigned int
     }
   else if (AVMATCH(&method, &av_NetStream_Authenticate_UsherToken))
     {
-      AMFObjectProperty *prop = AMF_GetProp(&obj, NULL, 3);
-      AMFProp_GetString(prop, &r->Link.usherToken);
-      prop->p_vu.p_aval.av_len = 0;
-      prop->p_vu.p_aval.av_val = NULL;
+      AVal usherToken;
+      AMFProp_GetString(AMF_GetProp(&obj, NULL, 3), &usherToken);
+      AVreplace(&usherToken, &av_dquote, &av_escdquote);
+      server->arglen += 6 + usherToken.av_len;
+      server->argc += 2;
+      r->Link.usherToken = usherToken;
     }
   else if (AVMATCH(&method, &av_play))
     {
@@ -600,11 +605,10 @@ ServeInvoke(STREAMING_SERVER *server, RTMP * r, RTMPPacket *packet, unsigned int
       if (r->Link.tcUrl.av_len)
 	{
 	  len = server->arglen + r->Link.playpath.av_len + 4 +
-	    sizeof("rtmpdump") + r->Link.playpath.av_len + 12 +
-	    r->Link.usherToken.av_len + 64;
+	    sizeof("rtmpdump") + r->Link.playpath.av_len + 12;
 	  server->argc += 5;
 
-	  cmd = malloc(len + (server->argc + 2) * sizeof(AVal));
+	  cmd = malloc(len + server->argc * sizeof(AVal));
 	  ptr = cmd;
 	  argv = (AVal *)(cmd + len);
 	  argv[0].av_val = cmd;
@@ -650,17 +654,17 @@ ServeInvoke(STREAMING_SERVER *server, RTMP * r, RTMPPacket *packet, unsigned int
 	      ptr += sprintf(ptr, " -p \"%s\"", r->Link.pageUrl.av_val);
 	      argv[argc++].av_len = r->Link.pageUrl.av_len;
 	    }
-          if (r->Link.usherToken.av_val)
-            {
-              char *usherToken = strreplace(r->Link.usherToken.av_val, r->Link.usherToken.av_len, "\"", "\\\"");
+	  if (r->Link.usherToken.av_val)
+	    {
 	      argv[argc].av_val = ptr + 1;
-	      argv[argc++].av_len = 5;
-	      argv[argc].av_val = ptr + 8;
-              ptr += sprintf(ptr, " --jtv \"%s\"", usherToken);
-	      argv[argc++].av_len = strlen(usherToken);
-              server->argc += 2;
-              free(usherToken);
-            }
+	      argv[argc++].av_len = 2;
+	      argv[argc].av_val = ptr + 5;
+	      ptr += sprintf(ptr, " -j \"%s\"", r->Link.usherToken.av_val);
+	      argv[argc++].av_len = r->Link.usherToken.av_len;
+	      free(r->Link.usherToken.av_val);
+	      r->Link.usherToken.av_val = NULL;
+	      r->Link.usherToken.av_len = 0;
+	    }
 	  if (r->Link.extras.o_num) {
 	    ptr = dumpAMF(&r->Link.extras, ptr, argv, &argc);
 	    AMF_Reset(&r->Link.extras);
@@ -932,6 +936,11 @@ cleanup:
   rtmp.Link.pageUrl.av_val = NULL;
   rtmp.Link.app.av_val = NULL;
   rtmp.Link.flashVer.av_val = NULL;
+  if (rtmp.Link.usherToken.av_val)
+    {
+      free(rtmp.Link.usherToken.av_val);
+      rtmp.Link.usherToken.av_val = NULL;
+    }
   RTMP_LogPrintf("done!\n\n");
 
 quit:
@@ -1133,38 +1142,42 @@ main(int argc, char **argv)
   return nStatus;
 }
 
-char *
-strreplace(char *srcstr, int srclen, char *orig, char *repl)
+void
+AVreplace(AVal *src, const AVal *orig, const AVal *repl)
 {
-  char *ptr = NULL, *srcstrstart = srcstr;
-  int origlen = strlen(orig);
-  int repllen = strlen(repl);
-  if (!srclen)
-    srclen = strlen(srcstr);
-  char *srcend = srcstr + srclen;
-  int deststrbuffer = srclen / origlen * repllen;
-  if (deststrbuffer < srclen)
-    deststrbuffer = srclen;
-  char *deststr = calloc(deststrbuffer + 1, sizeof(char));
-  char *deststrstart = deststr;
+  char *srcbeg = src->av_val;
+  char *srcend = src->av_val + src->av_len;
+  char *dest, *sptr, *dptr;
+  int n = 0;
 
-  if ( (ptr = strstr(srcstr, orig)) )
-  {
-    do
+  /* count occurrences of orig in src */
+  sptr = src->av_val;
+  while (sptr < srcend && (sptr = strstr(sptr, orig->av_val)))
     {
-      int len = ptr - srcstrstart;
-      memcpy(deststrstart, srcstrstart, len);
-      srcstrstart += len + origlen;
-      deststrstart += len;
-      memcpy(deststrstart, repl, repllen);
-      deststrstart += repllen;
-      ptr = strstr(srcstrstart, orig);
+      n++;
+      sptr += orig->av_len;
     }
-    while (ptr && (ptr < srcend));
-    strncpy(deststrstart, srcstrstart, srcend-srcstrstart);
-    return deststr;
-  }
+  if (!n)
+    return;
 
-  strncpy(deststr, srcstr, srclen);
-  return deststr;
+  dest = malloc(src->av_len + 1 + (repl->av_len - orig->av_len) * n);
+
+  sptr = src->av_val;
+  dptr = dest;
+  while (sptr < srcend && (sptr = strstr(sptr, orig->av_val)))
+    {
+      n = sptr - srcbeg;
+      memcpy(dptr, srcbeg, n);
+      srcbeg += n;
+      dptr += n;
+      memcpy(dptr, repl->av_val, repl->av_len);
+      dptr += repl->av_len;
+      sptr += orig->av_len;
+    }
+  n = srcend - srcbeg;
+  memcpy(dptr, srcbeg, n);
+  dptr += n;
+  *dptr = '\0';
+  src->av_val = dest;
+  src->av_len = dptr - dest;
 }

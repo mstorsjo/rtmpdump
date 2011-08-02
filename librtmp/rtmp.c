@@ -2339,7 +2339,7 @@ HandleInvoke(RTMP *r, const char *body, unsigned int nBodySize)
 {
   AMFObject obj;
   AVal method;
-  int txn;
+  double txn;
   int ret = 0, nRes;
   if (body[0] != 0x02)		/* make sure it is a string method name we start with */
     {
@@ -2357,7 +2357,7 @@ HandleInvoke(RTMP *r, const char *body, unsigned int nBodySize)
 
   AMF_Dump(&obj);
   AMFProp_GetString(AMF_GetProp(&obj, NULL, 0), &method);
-  txn = (int)AMFProp_GetNumber(AMF_GetProp(&obj, NULL, 1));
+  txn = AMFProp_GetNumber(AMF_GetProp(&obj, NULL, 1));
   RTMP_Log(RTMP_LOGDEBUG, "%s, server invoking <%s>", __FUNCTION__, method.av_val);
 
   if (AVMATCH(&method, &av__result))
@@ -2366,7 +2366,7 @@ HandleInvoke(RTMP *r, const char *body, unsigned int nBodySize)
       int i;
 
       for (i=0; i<r->m_numCalls; i++) {
-  	if (r->m_methodCalls[i].num == txn) {
+	if (r->m_methodCalls[i].num == (int)txn) {
 	  methodInvoked = r->m_methodCalls[i].name;
 	  AV_erase(r->m_methodCalls, &r->m_numCalls, i, FALSE);
 	  break;

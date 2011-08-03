@@ -46,10 +46,10 @@
 #include <sys/socket.h>
 #include <sys/times.h>
 #include <netdb.h>
-#include <arpa/inet.h>
 #include <unistd.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+#include <arpa/inet.h>
 #define GetSockError()	errno
 #define SetSockError(e)	errno = e
 #undef closesocket

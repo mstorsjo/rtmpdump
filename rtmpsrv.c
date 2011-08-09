@@ -1168,11 +1168,11 @@ AVreplace(AVal *src, const AVal *orig, const AVal *repl)
     {
       n = sptr - srcbeg;
       memcpy(dptr, srcbeg, n);
-      srcbeg += n;
       dptr += n;
       memcpy(dptr, repl->av_val, repl->av_len);
       dptr += repl->av_len;
       sptr += orig->av_len;
+      srcbeg = sptr;
     }
   n = srcend - srcbeg;
   memcpy(dptr, srcbeg, n);

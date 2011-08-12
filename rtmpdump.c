@@ -46,6 +46,7 @@
 #define RD_SUCCESS		0
 #define RD_FAILED		1
 #define RD_INCOMPLETE		2
+#define RD_NO_CONNECT		3
 
 #define DEF_TIMEOUT	30	/* seconds */
 #define DEF_BUFTIME	(10 * 60 * 60 * 1000)	/* 10 hours default */
@@ -1253,7 +1254,7 @@ main(int argc, char **argv)
 
 	  if (!RTMP_Connect(&rtmp, NULL))
 	    {
-	      nStatus = RD_FAILED;
+	      nStatus = RD_NO_CONNECT;
 	      break;
 	    }
 

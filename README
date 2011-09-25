@@ -50,6 +50,7 @@ library. You can also turn it off if desired
 The rtmpdump programs still link to the static library, regardless.
 
 Note that if using OpenSSL, you must have version 0.9.8 or newer.
+For Polar SSL you must have version 1.0.0 or newer.
 
 Credit goes to team boxee for the XBMC RTMP code originally used in RTMPDumper.
 The current code is based on the XBMC code but rewritten in C by Howard Chu.

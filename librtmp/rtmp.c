@@ -2584,7 +2584,7 @@ RTMP_FindFirstMatchingProperty(AMFObject *obj, const AVal *name,
 
       if (AVMATCH(&prop->p_name, name))
 	{
-	  *p = *prop;
+	  memcpy(p, prop, sizeof(*prop));
 	  return TRUE;
 	}
 
@@ -2610,7 +2610,7 @@ RTMP_FindPrefixProperty(AMFObject *obj, const AVal *name,
       if (prop->p_name.av_len > name->av_len &&
       	  !memcmp(prop->p_name.av_val, name->av_val, name->av_len))
 	{
-	  *p = *prop;
+	  memcpy(p, prop, sizeof(*prop));
 	  return TRUE;
 	}
 

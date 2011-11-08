@@ -1152,13 +1152,12 @@ main(int argc, char **argv)
 
   if (tcUrl.av_len == 0)
     {
-      char str[1024];
-
-      tcUrl.av_len = snprintf(str, sizeof(str), "%s://%.*s:%d/%.*s",
+	  tcUrl.av_len = strlen(RTMPProtocolStringsLower[protocol]) +
+	  	hostname.av_len + app.av_len + sizeof("://:65535/");
+      tcUrl.av_val = (char *) malloc(tcUrl.av_len);
+      tcUrl.av_len = snprintf(tcUrl.av_val, tcUrl.av_len, "%s://%.*s:%d/%.*s",
 	  	   RTMPProtocolStringsLower[protocol], hostname.av_len,
 		   hostname.av_val, port, app.av_len, app.av_val);
-      tcUrl.av_val = (char *) malloc(tcUrl.av_len + 1);
-      strcpy(tcUrl.av_val, str);
     }
 
   int first = 1;

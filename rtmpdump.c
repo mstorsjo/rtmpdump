@@ -1155,6 +1155,8 @@ main(int argc, char **argv)
 	  tcUrl.av_len = strlen(RTMPProtocolStringsLower[protocol]) +
 	  	hostname.av_len + app.av_len + sizeof("://:65535/");
       tcUrl.av_val = (char *) malloc(tcUrl.av_len);
+	  if (!tcUrl.av_val)
+	    return RD_FAILED;
       tcUrl.av_len = snprintf(tcUrl.av_val, tcUrl.av_len, "%s://%.*s:%d/%.*s",
 	  	   RTMPProtocolStringsLower[protocol], hostname.av_len,
 		   hostname.av_val, port, app.av_len, app.av_val);

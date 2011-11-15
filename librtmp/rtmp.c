@@ -974,7 +974,7 @@ SocksNegotiate(RTMP *r)
       }
     else
       {
-        RTMP_Log(RTMP_LOGERROR, "%s, SOCKS returned error code %d", packet[1]);
+        RTMP_Log(RTMP_LOGERROR, "%s, SOCKS returned error code %d", __FUNCTION__, packet[1]);
         return FALSE;
       }
   }

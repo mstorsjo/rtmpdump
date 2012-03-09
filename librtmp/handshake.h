@@ -59,6 +59,26 @@ typedef gcry_cipher_hd_t	RC4_handle;
 #define RC4_encrypt2(h,l,s,d)	gcry_cipher_encrypt(h,(void *)d,l,(void *)s,l)
 #define RC4_free(h)	gcry_cipher_close(h)
 
+#elif defined(USE_GNUTLS_NETTLE)
+#include <nettle/hmac.h>
+#include <nettle/arcfour.h>
+#ifndef SHA256_DIGEST_LENGTH
+#define SHA256_DIGEST_LENGTH    32
+#endif
+#undef HMAC_CTX
+#define HMAC_CTX	struct hmac_sha256_ctx
+#define HMAC_setup(ctx, key, len)	hmac_sha256_set_key(&ctx, len, key)
+#define HMAC_crunch(ctx, buf, len)	hmac_sha256_update(&ctx, len, buf)
+#define HMAC_finish(ctx, dig, dlen)	dlen = SHA256_DIGEST_LENGTH; hmac_sha256_digest(&ctx, SHA256_DIGEST_LENGTH, dig)
+#define HMAC_close(ctx)
+
+typedef struct arcfour_ctx*	RC4_handle;
+#define RC4_alloc(h)	*h = malloc(sizeof(struct arcfour_ctx))
+#define RC4_setkey(h,l,k)	arcfour_set_key(h, l, k)
+#define RC4_encrypt(h,l,d)	arcfour_crypt(h,l,(uint8_t *)d,(uint8_t *)d)
+#define RC4_encrypt2(h,l,s,d)	arcfour_crypt(h,l,(uint8_t *)d,(uint8_t *)s)
+#define RC4_free(h)	free(h)
+
 #else	/* USE_OPENSSL */
 #include <openssl/sha.h>
 #include <openssl/hmac.h>

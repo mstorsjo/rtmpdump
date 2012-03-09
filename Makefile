@@ -13,6 +13,7 @@ CRYPTO=OPENSSL
 #CRYPTO=GNUTLS
 LIBZ=-lz
 LIB_GNUTLS=-lgnutls -lgcrypt $(LIBZ)
+LIB_GNUTLS_NETTLE=-lgnutls -lhogweed -lnettle -lgmp $(LIBZ)
 LIB_OPENSSL=-lssl -lcrypto $(LIBZ)
 LIB_POLARSSL=-lpolarssl $(LIBZ)
 CRYPTO_LIB=$(LIB_$(CRYPTO))

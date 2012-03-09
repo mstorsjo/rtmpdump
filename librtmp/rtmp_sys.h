@@ -81,7 +81,7 @@ typedef struct tls_ctx {
 #define TLS_shutdown(s)	ssl_close_notify(s)
 #define TLS_close(s)	ssl_free(s); free(s)
 
-#elif defined(USE_GNUTLS)
+#elif defined(USE_GNUTLS) || defined(USE_GNUTLS_NETTLE)
 #include <gnutls/gnutls.h>
 typedef struct tls_ctx {
 	gnutls_certificate_credentials_t cred;

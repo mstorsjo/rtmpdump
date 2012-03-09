@@ -34,7 +34,7 @@
 #ifdef CRYPTO
 #ifdef USE_POLARSSL
 #include <polarssl/havege.h>
-#elif defined(USE_GNUTLS)
+#elif defined(USE_GNUTLS) || defined(USE_GNUTLS_NETTLE)
 #include <gnutls/gnutls.h>
 #else	/* USE_OPENSSL */
 #include <openssl/ssl.h>
@@ -204,7 +204,7 @@ RTMP_TLS_Init()
   /* Do this regardless of NO_SSL, we use havege for rtmpe too */
   RTMP_TLS_ctx = calloc(1,sizeof(struct tls_ctx));
   havege_init(&RTMP_TLS_ctx->hs);
-#elif defined(USE_GNUTLS) && !defined(NO_SSL)
+#elif (defined(USE_GNUTLS) || defined(USE_GNUTLS_NETTLE)) && !defined(NO_SSL)
   /* Technically we need to initialize libgcrypt ourselves if
    * we're not going to call gnutls_global_init(). Ignoring this
    * for now.

@@ -2511,6 +2511,18 @@ static void md5sum(const unsigned char *data, int len, unsigned char *out)
 #endif
 
 static const AVal av_authmod_adobe = AVC("authmod=adobe");
+static const AVal av_authmod_llnw  = AVC("authmod=llnw");
+
+static char *hexenc(unsigned char *inbuf, int len)
+{
+    char *dst = malloc(len * 2 + 1), *ptr = dst;
+    while(len--) {
+        sprintf(ptr, "%02x", *inbuf++);
+        ptr += 2;
+    }
+    *ptr = '\0';
+    return dst;
+}
 
 static int
 PublisherAuth(RTMP *r, AVal *description)
@@ -2630,6 +2642,178 @@ PublisherAuth(RTMP *r, AVal *description)
       else if(strstr(description->av_val, "?reason=authfailed") != NULL)
         {
           RTMP_Log(RTMP_LOGERROR, "%s, Authentication failed: wrong password", __FUNCTION__);
+          r->Link.pFlags |= RTMP_PUB_CLEAN;
+          return 0;
+        }
+      else if(strstr(description->av_val, "?reason=nosuchuser") != NULL)
+        {
+          RTMP_Log(RTMP_LOGERROR, "%s, Authentication failed: no such user", __FUNCTION__);
+          r->Link.pFlags |= RTMP_PUB_CLEAN;
+          return 0;
+        }
+      else
+        {
+          RTMP_Log(RTMP_LOGERROR, "%s, Authentication failed: unknown auth mode: %s",
+                  __FUNCTION__, description->av_val);
+          r->Link.pFlags |= RTMP_PUB_CLEAN;
+          return 0;
+        }
+
+      ptr = malloc(r->Link.app.av_len + pubToken.av_len);
+      strncpy(ptr, r->Link.app.av_val, r->Link.app.av_len);
+      strncpy(ptr + r->Link.app.av_len, pubToken.av_val, pubToken.av_len);
+      r->Link.app.av_len += pubToken.av_len;
+      if(r->Link.pFlags & RTMP_PUB_ALLOC)
+          free(r->Link.app.av_val);
+      r->Link.app.av_val = ptr;
+
+      ptr = malloc(r->Link.tcUrl.av_len + pubToken.av_len);
+      strncpy(ptr, r->Link.tcUrl.av_val, r->Link.tcUrl.av_len);
+      strncpy(ptr + r->Link.tcUrl.av_len, pubToken.av_val, pubToken.av_len);
+      r->Link.tcUrl.av_len += pubToken.av_len;
+      if(r->Link.pFlags & RTMP_PUB_ALLOC)
+          free(r->Link.tcUrl.av_val);
+      r->Link.tcUrl.av_val = ptr;
+
+      free(pubToken.av_val);
+      r->Link.pFlags |= RTMP_PUB_ALLOC;
+
+      RTMP_Log(RTMP_LOGDEBUG, "%s, new app: %.*s tcUrl: %.*s playpath: %s", __FUNCTION__,
+              r->Link.app.av_len, r->Link.app.av_val,
+              r->Link.tcUrl.av_len, r->Link.tcUrl.av_val,
+              r->Link.playpath.av_val);
+    }
+  else if (strstr(description->av_val, av_authmod_llnw.av_val) != NULL)
+    {
+      if(strstr(description->av_val, "code=403 need auth") != NULL)
+        {
+            /* This part seems to be the same for llnw and adobe */
+
+            if (strstr(r->Link.app.av_val, av_authmod_llnw.av_val) != NULL) {
+              RTMP_Log(RTMP_LOGERROR, "%s, wrong pubUser & pubPasswd for publisher auth", __FUNCTION__);
+              r->Link.pFlags |= RTMP_PUB_CLEAN;
+              return 0;
+            } else if(r->Link.pubUser.av_len && r->Link.pubPasswd.av_len) {
+              pubToken.av_val = malloc(r->Link.pubUser.av_len + av_authmod_llnw.av_len + 8);
+              pubToken.av_len = sprintf(pubToken.av_val, "?%s&user=%s",
+                      av_authmod_llnw.av_val,
+                      r->Link.pubUser.av_val);
+              RTMP_Log(RTMP_LOGDEBUG, "%s, pubToken1: %s", __FUNCTION__, pubToken.av_val);
+              r->Link.pFlags |= RTMP_PUB_NAME;
+            } else {
+              RTMP_Log(RTMP_LOGERROR, "%s, need to set pubUser & pubPasswd for publisher auth", __FUNCTION__);
+              r->Link.pFlags |= RTMP_PUB_CLEAN;
+              return 0;
+            }
+        }
+      else if((token_in = strstr(description->av_val, "?reason=needauth")) != NULL)
+        {
+          char *orig_ptr;
+          char *par, *val = NULL;
+          char *user = NULL;
+          char *nonce = NULL;
+
+          ptr = orig_ptr = strdup(token_in);
+          /* Extract parameters (we need user and nonce) */
+          while (ptr)
+            {
+              par = ptr;
+              ptr = strchr(par, '&');
+              if(ptr)
+                  *ptr++ = '\0';
+
+              val =  strchr(par, '=');
+              if(val)
+                  *val++ = '\0';
+
+              if (strcmp(par, "user") == 0){
+                  user = val;
+              } else if (strcmp(par, "nonce") == 0){
+                  nonce = val;
+              }
+
+              RTMP_Log(RTMP_LOGDEBUG, "%s, par:\"%s\" = val:\"%s\"", __FUNCTION__, par, val);
+            }
+
+          // FIXME: handle case where user==NULL or nonce==NULL
+
+          /* llnw auth method
+           * Seems to be closely based on HTTP Digest Auth:
+           *    http://tools.ietf.org/html/rfc2617
+           *    http://en.wikipedia.org/wiki/Digest_access_authentication
+           */
+
+          const char *authmod = "llnw";
+          const char *realm = "live";
+          const char *method = "publish";
+          const char *qop = "auth";
+          char *tmpbuf;
+
+          /* nc = 1..connection count (or rather, number of times cnonce has been reused) */
+          int nc = 1;
+          /* nchex = hexenc(nc) (8 hex digits according to RFC 2617) */
+          char nchex[9];
+          sprintf(nchex, "%08x", nc);
+          /* cnonce = hexenc(4 random bytes) (initialized on first connection) */
+          char cnonce[9];
+          srand( time(NULL) ); // FIXME: a lib shouldn't call srand()
+          sprintf(cnonce, "%08x", rand());
+
+          /* hash1 = hexenc(md5(user + ":" + realm + ":" + password)) */
+          tmpbuf = malloc(strlen(user) + 1 + strlen(realm) + 1 + r->Link.pubPasswd.av_len + 1);
+          sprintf(tmpbuf, "%s:%s:%s", user, realm, r->Link.pubPasswd.av_val);
+          md5sum((unsigned char*)tmpbuf, strlen(tmpbuf), md5sum_val);
+          RTMP_Log(RTMP_LOGDEBUG, "%s, md5(%s) =>", __FUNCTION__, tmpbuf);
+          RTMP_LogHexString(RTMP_LOGDEBUG, md5sum_val, MD5_DIGEST_LENGTH);
+          free(tmpbuf);
+          char *hash1 = hexenc(md5sum_val, MD5_DIGEST_LENGTH);
+
+          /* hash2 = hexenc(md5(method + ":/" + app + "/" + appInstance)) */
+          /* Extract appname + appinstance without query parameters */
+          char *apptmp = malloc(r->Link.app.av_len + 1), *qpos;
+          memcpy(apptmp, r->Link.app.av_val, r->Link.app.av_len);
+          apptmp[r->Link.app.av_len] = '\0';
+          if((qpos = strchr(apptmp, '?')))
+              *qpos = '\0';
+
+          tmpbuf = malloc(strlen(method) + 2 + strlen(apptmp) + 1);
+          sprintf(tmpbuf, "%s:/%s", method, apptmp);
+          md5sum((unsigned char*)tmpbuf, strlen(tmpbuf), md5sum_val);
+          RTMP_Log(RTMP_LOGDEBUG, "%s, md5(%s) =>", __FUNCTION__, tmpbuf);
+          RTMP_LogHexString(RTMP_LOGDEBUG, md5sum_val, MD5_DIGEST_LENGTH);
+          free(tmpbuf);
+          char *hash2 = hexenc(md5sum_val, MD5_DIGEST_LENGTH);
+
+          free(apptmp);
+
+          /* hash3 = hexenc(md5(hash1 + ":" + nonce + ":" + nchex + ":" + cnonce + ":" + qop + ":" + hash2)) */
+          tmpbuf = malloc(strlen(hash1) + 1 + strlen(nonce) + 1 + strlen(nchex) + 1 + strlen(cnonce) + 1 + strlen(qop) + 1 + strlen(hash2) + 1);
+          sprintf(tmpbuf, "%s:%s:%s:%s:%s:%s", hash1, nonce, nchex, cnonce, qop, hash2);
+          md5sum((unsigned char*)tmpbuf, strlen(tmpbuf), md5sum_val);
+          RTMP_Log(RTMP_LOGDEBUG, "%s, md5(%s) =>", __FUNCTION__, tmpbuf);
+          RTMP_LogHexString(RTMP_LOGDEBUG, md5sum_val, MD5_DIGEST_LENGTH);
+          free(tmpbuf);
+          char *hash3 = hexenc(md5sum_val, MD5_DIGEST_LENGTH);
+
+          /* pubToken = &authmod=<authmod>&user=<username>&nonce=<nonce>&cnonce=<cnonce>&nc=<nchex>&response=<hash3> */
+          /* Append nonces and response to query string which already contains
+           * user + authmod */
+          pubToken.av_val = malloc(64 + strlen(authmod) + strlen(user) + strlen(nonce) + strlen(cnonce) + strlen(nchex) + strlen(hash3));
+          sprintf(pubToken.av_val,
+                  "&nonce=%s&cnonce=%s&nc=%s&response=%s",
+                  nonce, cnonce, nchex, hash3);
+          pubToken.av_len = strlen(pubToken.av_val);
+          RTMP_Log(RTMP_LOGDEBUG, "%s, pubToken2: %s", __FUNCTION__, pubToken.av_val);
+          r->Link.pFlags |= RTMP_PUB_RESP|RTMP_PUB_CLATE;
+
+          free(hash1);
+          free(hash2);
+          free(hash3);
+          free(orig_ptr);
+        }
+      else if(strstr(description->av_val, "?reason=authfail") != NULL)
+        {
+          RTMP_Log(RTMP_LOGERROR, "%s, Authentication failed", __FUNCTION__);
           r->Link.pFlags |= RTMP_PUB_CLEAN;
           return 0;
         }

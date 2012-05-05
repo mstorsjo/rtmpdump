@@ -39,11 +39,11 @@ CRYPTO_DEF=$(DEF_$(CRYPTO))
 SO_VERSION=0
 SOX_posix=so
 SOX_darwin=dylib
-SOX_mingw=so	# useless
+SOX_mingw=dll
 SOX=$(SOX_$(SYS))
-SO_posix=$(SOX).$(SO_VERSION)
-SO_darwin=$(SO_VERSION).$(SOX)
-SO_mingw=dll
+SO_posix=.$(SOX).$(SO_VERSION)
+SO_darwin=.$(SO_VERSION).$(SOX)
+SO_mingw=-$(SO_VERSION).$(SOX)
 SO_EXT=$(SO_$(SYS))
 
 SODIR_posix=$(LIBDIR)
@@ -64,7 +64,7 @@ INSTALL_IMPLIB=$(INSTALL_IMPLIB_$(SYS))
 
 SHARED=yes
 SODEF_yes=-fPIC
-SOLIB_yes=librtmp.$(SO_EXT)
+SOLIB_yes=librtmp$(SO_EXT)
 SOINST_yes=install_so
 SO_DEF=$(SODEF_$(SHARED))
 SO_LIB=$(SOLIB_$(SHARED))
@@ -81,12 +81,12 @@ OBJS=rtmp.o log.o amf.o hashswf.o parseurl.o
 all:	librtmp.a $(SO_LIB)
 
 clean:
-	rm -f *.o *.a *.$(SOX) *.$(SO_EXT) librtmp.pc
+	rm -f *.o *.a *.$(SOX) *$(SO_EXT) librtmp.pc
 
 librtmp.a: $(OBJS)
 	$(AR) rs $@ $?
 
-librtmp.$(SO_EXT): $(OBJS)
+librtmp$(SO_EXT): $(OBJS)
 	$(CC) $(SO_LDFLAGS) $(LDFLAGS) -o $@ $^ $> $(CRYPTO_LIB)
 	ln -sf $@ librtmp.$(SOX)
 
@@ -111,8 +111,8 @@ install_base:	librtmp.a librtmp.pc
 	cp librtmp.pc $(LIBDIR)/pkgconfig
 	cp librtmp.3 $(MANDIR)/man3
 
-install_so:	librtmp.$(SO_EXT)
-	cp librtmp.$(SO_EXT) $(SODIR)
+install_so:	librtmp$(SO_EXT)
+	cp librtmp$(SO_EXT) $(SODIR)
 	$(INSTALL_IMPLIB)
-	cd $(SODIR); ln -sf librtmp.$(SO_EXT) librtmp.$(SOX)
+	cd $(SODIR); ln -sf librtmp$(SO_EXT) librtmp.$(SOX)
 

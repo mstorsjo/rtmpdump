@@ -886,7 +886,7 @@ void doServe(STREAMING_SERVER * server,	// server socket and state (our listenin
 {
   server->state = STREAMING_IN_PROGRESS;
 
-  RTMP rtmp = { 0 };		/* our session with the real client */
+  RTMP *rtmp = RTMP_Alloc();		/* our session with the real client */
   RTMPPacket packet = { 0 };
 
   // timeout for http requests
@@ -906,38 +906,39 @@ void doServe(STREAMING_SERVER * server,	// server socket and state (our listenin
     }
   else
     {
-      RTMP_Init(&rtmp);
-      rtmp.m_sb.sb_socket = sockfd;
-      if (!RTMP_Serve(&rtmp))
+      RTMP_Init(rtmp);
+      rtmp->m_sb.sb_socket = sockfd;
+      if (!RTMP_Serve(rtmp))
 	{
 	  RTMP_Log(RTMP_LOGERROR, "Handshake failed");
 	  goto cleanup;
 	}
     }
   server->arglen = 0;
-  while (RTMP_IsConnected(&rtmp) && RTMP_ReadPacket(&rtmp, &packet))
+  while (RTMP_IsConnected(rtmp) && RTMP_ReadPacket(rtmp, &packet))
     {
       if (!RTMPPacket_IsReady(&packet))
 	continue;
-      ServePacket(server, &rtmp, &packet);
+      ServePacket(server, rtmp, &packet);
       RTMPPacket_Free(&packet);
     }
 
 cleanup:
   RTMP_LogPrintf("Closing connection... ");
-  RTMP_Close(&rtmp);
+  RTMP_Close(rtmp);
   /* Should probably be done by RTMP_Close() ... */
-  rtmp.Link.playpath.av_val = NULL;
-  rtmp.Link.tcUrl.av_val = NULL;
-  rtmp.Link.swfUrl.av_val = NULL;
-  rtmp.Link.pageUrl.av_val = NULL;
-  rtmp.Link.app.av_val = NULL;
-  rtmp.Link.flashVer.av_val = NULL;
-  if (rtmp.Link.usherToken.av_val)
+  rtmp->Link.playpath.av_val = NULL;
+  rtmp->Link.tcUrl.av_val = NULL;
+  rtmp->Link.swfUrl.av_val = NULL;
+  rtmp->Link.pageUrl.av_val = NULL;
+  rtmp->Link.app.av_val = NULL;
+  rtmp->Link.flashVer.av_val = NULL;
+  if (rtmp->Link.usherToken.av_val)
     {
-      free(rtmp.Link.usherToken.av_val);
-      rtmp.Link.usherToken.av_val = NULL;
+      free(rtmp->Link.usherToken.av_val);
+      rtmp->Link.usherToken.av_val = NULL;
     }
+  RTMP_Free(rtmp);
   RTMP_LogPrintf("done!\n\n");
 
 quit:

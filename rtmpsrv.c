@@ -92,6 +92,7 @@ typedef struct
 } STREAMING_SERVER;
 
 STREAMING_SERVER *rtmpServer = 0;	// server structure pointer
+void *sslCtx = NULL;
 
 STREAMING_SERVER *startStreaming(const char *address, int port);
 void stopStreaming(STREAMING_SERVER * server);
@@ -897,6 +898,11 @@ void doServe(STREAMING_SERVER * server,	// server socket and state (our listenin
     {
       RTMP_Init(rtmp);
       rtmp->m_sb.sb_socket = sockfd;
+      if (sslCtx && !RTMP_TLS_Accept(rtmp, sslCtx))
+        {
+	  RTMP_Log(RTMP_LOGERROR, "TLS handshake failed");
+	  goto cleanup;
+        }
       if (!RTMP_Serve(rtmp))
 	{
 	  RTMP_Log(RTMP_LOGERROR, "Handshake failed");
@@ -1061,20 +1067,32 @@ int
 main(int argc, char **argv)
 {
   int nStatus = RD_SUCCESS;
+  int i;
 
   // http streaming server
   char DEFAULT_HTTP_STREAMING_DEVICE[] = "0.0.0.0";	// 0.0.0.0 is any device
 
   char *rtmpStreamingDevice = DEFAULT_HTTP_STREAMING_DEVICE;	// streaming device, default 0.0.0.0
   int nRtmpStreamingPort = 1935;	// port
+  char *cert = NULL, *key = NULL;
 
   RTMP_LogPrintf("RTMP Server %s\n", RTMPDUMP_VERSION);
   RTMP_LogPrintf("(c) 2010 Andrej Stepanchuk, Howard Chu; license: GPL\n\n");
 
   RTMP_debuglevel = RTMP_LOGINFO;
 
-  if (argc > 1 && !strcmp(argv[1], "-z"))
-    RTMP_debuglevel = RTMP_LOGALL;
+  for (i = 1; i < argc; i++)
+    {
+      if (!strcmp(argv[i], "-z"))
+        RTMP_debuglevel = RTMP_LOGALL;
+      else if (!strcmp(argv[i], "-c") && i + 1 < argc)
+        cert = argv[++i];
+      else if (!strcmp(argv[i], "-k") && i + 1 < argc)
+        key = argv[++i];
+    }
+
+  if (cert && key)
+    sslCtx = RTMP_TLS_AllocServerContext(cert, key);
 
   // init request
   memset(&defaultRTMPRequest, 0, sizeof(RTMP_REQUEST));
@@ -1117,6 +1135,9 @@ main(int argc, char **argv)
       sleep(1);
     }
   RTMP_Log(RTMP_LOGDEBUG, "Done, exiting...");
+
+  if (sslCtx)
+    RTMP_TLS_FreeServerContext(sslCtx);
 
   CleanupSockets();
 

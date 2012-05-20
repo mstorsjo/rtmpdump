@@ -767,47 +767,40 @@ ServePacket(STREAMING_SERVER *server, RTMP *r, RTMPPacket *packet)
 
   switch (packet->m_packetType)
     {
-    case 0x01:
-      // chunk size
+    case RTMP_PACKET_TYPE_CHUNK_SIZE:
 //      HandleChangeChunkSize(r, packet);
       break;
 
-    case 0x03:
-      // bytes read report
+    case RTMP_PACKET_TYPE_BYTES_READ_REPORT:
       break;
 
-    case 0x04:
-      // ctrl
+    case RTMP_PACKET_TYPE_CONTROL:
 //      HandleCtrl(r, packet);
       break;
 
-    case 0x05:
-      // server bw
+    case RTMP_PACKET_TYPE_SERVER_BW:
 //      HandleServerBW(r, packet);
       break;
 
-    case 0x06:
-      // client bw
+    case RTMP_PACKET_TYPE_CLIENT_BW:
  //     HandleClientBW(r, packet);
       break;
 
-    case 0x08:
-      // audio data
+    case RTMP_PACKET_TYPE_AUDIO:
       //RTMP_Log(RTMP_LOGDEBUG, "%s, received: audio %lu bytes", __FUNCTION__, packet.m_nBodySize);
       break;
 
-    case 0x09:
-      // video data
+    case RTMP_PACKET_TYPE_VIDEO:
       //RTMP_Log(RTMP_LOGDEBUG, "%s, received: video %lu bytes", __FUNCTION__, packet.m_nBodySize);
       break;
 
-    case 0x0F:			// flex stream send
+    case RTMP_PACKET_TYPE_FLEX_STREAM_SEND:
       break;
 
-    case 0x10:			// flex shared object
+    case RTMP_PACKET_TYPE_FLEX_SHARED_OBJECT:
       break;
 
-    case 0x11:			// flex message
+    case RTMP_PACKET_TYPE_FLEX_MESSAGE:
       {
 	RTMP_Log(RTMP_LOGDEBUG, "%s, flex message, size %u bytes, not fully supported",
 	    __FUNCTION__, packet->m_nBodySize);
@@ -827,16 +820,13 @@ ServePacket(STREAMING_SERVER *server, RTMP *r, RTMPPacket *packet)
 	  RTMP_Close(r);
 	break;
       }
-    case 0x12:
-      // metadata (notify)
+    case RTMP_PACKET_TYPE_INFO:
       break;
 
-    case 0x13:
-      /* shared object */
+    case RTMP_PACKET_TYPE_SHARED_OBJECT:
       break;
 
-    case 0x14:
-      // invoke
+    case RTMP_PACKET_TYPE_INVOKE:
       RTMP_Log(RTMP_LOGDEBUG, "%s, received: invoke %u bytes", __FUNCTION__,
 	  packet->m_nBodySize);
       //RTMP_LogHex(packet.m_body, packet.m_nBodySize);
@@ -845,8 +835,7 @@ ServePacket(STREAMING_SERVER *server, RTMP *r, RTMPPacket *packet)
 	RTMP_Close(r);
       break;
 
-    case 0x16:
-      /* flv */
+    case RTMP_PACKET_TYPE_FLASH_VIDEO:
 	break;
     default:
       RTMP_Log(RTMP_LOGDEBUG, "%s, unknown packet type received: 0x%02x", __FUNCTION__,

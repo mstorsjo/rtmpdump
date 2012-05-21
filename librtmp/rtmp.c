@@ -3673,7 +3673,7 @@ RTMPSockBuf_Fill(RTMPSockBuf *sb)
 
   while (1)
     {
-      nBytes = sizeof(sb->sb_buf) - sb->sb_size - (sb->sb_start - sb->sb_buf);
+      nBytes = sizeof(sb->sb_buf) - 1 - sb->sb_size - (sb->sb_start - sb->sb_buf);
 #if defined(CRYPTO) && !defined(NO_SSL)
       if (sb->sb_ssl)
 	{
@@ -3852,6 +3852,7 @@ HTTP_read(RTMP *r, int fill)
     return -2;
   if (strncmp(r->m_sb.sb_start, "HTTP/1.1 200 ", 13))
     return -1;
+  r->m_sb.sb_start[r->m_sb.sb_size] = '\0';
   ptr = r->m_sb.sb_start + sizeof("HTTP/1.1 200");
   while ((ptr = strstr(ptr, "Content-"))) {
     if (!strncasecmp(ptr+8, "length:", 7)) break;

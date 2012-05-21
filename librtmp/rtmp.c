@@ -1403,9 +1403,11 @@ ReadN(RTMP *r, char *buffer, int n)
       int nBytes = 0, nRead;
       if (r->Link.protocol & RTMP_FEATURE_HTTP)
         {
+	  int refill = 0;
 	  while (!r->m_resplen)
 	    {
-	      if (r->m_sb.sb_size < 144)
+	      int ret;
+	      if (r->m_sb.sb_size < 13 || refill)
 	        {
 		  if (!r->m_unackd)
 		    HTTP_Post(r, RTMPT_IDLE, "", 1);
@@ -1416,12 +1418,20 @@ ReadN(RTMP *r, char *buffer, int n)
 		      return 0;
 		    }
 		}
-	      if (HTTP_read(r, 0) == -1)
+	      if ((ret = HTTP_read(r, 0)) == -1)
 		{
 		  RTMP_Log(RTMP_LOGDEBUG, "%s, No valid HTTP response found", __FUNCTION__);
 		  RTMP_Close(r);
 		  return 0;
 		}
+              else if (ret == -2)
+                {
+                  refill = 1;
+                }
+              else
+                {
+                  refill = 0;
+                }
 	    }
 	  if (r->m_resplen && !r->m_sb.sb_size)
 	    RTMPSockBuf_Fill(&r->m_sb);

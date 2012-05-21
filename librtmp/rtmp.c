@@ -3846,6 +3846,7 @@ HTTP_read(RTMP *r, int fill)
   char *ptr;
   int hlen;
 
+restart:
   if (fill)
     RTMPSockBuf_Fill(&r->m_sb);
   if (r->m_sb.sb_size < 144)
@@ -3865,6 +3866,12 @@ HTTP_read(RTMP *r, int fill)
   if (!ptr)
     return -1;
   ptr += 4;
+  if (ptr + (r->m_clientID.av_val ? 1 : hlen) > r->m_sb.sb_start + r->m_sb.sb_size)
+    {
+      if (fill)
+        goto restart;
+      return -2;
+    }
   r->m_sb.sb_size -= ptr - r->m_sb.sb_start;
   r->m_sb.sb_start = ptr;
   r->m_unackd--;

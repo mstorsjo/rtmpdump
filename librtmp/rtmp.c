@@ -3849,11 +3849,20 @@ HTTP_read(RTMP *r, int fill)
 restart:
   if (fill)
     RTMPSockBuf_Fill(&r->m_sb);
-  if (r->m_sb.sb_size < 144)
+  if (r->m_sb.sb_size < 13) {
+    if (fill)
+      goto restart;
     return -2;
+  }
   if (strncmp(r->m_sb.sb_start, "HTTP/1.1 200 ", 13))
     return -1;
   r->m_sb.sb_start[r->m_sb.sb_size] = '\0';
+  if (!strstr(r->m_sb.sb_start, "\r\n\r\n")) {
+    if (fill)
+      goto restart;
+    return -2;
+  }
+
   ptr = r->m_sb.sb_start + sizeof("HTTP/1.1 200");
   while ((ptr = strstr(ptr, "Content-"))) {
     if (!strncasecmp(ptr+8, "length:", 7)) break;

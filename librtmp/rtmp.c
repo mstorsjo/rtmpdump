@@ -3835,8 +3835,8 @@ HTTP_Post(RTMP *r, RTMPTCmd cmd, const char *buf, int len)
   int hlen = snprintf(hbuf, sizeof(hbuf), "POST /%s%s/%d HTTP/1.1\r\n"
     "Host: %.*s:%d\r\n"
     "Accept: */*\r\n"
-    "User-Agent: Shockwave Flash\n"
-    "Connection: Keep-Alive\n"
+    "User-Agent: Shockwave Flash\r\n"
+    "Connection: Keep-Alive\r\n"
     "Cache-Control: no-cache\r\n"
     "Content-type: application/x-fcs\r\n"
     "Content-length: %d\r\n\r\n", RTMPT_cmds[cmd],

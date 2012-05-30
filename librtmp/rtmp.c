@@ -1206,6 +1206,7 @@ RTMP_GetNextMediaPacket(RTMP *r, RTMPPacket *packet)
 		  packet->m_nTimeStamp, packet->m_hasAbsTimestamp,
 		  r->m_mediaStamp);
 #endif
+	      RTMPPacket_Free(packet);
 	      continue;
 	    }
 	  r->m_pausing = 0;

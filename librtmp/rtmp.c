@@ -1216,7 +1216,8 @@ RTMP_GetNextMediaPacket(RTMP *r, RTMPPacket *packet)
   if (bHasMediaPacket)
     r->m_bPlaying = TRUE;
   else if (r->m_sb.sb_timedout && !r->m_pausing)
-    r->m_pauseStamp = r->m_channelTimestamp[r->m_mediaChannel];
+    r->m_pauseStamp = r->m_mediaChannel < r->m_channelsAllocatedIn ?
+                      r->m_channelTimestamp[r->m_mediaChannel] : 0;
 
   return bHasMediaPacket;
 }
@@ -1998,7 +1999,8 @@ RTMP_SendPause(RTMP *r, int DoPause, int iTime)
 int RTMP_Pause(RTMP *r, int DoPause)
 {
   if (DoPause)
-    r->m_pauseStamp = r->m_channelTimestamp[r->m_mediaChannel];
+    r->m_pauseStamp = r->m_mediaChannel < r->m_channelsAllocatedIn ?
+                      r->m_channelTimestamp[r->m_mediaChannel] : 0;
   return RTMP_SendPause(r, DoPause, r->m_pauseStamp);
 }
 
@@ -2953,7 +2955,8 @@ HandleCtrl(RTMP *r, const RTMPPacket *packet)
 	    break;
 	  if (!r->m_pausing)
 	    {
-	      r->m_pauseStamp = r->m_channelTimestamp[r->m_mediaChannel];
+	      r->m_pauseStamp = r->m_mediaChannel < r->m_channelsAllocatedIn ?
+	                        r->m_channelTimestamp[r->m_mediaChannel] : 0;
 	      RTMP_SendPause(r, TRUE, r->m_pauseStamp);
 	      r->m_pausing = 1;
 	    }
@@ -3097,6 +3100,26 @@ RTMP_ReadPacket(RTMP *r, RTMPPacket *packet)
     }
 
   nSize = packetSize[packet->m_headerType];
+
+  if (packet->m_nChannel >= r->m_channelsAllocatedIn)
+    {
+      int n = packet->m_nChannel + 10;
+      int *timestamp = realloc(r->m_channelTimestamp, sizeof(int) * n);
+      RTMPPacket **packets = realloc(r->m_vecChannelsIn, sizeof(RTMPPacket*) * n);
+      if (!timestamp)
+        free(r->m_channelTimestamp);
+      if (!packets)
+        free(r->m_vecChannelsIn);
+      r->m_channelTimestamp = timestamp;
+      r->m_vecChannelsIn = packets;
+      if (!timestamp || !packets) {
+        r->m_channelsAllocatedIn = 0;
+        return FALSE;
+      }
+      memset(r->m_channelTimestamp + r->m_channelsAllocatedIn, 0, sizeof(int) * (n - r->m_channelsAllocatedIn));
+      memset(r->m_vecChannelsIn + r->m_channelsAllocatedIn, 0, sizeof(RTMPPacket*) * (n - r->m_channelsAllocatedIn));
+      r->m_channelsAllocatedIn = n;
+    }
 
   if (nSize == RTMP_LARGE_HEADER_SIZE)	/* if we get a full header the timestamp is absolute */
     packet->m_hasAbsTimestamp = TRUE;
@@ -3373,7 +3396,7 @@ RTMP_SendChunk(RTMP *r, RTMPChunk *chunk)
 int
 RTMP_SendPacket(RTMP *r, RTMPPacket *packet, int queue)
 {
-  const RTMPPacket *prevPacket = r->m_vecChannelsOut[packet->m_nChannel];
+  const RTMPPacket *prevPacket;
   uint32_t last = 0;
   int nSize;
   int hSize, cSize;
@@ -3383,6 +3406,22 @@ RTMP_SendPacket(RTMP *r, RTMPPacket *packet, int queue)
   int nChunkSize;
   int tlen;
 
+  if (packet->m_nChannel >= r->m_channelsAllocatedOut)
+    {
+      int n = packet->m_nChannel + 10;
+      RTMPPacket **packets = realloc(r->m_vecChannelsOut, sizeof(RTMPPacket*) * n);
+      if (!packets) {
+        free(r->m_vecChannelsOut);
+        r->m_vecChannelsOut = NULL;
+        r->m_channelsAllocatedOut = 0;
+        return FALSE;
+      }
+      r->m_vecChannelsOut = packets;
+      memset(r->m_vecChannelsOut + r->m_channelsAllocatedOut, 0, sizeof(RTMPPacket*) * (n - r->m_channelsAllocatedOut));
+      r->m_channelsAllocatedOut = n;
+    }
+
+  prevPacket = r->m_vecChannelsOut[packet->m_nChannel];
   if (prevPacket && packet->m_headerType != RTMP_PACKET_SIZE_LARGE)
     {
       /* compress a bit by using the prev packet's attributes */
@@ -3619,7 +3658,7 @@ RTMP_Close(RTMP *r)
   r->m_write.m_nBytesRead = 0;
   RTMPPacket_Free(&r->m_write);
 
-  for (i = 0; i < RTMP_CHANNELS; i++)
+  for (i = 0; i < r->m_channelsAllocatedIn; i++)
     {
       if (r->m_vecChannelsIn[i])
 	{
@@ -3627,12 +3666,23 @@ RTMP_Close(RTMP *r)
 	  free(r->m_vecChannelsIn[i]);
 	  r->m_vecChannelsIn[i] = NULL;
 	}
+    }
+  free(r->m_vecChannelsIn);
+  r->m_vecChannelsIn = NULL;
+  free(r->m_channelTimestamp);
+  r->m_channelTimestamp = NULL;
+  r->m_channelsAllocatedIn = 0;
+  for (i = 0; i < r->m_channelsAllocatedOut; i++)
+    {
       if (r->m_vecChannelsOut[i])
 	{
 	  free(r->m_vecChannelsOut[i]);
 	  r->m_vecChannelsOut[i] = NULL;
 	}
     }
+  free(r->m_vecChannelsOut);
+  r->m_vecChannelsOut = NULL;
+  r->m_channelsAllocatedOut = 0;
   AV_clear(r->m_methodCalls, r->m_numCalls);
   r->m_methodCalls = NULL;
   r->m_numCalls = 0;

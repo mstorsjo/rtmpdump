@@ -253,9 +253,11 @@ extern "C"
     int m_numCalls;
     RTMP_METHOD *m_methodCalls;	/* remote method calls queue */
 
-    RTMPPacket *m_vecChannelsIn[RTMP_CHANNELS];
-    RTMPPacket *m_vecChannelsOut[RTMP_CHANNELS];
-    int m_channelTimestamp[RTMP_CHANNELS];	/* abs timestamp of last packet */
+    int m_channelsAllocatedIn;
+    int m_channelsAllocatedOut;
+    RTMPPacket **m_vecChannelsIn;
+    RTMPPacket **m_vecChannelsOut;
+    int *m_channelTimestamp;	/* abs timestamp of last packet */
 
     double m_fAudioCodecs;	/* audioCodecs for the connect packet */
     double m_fVideoCodecs;	/* videoCodecs for the connect packet */

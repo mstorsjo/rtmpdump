@@ -6,7 +6,7 @@
 <tr><td>RTMPDUMP(1)<td align="center"><td align="right">RTMPDUMP(1)
 </thead>
 <tfoot>
-<tr><td>RTMPDump v2.4<td align="center">2011-07-20<td align="right">RTMPDUMP(1)
+<tr><td>RTMPDump v2.4<td align="center">2012-07-24<td align="right">RTMPDUMP(1)
 </tfoot>
 <tbody><tr><td colspan="3"><br><br><ul>
 <!-- Copyright 2011 Howard Chu.
@@ -34,6 +34,7 @@ rtmpdump &minus; RTMP streaming media client
 [<b>&minus;y</b><i>&nbsp;playpath</i>]
 [<b>&minus;Y</b>]
 [<b>&minus;v</b>]
+[<b>&minus;R</b>]
 [<b>&minus;d</b><i>&nbsp;subscription</i>]
 [<b>&minus;e</b>]
 [<b>&minus;k</b><i>&nbsp;skip</i>]
@@ -215,6 +216,15 @@ live streams is possible.
 <dd>
 Name of live stream to subscribe to. Defaults to
 <i>playpath</i>.
+</dl>
+<p>
+<dl compact><dt>
+<b>&minus;&minus;realtime &minus;R</b>
+<dd>
+Download approximately in realtime, without attempting to speed up via
+Pause/Unpause commands (&quot;the BUFX hack&quot;).
+Useful for servers that jump backwards in time at the Unpause command.
+Resuming and seeking in realtime streams is still possible.
 </dl>
 <p>
 <dl compact><dt>

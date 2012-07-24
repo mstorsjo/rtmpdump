@@ -1,4 +1,4 @@
-.TH RTMPDUMP 1 "2011-07-20" "RTMPDump v2.4"
+.TH RTMPDUMP 1 "2012-07-24" "RTMPDump v2.4"
 .\" Copyright 2011 Howard Chu.
 .\" Copying permitted according to the GNU General Public License V2.
 .SH NAME
@@ -176,6 +176,12 @@ live streams is possible.
 \fB\-\-subscribe	\-d\fP\ \fIstream\fP
 Name of live stream to subscribe to. Defaults to
 .IR playpath .
+.TP
+.B \-\-realtime	\-R
+Download approximately in realtime, without attempting to speed up via
+Pause/Unpause commands ("the BUFX hack").
+Useful for servers that jump backwards in time at the Unpause command.
+Resuming and seeking in realtime streams is still possible.
 .TP
 .B \-\-resume		\-e
 Resume an incomplete RTMP download.

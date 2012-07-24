@@ -441,7 +441,7 @@ GetLastKeyframe(FILE * file,	// output file [in]
 
 int
 Download(RTMP * rtmp,		// connected RTMP object
-	 FILE * file, uint32_t dSeek, uint32_t dStopOffset, double duration, int bResume, char *metaHeader, uint32_t nMetaHeaderSize, char *initialFrame, int initialFrameType, uint32_t nInitialFrameSize, int nSkipKeyFrames, int bStdoutMode, int bLiveStream, int bHashes, int bOverrideBufferTime, uint32_t bufferTime, double *percent)	// percentage downloaded [out]
+	 FILE * file, uint32_t dSeek, uint32_t dStopOffset, double duration, int bResume, char *metaHeader, uint32_t nMetaHeaderSize, char *initialFrame, int initialFrameType, uint32_t nInitialFrameSize, int nSkipKeyFrames, int bStdoutMode, int bLiveStream, int bRealtimeStream, int bHashes, int bOverrideBufferTime, uint32_t bufferTime, double *percent)	// percentage downloaded [out]
 {
   int32_t now, lastUpdate;
   int bufferSize = 64 * 1024;
@@ -492,6 +492,8 @@ Download(RTMP * rtmp,		// connected RTMP object
 		    bResume ? "Resuming" : "Starting",
 		    (double) size / 1024.0);
 	}
+      if (bRealtimeStream)
+	RTMP_LogPrintf("  in approximately realtime (disabled BUFX speedup hack)\n");
     }
 
   if (dStopOffset > 0)
@@ -682,6 +684,8 @@ void usage(char *prog)
 	  RTMP_LogPrintf
 	    ("--subscribe|-d string   Stream name to subscribe to (otherwise defaults to playpath if live is specifed)\n");
 	  RTMP_LogPrintf
+	    ("--realtime|-R           Don't attempt to speed up download via the Pause/Unpause BUFX hack\n");
+	  RTMP_LogPrintf
 	    ("--flv|-o string         FLV output file name, if the file name is - print stream to stdout\n");
 	  RTMP_LogPrintf
 	    ("--resume|-e             Resume a partial RTMP download\n");
@@ -748,6 +752,7 @@ main(int argc, char **argv)
   int protocol = RTMP_PROTOCOL_UNDEFINED;
   int retries = 0;
   int bLiveStream = FALSE;	// is it a live stream? then we can't seek/resume
+  int bRealtimeStream = FALSE;  // If true, disable the BUFX hack (be patient)
   int bHashes = FALSE;		// display byte counters not hashes by default
 
   long int timeout = DEF_TIMEOUT;	// timeout connection after 120 seconds
@@ -832,6 +837,7 @@ main(int argc, char **argv)
 #endif
     {"flashVer", 1, NULL, 'f'},
     {"live", 0, NULL, 'v'},
+    {"realtime", 0, NULL, 'R'},
     {"flv", 1, NULL, 'o'},
     {"resume", 0, NULL, 'e'},
     {"timeout", 1, NULL, 'm'},
@@ -851,7 +857,7 @@ main(int argc, char **argv)
 
   while ((opt =
 	  getopt_long(argc, argv,
-		      "hVveqzr:s:t:p:a:b:f:o:u:C:n:c:l:y:Ym:k:d:A:B:T:w:x:W:X:S:#j:",
+		      "hVveqzRr:s:t:p:a:b:f:o:u:C:n:c:l:y:Ym:k:d:A:B:T:w:x:W:X:S:#j:",
 		      longopts, NULL)) != -1)
     {
       switch (opt)
@@ -935,6 +941,9 @@ main(int argc, char **argv)
 	  }
 	case 'v':
 	  bLiveStream = TRUE;	// no seeking or resuming possible!
+	  break;
+	case 'R':
+	  bRealtimeStream = TRUE; // seeking and resuming is still possible
 	  break;
 	case 'd':
 	  STR2AVAL(subscribepath, optarg);
@@ -1181,7 +1190,7 @@ main(int argc, char **argv)
 		   &flashVer, &subscribepath, &usherToken, dSeek, dStopOffset, bLiveStream, timeout);
 
   /* Try to keep the stream moving if it pauses on us */
-  if (!bLiveStream && !(protocol & RTMP_FEATURE_HTTP))
+  if (!bLiveStream && !bRealtimeStream && !(protocol & RTMP_FEATURE_HTTP))
     rtmp.Link.lFlags |= RTMP_LF_BUFX;
 
   off_t size = 0;
@@ -1348,8 +1357,8 @@ main(int argc, char **argv)
 
       nStatus = Download(&rtmp, file, dSeek, dStopOffset, duration, bResume,
 			 metaHeader, nMetaHeaderSize, initialFrame,
-			 initialFrameType, nInitialFrameSize,
-			 nSkipKeyFrames, bStdoutMode, bLiveStream, bHashes,
+			 initialFrameType, nInitialFrameSize, nSkipKeyFrames,
+			 bStdoutMode, bLiveStream, bRealtimeStream, bHashes,
 			 bOverrideBufferTime, bufferTime, &percent);
       free(initialFrame);
       initialFrame = NULL;

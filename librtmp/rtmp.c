@@ -2512,15 +2512,14 @@ typedef struct md5_ctx	MD5_CTX
 static const AVal av_authmod_adobe = AVC("authmod=adobe");
 static const AVal av_authmod_llnw  = AVC("authmod=llnw");
 
-static char *hexenc(unsigned char *inbuf, int len)
+static void hexenc(unsigned char *inbuf, int len, char *dst)
 {
-    char *dst = malloc(len * 2 + 1), *ptr = dst;
+    char *ptr = dst;
     while(len--) {
         sprintf(ptr, "%02x", *inbuf++);
         ptr += 2;
     }
     *ptr = '\0';
-    return dst;
 }
 
 static int
@@ -2723,7 +2722,7 @@ PublisherAuth(RTMP *r, AVal *description)
         {
           char *orig_ptr;
           char *par, *val = NULL;
-	  char *hash1, *hash2, *hash3;
+	  char hash1[HEXHASH_LEN+1], hash2[HEXHASH_LEN+1], hash3[HEXHASH_LEN+1];
 	  AVal user, nonce, *aptr = NULL;
 	  AVal apptmp;
 
@@ -2790,7 +2789,7 @@ PublisherAuth(RTMP *r, AVal *description)
           RTMP_Log(RTMP_LOGDEBUG, "%s, md5(%s:%s:%s) =>", __FUNCTION__,
 	    user.av_val, realm, r->Link.pubPasswd.av_val);
           RTMP_LogHexString(RTMP_LOGDEBUG, md5sum_val, MD5_DIGEST_LENGTH);
-          hash1 = hexenc(md5sum_val, MD5_DIGEST_LENGTH);
+          hexenc(md5sum_val, MD5_DIGEST_LENGTH, hash1);
 
           /* hash2 = hexenc(md5(method + ":/" + app + "/" + appInstance)) */
           /* Extract appname + appinstance without query parameters */
@@ -2807,7 +2806,7 @@ PublisherAuth(RTMP *r, AVal *description)
           RTMP_Log(RTMP_LOGDEBUG, "%s, md5(%s:/%.*s) =>", __FUNCTION__,
 	    method, apptmp.av_len, apptmp.av_val);
           RTMP_LogHexString(RTMP_LOGDEBUG, md5sum_val, MD5_DIGEST_LENGTH);
-          hash2 = hexenc(md5sum_val, MD5_DIGEST_LENGTH);
+          hexenc(md5sum_val, MD5_DIGEST_LENGTH, hash2);
 
           /* hash3 = hexenc(md5(hash1 + ":" + nonce + ":" + nchex + ":" + cnonce + ":" + qop + ":" + hash2)) */
 	  MD5_Init(&md5ctx);
@@ -2826,7 +2825,7 @@ PublisherAuth(RTMP *r, AVal *description)
           RTMP_Log(RTMP_LOGDEBUG, "%s, md5(%s:%s:%s:%s:%s:%s) =>", __FUNCTION__,
 	    hash1, nonce.av_val, nchex, cnonce, qop, hash2);
           RTMP_LogHexString(RTMP_LOGDEBUG, md5sum_val, MD5_DIGEST_LENGTH);
-          hash3 = hexenc(md5sum_val, MD5_DIGEST_LENGTH);
+          hexenc(md5sum_val, MD5_DIGEST_LENGTH, hash3);
 
           /* pubToken = &authmod=<authmod>&user=<username>&nonce=<nonce>&cnonce=<cnonce>&nc=<nchex>&response=<hash3> */
           /* Append nonces and response to query string which already contains
@@ -2839,9 +2838,6 @@ PublisherAuth(RTMP *r, AVal *description)
           RTMP_Log(RTMP_LOGDEBUG, "%s, pubToken2: %s", __FUNCTION__, pubToken.av_val);
           r->Link.pFlags |= RTMP_PUB_RESP|RTMP_PUB_CLATE;
 
-          free(hash1);
-          free(hash2);
-          free(hash3);
           free(orig_ptr);
         }
       else if(strstr(description->av_val, "?reason=authfail") != NULL)

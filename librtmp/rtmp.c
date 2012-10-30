@@ -280,32 +280,14 @@ RTMP_TLS_AllocServerContext(const char* cert, const char* key)
   }
 #elif !defined(NO_SSL) /* USE_OPENSSL */
   ctx = SSL_CTX_new(SSLv23_server_method());
-  FILE *f = fopen(key, "r");
-  if (!f) {
+  if (!SSL_CTX_use_certificate_chain_file(ctx, cert)) {
       SSL_CTX_free(ctx);
       return NULL;
   }
-  EVP_PKEY *k = PEM_read_PrivateKey(f, NULL, NULL, NULL);
-  fclose(f);
-  if (!k) {
+  if (!SSL_CTX_use_PrivateKey_file(ctx, key, SSL_FILETYPE_PEM)) {
       SSL_CTX_free(ctx);
       return NULL;
   }
-  SSL_CTX_use_PrivateKey(ctx, k);
-  EVP_PKEY_free(k);
-  f = fopen(cert, "r");
-  if (!f) {
-      SSL_CTX_free(ctx);
-      return NULL;
-  }
-  X509 *c = PEM_read_X509(f, NULL, NULL, NULL);
-  fclose(f);
-  if (!c) {
-      SSL_CTX_free(ctx);
-      return NULL;
-  }
-  SSL_CTX_use_certificate(ctx, c);
-  X509_free(c);
 #endif
 #endif
   return ctx;

@@ -307,6 +307,7 @@ extern "C"
   int RTMP_Connect0(RTMP *r, struct sockaddr *svc);
   int RTMP_Connect1(RTMP *r, RTMPPacket *cp);
   int RTMP_Serve(RTMP *r);
+  int RTMP_TLS_Accept(RTMP *r, void *ctx);
 
   int RTMP_ReadPacket(RTMP *r, RTMPPacket *packet);
   int RTMP_SendPacket(RTMP *r, RTMPPacket *packet, int queue);
@@ -328,6 +329,9 @@ extern "C"
   RTMP *RTMP_Alloc(void);
   void RTMP_Free(RTMP *r);
   void RTMP_EnableWrite(RTMP *r);
+
+  void *RTMP_TLS_AllocServerContext(const char* cert, const char* key);
+  void RTMP_TLS_FreeServerContext(void *ctx);
 
   int RTMP_LibVersion(void);
   void RTMP_UserInterrupt(void);	/* user typed Ctrl-C */

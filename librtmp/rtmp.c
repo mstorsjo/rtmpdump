@@ -35,6 +35,19 @@
 #ifdef USE_POLARSSL
 #include <polarssl/version.h>
 #include <polarssl/havege.h>
+
+static const char *my_dhm_P =
+    "E4004C1F94182000103D883A448B3F80" \
+    "2CE4B44A83301270002C20D0321CFD00" \
+    "11CCEF784C26A400F43DFB901BCA7538" \
+    "F2C6B176001CF5A0FD16D2C48B1D0C1C" \
+    "F6AC8E1DA6BCC3B4E1F96B0564965300" \
+    "FFA1D0B601EB2800F489AA512C4B248C" \
+    "01F76949A60BB7F00A40B1EAB64BDD48" \
+    "E8A700D60B7F1200FA8E77B0A979DABF";
+
+static const char *my_dhm_G = "4";
+
 #elif defined(USE_GNUTLS)
 #include <gnutls/gnutls.h>
 #else	/* USE_OPENSSL */
@@ -224,6 +237,82 @@ RTMP_TLS_Init()
   RTMP_TLS_ctx = SSL_CTX_new(SSLv23_method());
   SSL_CTX_set_options(RTMP_TLS_ctx, SSL_OP_ALL);
   SSL_CTX_set_default_verify_paths(RTMP_TLS_ctx);
+#endif
+#endif
+}
+
+void *
+RTMP_TLS_AllocServerContext(const char* cert, const char* key)
+{
+  void *ctx = NULL;
+#ifdef CRYPTO
+  if (!RTMP_TLS_ctx)
+    RTMP_TLS_Init();
+#ifdef USE_POLARSSL
+  tls_server_ctx *tc = ctx = calloc(1, sizeof(struct tls_server_ctx));
+  tc->dhm_P = my_dhm_P;
+  tc->dhm_G = my_dhm_G;
+  tc->hs = &RTMP_TLS_ctx->hs;
+  if (x509parse_crtfile(&tc->cert, cert)) {
+      free(tc);
+      return NULL;
+  }
+  if (x509parse_keyfile(&tc->key, key, NULL)) {
+      x509_free(&tc->cert);
+      free(tc);
+      return NULL;
+  }
+#elif defined(USE_GNUTLS) && !defined(NO_SSL)
+  gnutls_certificate_allocate_credentials((gnutls_certificate_credentials*) &ctx);
+  if (gnutls_certificate_set_x509_key_file(ctx, cert, key, GNUTLS_X509_FMT_PEM) != 0) {
+    gnutls_certificate_free_credentials(ctx);
+    return NULL;
+  }
+#elif !defined(NO_SSL) /* USE_OPENSSL */
+  ctx = SSL_CTX_new(SSLv23_server_method());
+  FILE *f = fopen(key, "r");
+  if (!f) {
+      SSL_CTX_free(ctx);
+      return NULL;
+  }
+  EVP_PKEY *k = PEM_read_PrivateKey(f, NULL, NULL, NULL);
+  fclose(f);
+  if (!k) {
+      SSL_CTX_free(ctx);
+      return NULL;
+  }
+  SSL_CTX_use_PrivateKey(ctx, k);
+  EVP_PKEY_free(k);
+  f = fopen(cert, "r");
+  if (!f) {
+      SSL_CTX_free(ctx);
+      return NULL;
+  }
+  X509 *c = PEM_read_X509(f, NULL, NULL, NULL);
+  fclose(f);
+  if (!c) {
+      SSL_CTX_free(ctx);
+      return NULL;
+  }
+  SSL_CTX_use_certificate(ctx, c);
+  X509_free(c);
+#endif
+#endif
+  return ctx;
+}
+
+void
+RTMP_TLS_FreeServerContext(void *ctx)
+{
+#ifdef CRYPTO
+#ifdef USE_POLARSSL
+  x509_free(&((tls_server_ctx*)ctx)->cert);
+  rsa_free(&((tls_server_ctx*)ctx)->key);
+  free(ctx);
+#elif defined(USE_GNUTLS) && !defined(NO_SSL)
+  gnutls_certificate_free_credentials(ctx);
+#elif !defined(NO_SSL) /* USE_OPENSSL */
+  SSL_CTX_free(ctx);
 #endif
 #endif
 }
@@ -865,6 +954,23 @@ RTMP_Connect0(RTMP *r, struct sockaddr * service)
   setsockopt(r->m_sb.sb_socket, IPPROTO_TCP, TCP_NODELAY, (char *) &on, sizeof(on));
 
   return TRUE;
+}
+
+int
+RTMP_TLS_Accept(RTMP *r, void *ctx)
+{
+#if defined(CRYPTO) && !defined(NO_SSL)
+  TLS_server(ctx, r->m_sb.sb_ssl);
+  TLS_setfd(r->m_sb.sb_ssl, r->m_sb.sb_socket);
+  if (TLS_accept(r->m_sb.sb_ssl) < 0)
+    {
+      RTMP_Log(RTMP_LOGERROR, "%s, TLS_Connect failed", __FUNCTION__);
+      return FALSE;
+    }
+  return TRUE;
+#else
+  return FALSE;
+#endif
 }
 
 int

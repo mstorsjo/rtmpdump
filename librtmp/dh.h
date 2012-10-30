@@ -29,6 +29,9 @@
 
 #ifdef USE_POLARSSL
 #include <polarssl/dhm.h>
+#if POLARSSL_VERSION_NUMBER < 0x01010100
+#define havege_random	havege_rand
+#endif
 typedef mpi * MP_t;
 #define MP_new(m)	m = malloc(sizeof(mpi)); mpi_init(m)
 #define MP_set_w(mpi, w)	mpi_lset(mpi, w)
@@ -61,7 +64,7 @@ static int MDH_generate_key(MDH *dh)
   MP_set(&dh->ctx.P, dh->p);
   MP_set(&dh->ctx.G, dh->g);
   dh->ctx.len = 128;
-  dhm_make_public(&dh->ctx, 1024, out, 1, havege_rand, &RTMP_TLS_ctx->hs);
+  dhm_make_public(&dh->ctx, 1024, out, 1, havege_random, &RTMP_TLS_ctx->hs);
   MP_new(dh->pub_key);
   MP_new(dh->priv_key);
   MP_set(dh->pub_key, &dh->ctx.GX);

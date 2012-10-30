@@ -61,9 +61,13 @@
 #include "rtmp.h"
 
 #ifdef USE_POLARSSL
+#include <polarssl/version.h>
 #include <polarssl/net.h>
 #include <polarssl/ssl.h>
 #include <polarssl/havege.h>
+#if POLARSSL_VERSION_NUMBER < 0x01010100
+#define havege_random	havege_rand
+#endif
 typedef struct tls_ctx {
 	havege_state hs;
 	ssl_session ssn;
@@ -71,7 +75,7 @@ typedef struct tls_ctx {
 #define TLS_CTX tls_ctx *
 #define TLS_client(ctx,s)	s = malloc(sizeof(ssl_context)); ssl_init(s);\
 	ssl_set_endpoint(s, SSL_IS_CLIENT); ssl_set_authmode(s, SSL_VERIFY_NONE);\
-	ssl_set_rng(s, havege_rand, &ctx->hs);\
+	ssl_set_rng(s, havege_random, &ctx->hs);\
 	ssl_set_ciphersuites(s, ssl_default_ciphersuites);\
 	ssl_set_session(s, 1, 600, &ctx->ssn)
 #define TLS_setfd(s,fd)	ssl_set_bio(s, net_recv, &fd, net_send, &fd)

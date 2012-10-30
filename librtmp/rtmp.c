@@ -33,6 +33,7 @@
 
 #ifdef CRYPTO
 #ifdef USE_POLARSSL
+#include <polarssl/version.h>
 #include <polarssl/havege.h>
 #elif defined(USE_GNUTLS)
 #include <gnutls/gnutls.h>

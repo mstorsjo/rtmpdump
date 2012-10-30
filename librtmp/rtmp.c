@@ -2497,17 +2497,16 @@ b64enc(const unsigned char *input, int length, char *output, int maxsize)
 }
 
 #ifdef USE_POLARSSL
-#define md5sum(x,y,z)  md5(x,y,z);
+#define MD5_CTX	md5_context
+#define MD5_Init(ctx)	md5_starts(ctx)
+#define MD5_Update(ctx,data,len)	md5_update(ctx,data,len)
+#define MD5_Final(dig,ctx)	md5_finish(ctx,dig)
 #elif defined(USE_GNUTLS)
-static void md5sum(const unsigned char *data, int len, unsigned char *out)
-{
-    struct md5_ctx ctx;
-    md5_init(&ctx);
-    md5_update(&ctx, len, data);
-    md5_digest(&ctx, MD5_DIGEST_LENGTH, out);
-}
+typedef struct md5_ctx	MD5_CTX
+#define MD5_Init(ctx)	md5_init(ctx)
+#define MD5_Update(ctx,data,len)	md5_update(ctx,len,data)
+#define MD5_Final(dig,ctx)	md5_digest(ctx,MD5_DIGEST_LENGTH,dig)
 #else
-#define md5sum(x,y,z)  MD5(x,y,z);
 #endif
 
 static const AVal av_authmod_adobe = AVC("authmod=adobe");
@@ -2530,10 +2529,14 @@ PublisherAuth(RTMP *r, AVal *description)
   char *token_in = NULL;
   char *ptr;
   unsigned char md5sum_val[MD5_DIGEST_LENGTH+1];
+  MD5_CTX md5ctx;
   int challenge2_data;
 #define RESPONSE_LEN 32
 #define CHALLENGE2_LEN 16
 #define SALTED2_LEN (32+8+8+8)
+#define B64DIGEST_LEN	22	/* 16 byte digest => 22 b64 chars */
+#define B64INT_LEN	6	/* 4 byte int => 6 b64 chars */
+#define HEXHASH_LEN	(2*MD5_DIGEST_LENGTH)
   char response[RESPONSE_LEN];
   char challenge2[CHALLENGE2_LEN];
   char salted2[SALTED2_LEN];
@@ -2563,11 +2566,9 @@ PublisherAuth(RTMP *r, AVal *description)
       else if((token_in = strstr(description->av_val, "?reason=needauth")) != NULL)
         {
           char *par, *val = NULL, *orig_ptr;
-          char *user = NULL;
-          char *salt = NULL;
-          char *opaque = NULL;
-          char *challenge = NULL;
-          char *salted1;
+	  AVal user, salt, opaque, challenge, *aptr = NULL;
+	  opaque.av_len = 0;
+	  challenge.av_len = 0;
 
           ptr = orig_ptr = strdup(token_in);
           while (ptr)
@@ -2581,60 +2582,72 @@ PublisherAuth(RTMP *r, AVal *description)
               if(val)
                   *val++ = '\0';
 
+	      if (aptr) {
+		aptr->av_len = par - aptr->av_val - 1;
+		aptr = NULL;
+	      }
               if (strcmp(par, "user") == 0){
-                  user = val;
+                  user.av_val = val;
+		  aptr = &user;
               } else if (strcmp(par, "salt") == 0){
-                  salt = val;
+                  salt.av_val = val;
+		  aptr = &salt;
               } else if (strcmp(par, "opaque") == 0){
-                  opaque = val;
+                  opaque.av_val = val;
+		  aptr = &opaque;
               } else if (strcmp(par, "challenge") == 0){
-                  challenge = val;
+                  challenge.av_val = val;
+		  aptr = &challenge;
               }
 
               RTMP_Log(RTMP_LOGDEBUG, "%s, par:\"%s\" = val:\"%s\"", __FUNCTION__, par, val);
             }
+	  if (aptr)
+	    aptr->av_len = strlen(aptr->av_val);
 
-            /* hash1 = base64enc(md5(user + _aodbeAuthSalt + password)) */
-            salted1 = malloc(strlen(user)+strlen(salt)+r->Link.pubPasswd.av_len+1);
-            strcpy(salted1, user);
-            strcat(salted1, salt);
-            strcat(salted1, r->Link.pubPasswd.av_val);
-            md5sum((unsigned char*) salted1, strlen(salted1), md5sum_val);
-            RTMP_Log(RTMP_LOGDEBUG, "%s, md5(%s) =>", __FUNCTION__, salted1);
-            free(salted1);
+	  /* hash1 = base64enc(md5(user + _aodbeAuthSalt + password)) */
+	  MD5_Init(&md5ctx);
+	  MD5_Update(&md5ctx, user.av_val, user.av_len);
+	  MD5_Update(&md5ctx, salt.av_val, salt.av_len);
+	  MD5_Update(&md5ctx, r->Link.pubPasswd.av_val, r->Link.pubPasswd.av_len);
+	  MD5_Final(md5sum_val, &md5ctx);
+          RTMP_Log(RTMP_LOGDEBUG, "%s, md5(%s%s%s) =>", __FUNCTION__,
+	    user.av_val, salt.av_val, r->Link.pubPasswd.av_val);
+          RTMP_LogHexString(RTMP_LOGDEBUG, md5sum_val, MD5_DIGEST_LENGTH);
 
-            RTMP_LogHexString(RTMP_LOGDEBUG, md5sum_val, MD5_DIGEST_LENGTH);
+          b64enc(md5sum_val, MD5_DIGEST_LENGTH, salted2, SALTED2_LEN);
+          RTMP_Log(RTMP_LOGDEBUG, "%s, b64(md5_1) = %s", __FUNCTION__, salted2);
 
-            b64enc(md5sum_val, MD5_DIGEST_LENGTH, salted2, SALTED2_LEN);
-            RTMP_Log(RTMP_LOGDEBUG, "%s, b64(md5_1) = %s", __FUNCTION__, salted2);
-
-            srand( time(NULL) );
+	/* FIXME: what byte order does this depend on? */
             challenge2_data = rand();
 
             b64enc((unsigned char *) &challenge2_data, sizeof(int), challenge2, CHALLENGE2_LEN);
             RTMP_Log(RTMP_LOGDEBUG, "%s, b64(%d) = %s", __FUNCTION__, challenge2_data, challenge2);
 
+	  MD5_Init(&md5ctx);
+	  MD5_Update(&md5ctx, salted2, B64DIGEST_LEN);
             /* response = base64enc(md5(hash1 + opaque + challenge2)) */
-            if (opaque)
-                strcat(salted2, opaque);
-            if (challenge)
-                strcat(salted2, challenge);
-            strcat(salted2, challenge2);
+	  if (opaque.av_len)
+	    MD5_Update(&md5ctx, opaque.av_val, opaque.av_len);
+	  if (challenge.av_len)
+	    MD5_Update(&md5ctx, challenge.av_val, challenge.av_len);
+	  MD5_Update(&md5ctx, challenge2, B64INT_LEN);
+	  MD5_Final(md5sum_val, &md5ctx);
 
-            md5sum((unsigned char*) salted2, strlen(salted2), md5sum_val);
-            RTMP_Log(RTMP_LOGDEBUG, "%s, md5(%s) =>", __FUNCTION__, salted2);
-            RTMP_LogHexString(RTMP_LOGDEBUG, md5sum_val, MD5_DIGEST_LENGTH);
+          RTMP_Log(RTMP_LOGDEBUG, "%s, md5(%s%s%s) =>", __FUNCTION__,
+	    salted2, opaque.av_len ? opaque.av_val : "", challenge2);
+          RTMP_LogHexString(RTMP_LOGDEBUG, md5sum_val, MD5_DIGEST_LENGTH);
 
-            b64enc(md5sum_val, MD5_DIGEST_LENGTH, response, RESPONSE_LEN);
-            RTMP_Log(RTMP_LOGDEBUG, "%s, b64(md5_2) = %s", __FUNCTION__, response);
+          b64enc(md5sum_val, MD5_DIGEST_LENGTH, response, RESPONSE_LEN);
+          RTMP_Log(RTMP_LOGDEBUG, "%s, b64(md5_2) = %s", __FUNCTION__, response);
 
             /* have all hashes, create auth token for the end of app */
-            pubToken.av_val = malloc(32 + strlen(challenge2) + strlen(response) + (opaque ? strlen(opaque) : 0));
+            pubToken.av_val = malloc(32 + B64INT_LEN + B64DIGEST_LEN + opaque.av_len);
             pubToken.av_len = sprintf(pubToken.av_val,
                     "&challenge=%s&response=%s&opaque=%s",
                     challenge2,
                     response,
-                    opaque ? opaque : "");
+                    opaque.av_len ? opaque.av_val : "");
             RTMP_Log(RTMP_LOGDEBUG, "%s, pubToken2: %s", __FUNCTION__, pubToken.av_val);
             free(orig_ptr);
             r->Link.pFlags |= RTMP_PUB_RESP|RTMP_PUB_CLATE;
@@ -2710,8 +2723,26 @@ PublisherAuth(RTMP *r, AVal *description)
         {
           char *orig_ptr;
           char *par, *val = NULL;
-          char *user = NULL;
-          char *nonce = NULL;
+	  char *hash1, *hash2, *hash3;
+	  AVal user, nonce, *aptr = NULL;
+	  AVal apptmp;
+
+          /* llnw auth method
+           * Seems to be closely based on HTTP Digest Auth:
+           *    http://tools.ietf.org/html/rfc2617
+           *    http://en.wikipedia.org/wiki/Digest_access_authentication
+           */
+
+          const char authmod[] = "llnw";
+          const char realm[] = "live";
+          const char method[] = "publish";
+          const char qop[] = "auth";
+          /* nc = 1..connection count (or rather, number of times cnonce has been reused) */
+          int nc = 1;
+          /* nchex = hexenc(nc) (8 hex digits according to RFC 2617) */
+          char nchex[9];
+          /* cnonce = hexenc(4 random bytes) (initialized on first connection) */
+          char cnonce[9];
 
           ptr = orig_ptr = strdup(token_in);
           /* Extract parameters (we need user and nonce) */
@@ -2726,82 +2757,84 @@ PublisherAuth(RTMP *r, AVal *description)
               if(val)
                   *val++ = '\0';
 
+	      if (aptr) {
+		aptr->av_len = par - aptr->av_val - 1;
+		aptr = NULL;
+	      }
               if (strcmp(par, "user") == 0){
-                  user = val;
+                user.av_val = val;
+		aptr = &user;
               } else if (strcmp(par, "nonce") == 0){
-                  nonce = val;
+                nonce.av_val = val;
+		aptr = &nonce;
               }
 
               RTMP_Log(RTMP_LOGDEBUG, "%s, par:\"%s\" = val:\"%s\"", __FUNCTION__, par, val);
             }
+	  if (aptr)
+	    aptr->av_len = strlen(aptr->av_val);
 
-          // FIXME: handle case where user==NULL or nonce==NULL
+          /* FIXME: handle case where user==NULL or nonce==NULL */
 
-          /* llnw auth method
-           * Seems to be closely based on HTTP Digest Auth:
-           *    http://tools.ietf.org/html/rfc2617
-           *    http://en.wikipedia.org/wiki/Digest_access_authentication
-           */
-
-          const char *authmod = "llnw";
-          const char *realm = "live";
-          const char *method = "publish";
-          const char *qop = "auth";
-          char *tmpbuf;
-
-          /* nc = 1..connection count (or rather, number of times cnonce has been reused) */
-          int nc = 1;
-          /* nchex = hexenc(nc) (8 hex digits according to RFC 2617) */
-          char nchex[9];
           sprintf(nchex, "%08x", nc);
-          /* cnonce = hexenc(4 random bytes) (initialized on first connection) */
-          char cnonce[9];
-          srand( time(NULL) ); // FIXME: a lib shouldn't call srand()
           sprintf(cnonce, "%08x", rand());
 
           /* hash1 = hexenc(md5(user + ":" + realm + ":" + password)) */
-          tmpbuf = malloc(strlen(user) + 1 + strlen(realm) + 1 + r->Link.pubPasswd.av_len + 1);
-          sprintf(tmpbuf, "%s:%s:%s", user, realm, r->Link.pubPasswd.av_val);
-          md5sum((unsigned char*)tmpbuf, strlen(tmpbuf), md5sum_val);
-          RTMP_Log(RTMP_LOGDEBUG, "%s, md5(%s) =>", __FUNCTION__, tmpbuf);
+	  MD5_Init(&md5ctx);
+	  MD5_Update(&md5ctx, user.av_val, user.av_len);
+	  MD5_Update(&md5ctx, ":", 1);
+	  MD5_Update(&md5ctx, realm, sizeof(realm)-1);
+	  MD5_Update(&md5ctx, ":", 1);
+	  MD5_Update(&md5ctx, r->Link.pubPasswd.av_val, r->Link.pubPasswd.av_len);
+	  MD5_Final(md5sum_val, &md5ctx);
+          RTMP_Log(RTMP_LOGDEBUG, "%s, md5(%s:%s:%s) =>", __FUNCTION__,
+	    user.av_val, realm, r->Link.pubPasswd.av_val);
           RTMP_LogHexString(RTMP_LOGDEBUG, md5sum_val, MD5_DIGEST_LENGTH);
-          free(tmpbuf);
-          char *hash1 = hexenc(md5sum_val, MD5_DIGEST_LENGTH);
+          hash1 = hexenc(md5sum_val, MD5_DIGEST_LENGTH);
 
           /* hash2 = hexenc(md5(method + ":/" + app + "/" + appInstance)) */
           /* Extract appname + appinstance without query parameters */
-          char *apptmp = malloc(r->Link.app.av_len + 1), *qpos;
-          memcpy(apptmp, r->Link.app.av_val, r->Link.app.av_len);
-          apptmp[r->Link.app.av_len] = '\0';
-          if((qpos = strchr(apptmp, '?')))
-              *qpos = '\0';
+	  apptmp = r->Link.app;
+	  ptr = strchr(apptmp.av_val, '?');
+	  if (ptr)
+	    apptmp.av_len = ptr - apptmp.av_val;
 
-          tmpbuf = malloc(strlen(method) + 2 + strlen(apptmp) + 1);
-          sprintf(tmpbuf, "%s:/%s", method, apptmp);
-          md5sum((unsigned char*)tmpbuf, strlen(tmpbuf), md5sum_val);
-          RTMP_Log(RTMP_LOGDEBUG, "%s, md5(%s) =>", __FUNCTION__, tmpbuf);
+	  MD5_Init(&md5ctx);
+	  MD5_Update(&md5ctx, method, sizeof(method)-1);
+	  MD5_Update(&md5ctx, ":/", 2);
+	  MD5_Update(&md5ctx, apptmp.av_val, apptmp.av_len);
+	  MD5_Final(md5sum_val, &md5ctx);
+          RTMP_Log(RTMP_LOGDEBUG, "%s, md5(%s:/%.*s) =>", __FUNCTION__,
+	    method, apptmp.av_len, apptmp.av_val);
           RTMP_LogHexString(RTMP_LOGDEBUG, md5sum_val, MD5_DIGEST_LENGTH);
-          free(tmpbuf);
-          char *hash2 = hexenc(md5sum_val, MD5_DIGEST_LENGTH);
-
-          free(apptmp);
+          hash2 = hexenc(md5sum_val, MD5_DIGEST_LENGTH);
 
           /* hash3 = hexenc(md5(hash1 + ":" + nonce + ":" + nchex + ":" + cnonce + ":" + qop + ":" + hash2)) */
-          tmpbuf = malloc(strlen(hash1) + 1 + strlen(nonce) + 1 + strlen(nchex) + 1 + strlen(cnonce) + 1 + strlen(qop) + 1 + strlen(hash2) + 1);
-          sprintf(tmpbuf, "%s:%s:%s:%s:%s:%s", hash1, nonce, nchex, cnonce, qop, hash2);
-          md5sum((unsigned char*)tmpbuf, strlen(tmpbuf), md5sum_val);
-          RTMP_Log(RTMP_LOGDEBUG, "%s, md5(%s) =>", __FUNCTION__, tmpbuf);
+	  MD5_Init(&md5ctx);
+	  MD5_Update(&md5ctx, hash1, HEXHASH_LEN);
+	  MD5_Update(&md5ctx, ":", 1);
+	  MD5_Update(&md5ctx, nonce.av_val, nonce.av_len);
+	  MD5_Update(&md5ctx, ":", 1);
+	  MD5_Update(&md5ctx, nchex, sizeof(nchex)-1);
+	  MD5_Update(&md5ctx, ":", 1);
+	  MD5_Update(&md5ctx, cnonce, sizeof(cnonce)-1);
+	  MD5_Update(&md5ctx, ":", 1);
+	  MD5_Update(&md5ctx, qop, sizeof(qop)-1);
+	  MD5_Update(&md5ctx, ":", 1);
+	  MD5_Update(&md5ctx, hash2, HEXHASH_LEN);
+	  MD5_Final(md5sum_val, &md5ctx);
+          RTMP_Log(RTMP_LOGDEBUG, "%s, md5(%s:%s:%s:%s:%s:%s) =>", __FUNCTION__,
+	    hash1, nonce.av_val, nchex, cnonce, qop, hash2);
           RTMP_LogHexString(RTMP_LOGDEBUG, md5sum_val, MD5_DIGEST_LENGTH);
-          free(tmpbuf);
-          char *hash3 = hexenc(md5sum_val, MD5_DIGEST_LENGTH);
+          hash3 = hexenc(md5sum_val, MD5_DIGEST_LENGTH);
 
           /* pubToken = &authmod=<authmod>&user=<username>&nonce=<nonce>&cnonce=<cnonce>&nc=<nchex>&response=<hash3> */
           /* Append nonces and response to query string which already contains
            * user + authmod */
-          pubToken.av_val = malloc(64 + strlen(authmod) + strlen(user) + strlen(nonce) + strlen(cnonce) + strlen(nchex) + strlen(hash3));
+          pubToken.av_val = malloc(64 + sizeof(authmod)-1 + user.av_len + nonce.av_len + sizeof(cnonce)-1 + sizeof(nchex)-1 + HEXHASH_LEN);
           sprintf(pubToken.av_val,
                   "&nonce=%s&cnonce=%s&nc=%s&response=%s",
-                  nonce, cnonce, nchex, hash3);
+                  nonce.av_val, cnonce, nchex, hash3);
           pubToken.av_len = strlen(pubToken.av_val);
           RTMP_Log(RTMP_LOGDEBUG, "%s, pubToken2: %s", __FUNCTION__, pubToken.av_val);
           r->Link.pFlags |= RTMP_PUB_RESP|RTMP_PUB_CLATE;

@@ -580,12 +580,14 @@ Download(RTMP * rtmp,		// connected RTMP object
 		}
 	    }
 	}
-#ifdef _DEBUG
       else
 	{
+#ifdef _DEBUG
 	  RTMP_Log(RTMP_LOGDEBUG, "zero read!");
-	}
 #endif
+	  if (rtmp->m_read.status == RTMP_READ_EOF)
+	    break;
+	}
 
     }
   while (!RTMP_ctrlC && nRead > -1 && RTMP_IsConnected(rtmp) && !RTMP_IsTimedout(rtmp));

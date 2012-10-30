@@ -29,9 +29,6 @@
 
 #ifdef USE_POLARSSL
 #include <polarssl/dhm.h>
-#if POLARSSL_VERSION_NUMBER < 0x01010100
-#define havege_random	havege_rand
-#endif
 typedef mpi * MP_t;
 #define MP_new(m)	m = malloc(sizeof(mpi)); mpi_init(m)
 #define MP_set_w(mpi, w)	mpi_lset(mpi, w)

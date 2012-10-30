@@ -34,7 +34,6 @@
 
 #ifdef CRYPTO
 #ifdef USE_POLARSSL
-#include <polarssl/version.h>
 #include <polarssl/havege.h>
 #include <polarssl/md5.h>
 #include <polarssl/base64.h>
@@ -2435,7 +2434,7 @@ static int
 b64enc(const unsigned char *input, int length, char *output, int maxsize)
 {
 #ifdef USE_POLARSSL
-  int buf_size = maxsize;
+  size_t buf_size = maxsize;
   if(base64_encode((unsigned char *) output, &buf_size, input, length) == 0)
     {
       output[buf_size] = '\0';
@@ -2481,7 +2480,7 @@ b64enc(const unsigned char *input, int length, char *output, int maxsize)
 #ifdef USE_POLARSSL
 #define MD5_CTX	md5_context
 #define MD5_Init(ctx)	md5_starts(ctx)
-#define MD5_Update(ctx,data,len)	md5_update(ctx,data,len)
+#define MD5_Update(ctx,data,len)	md5_update(ctx,(unsigned char *)data,len)
 #define MD5_Final(dig,ctx)	md5_finish(ctx,dig)
 #elif defined(USE_GNUTLS)
 typedef struct md5_ctx	MD5_CTX

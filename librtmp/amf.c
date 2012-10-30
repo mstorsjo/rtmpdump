@@ -396,14 +396,14 @@ AMFProp_Encode(AMFObjectProperty *prop, char *pBuffer, char *pBufEnd)
       pBuffer = AMF_Encode(&prop->p_vu.p_object, pBuffer, pBufEnd);
       break;
 
-    case AMF_ECMA_ARRAY:            
+    case AMF_ECMA_ARRAY:
       pBuffer = AMF_EncodeEcmaArray(&prop->p_vu.p_object, pBuffer, pBufEnd);
       break;
-      
-    case AMF_STRICT_ARRAY:      
+
+    case AMF_STRICT_ARRAY:
       pBuffer = AMF_EncodeArray(&prop->p_vu.p_object, pBuffer, pBufEnd);
       break;
-      
+
     default:
       RTMP_Log(RTMP_LOGERROR, "%s, invalid type. %d", __FUNCTION__, prop->p_type);
       pBuffer = NULL;
@@ -708,7 +708,6 @@ AMFProp_Decode(AMFObjectProperty *prop, const char *pBuffer, int nSize,
 	if (nRes == -1)
 	  return -1;
 	nSize -= nRes;
-	//prop->p_type = AMF_OBJECT;
 	break;
       }
     case AMF_OBJECT_END:
@@ -726,7 +725,6 @@ AMFProp_Decode(AMFObjectProperty *prop, const char *pBuffer, int nSize,
 	if (nRes == -1)
 	  return -1;
 	nSize -= nRes;
-	//prop->p_type = AMF_OBJECT;
 	break;
       }
     case AMF_DATE:

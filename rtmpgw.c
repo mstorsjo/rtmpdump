@@ -921,7 +921,7 @@ ParseOption(char opt, char *arg, RTMP_REQUEST * req)
 	break;
       }
     case 'i':
-      STR2AVAL(req->fullUrl, optarg);
+      STR2AVAL(req->fullUrl, arg);
       break;
     case 's':
       STR2AVAL(req->swfUrl, arg);
@@ -942,7 +942,7 @@ ParseOption(char opt, char *arg, RTMP_REQUEST * req)
       STR2AVAL(req->auth, arg);
       break;
     case 'C':
-      parseAMF(&req->extras, optarg, &req->edepth);
+      parseAMF(&req->extras, arg, &req->edepth);
       break;
     case 'm':
       req->timeout = atoi(arg);

@@ -157,6 +157,8 @@ extern "C"
     AVal subscribepath;
     AVal usherToken;
     AVal token;
+    AVal pubUser;
+    AVal pubPasswd;
     AMFObject extras;
     int edepth;
 
@@ -175,6 +177,13 @@ extern "C"
 
     int protocol;
     int timeout;		/* connection timeout in seconds */
+
+#define RTMP_PUB_NAME   0x0001  /* send login to server */
+#define RTMP_PUB_RESP   0x0002  /* send salted password hash */
+#define RTMP_PUB_ALLOC  0x0004  /* allocated data for new tcUrl & app */
+#define RTMP_PUB_CLEAN  0x0008  /* need to free allocated data for newer tcUrl & app at exit */
+#define RTMP_PUB_CLATE  0x0010  /* late clean tcUrl & app at exit */
+    int pFlags;
 
     unsigned short socksport;
     unsigned short port;

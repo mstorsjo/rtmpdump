@@ -27,6 +27,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <time.h>
 
 #include "rtmp_sys.h"
 #include "log.h"
@@ -35,6 +36,9 @@
 #ifdef USE_POLARSSL
 #include <polarssl/version.h>
 #include <polarssl/havege.h>
+#include <polarssl/md5.h>
+#include <polarssl/base64.h>
+#define MD5_DIGEST_LENGTH 16
 
 static const char *my_dhm_P =
     "E4004C1F94182000103D883A448B3F80" \
@@ -50,9 +54,15 @@ static const char *my_dhm_G = "4";
 
 #elif defined(USE_GNUTLS)
 #include <gnutls/gnutls.h>
+#define MD5_DIGEST_LENGTH 16
+#include <nettle/base64.h>
+#include <nettle/md5.h>
 #else	/* USE_OPENSSL */
 #include <openssl/ssl.h>
 #include <openssl/rc4.h>
+#include <openssl/md5.h>
+#include <openssl/bio.h>
+#include <openssl/buffer.h>
 #endif
 TLS_CTX RTMP_TLS_ctx;
 #endif
@@ -595,6 +605,10 @@ static struct urlopt {
   	"Buffer time in milliseconds" },
   { AVC("timeout"),   OFF(Link.timeout),       OPT_INT, 0,
   	"Session timeout in seconds" },
+  { AVC("pubUser"),   OFF(Link.pubUser),       OPT_STR, 0,
+        "Publisher username" },
+  { AVC("pubPasswd"), OFF(Link.pubPasswd),     OPT_STR, 0,
+        "Publisher password" },
   { {NULL,0}, 0, 0}
 };
 
@@ -2433,6 +2447,239 @@ AV_clear(RTMP_METHOD *vals, int num)
   free(vals);
 }
 
+
+#ifdef CRYPTO
+static int
+b64enc(const unsigned char *input, int length, char *output, int maxsize)
+{
+#ifdef USE_POLARSSL
+  int buf_size = maxsize;
+  if(base64_encode((unsigned char *) output, &buf_size, input, length) == 0)
+    {
+      output[buf_size] = '\0';
+      return 1;
+    }
+  else
+    {
+      RTMP_Log(RTMP_LOGDEBUG, "%s, error", __FUNCTION__);
+      return 0;
+    }
+#elif defined(USE_GNUTLS)
+  if (BASE64_ENCODE_RAW_LENGTH(length) <= maxsize)
+    base64_encode_raw((uint8_t*) output, length, input);
+  else
+    {
+      RTMP_Log(RTMP_LOGDEBUG, "%s, error", __FUNCTION__);
+      return 0;
+    }
+#else   /* USE_OPENSSL */
+  BIO *bmem, *b64;
+  BUF_MEM *bptr;
+
+  b64 = BIO_new(BIO_f_base64());
+  bmem = BIO_new(BIO_s_mem());
+  b64 = BIO_push(b64, bmem);
+  BIO_write(b64, input, length);
+  if (BIO_flush(b64) == 1)
+    {
+      BIO_get_mem_ptr(b64, &bptr);
+      memcpy(output, bptr->data, bptr->length-1);
+      output[bptr->length-1] = '\0';
+    }
+  else
+    {
+      RTMP_Log(RTMP_LOGDEBUG, "%s, error", __FUNCTION__);
+      return 0;
+    }
+  BIO_free_all(b64);
+#endif
+  return 1;
+}
+
+#ifdef USE_POLARSSL
+#define md5sum(x,y,z)  md5(x,y,z);
+#elif defined(USE_GNUTLS)
+static void md5sum(const unsigned char *data, int len, unsigned char *out)
+{
+    struct md5_ctx ctx;
+    md5_init(&ctx);
+    md5_update(&ctx, len, data);
+    md5_digest(&ctx, MD5_DIGEST_LENGTH, out);
+}
+#else
+#define md5sum(x,y,z)  MD5(x,y,z);
+#endif
+
+static const AVal av_authmod_adobe = AVC("authmod=adobe");
+
+static int
+PublisherAuth(RTMP *r, AVal *description)
+{
+  char *token_in = NULL;
+  char *ptr;
+  unsigned char md5sum_val[MD5_DIGEST_LENGTH+1];
+  int challenge2_data;
+#define RESPONSE_LEN 32
+#define CHALLENGE2_LEN 16
+#define SALTED2_LEN (32+8+8+8)
+  char response[RESPONSE_LEN];
+  char challenge2[CHALLENGE2_LEN];
+  char salted2[SALTED2_LEN];
+  AVal pubToken;
+
+  if (strstr(description->av_val, av_authmod_adobe.av_val) != NULL)
+    {
+      if(strstr(description->av_val, "code=403 need auth") != NULL)
+        {
+            if (strstr(r->Link.app.av_val, av_authmod_adobe.av_val) != NULL) {
+              RTMP_Log(RTMP_LOGERROR, "%s, wrong pubUser & pubPasswd for publisher auth", __FUNCTION__);
+              r->Link.pFlags |= RTMP_PUB_CLEAN;
+              return 0;
+            } else if(r->Link.pubUser.av_len && r->Link.pubPasswd.av_len) {
+              pubToken.av_val = malloc(r->Link.pubUser.av_len + av_authmod_adobe.av_len + 8);
+              pubToken.av_len = sprintf(pubToken.av_val, "?%s&user=%s",
+                      av_authmod_adobe.av_val,
+                      r->Link.pubUser.av_val);
+              RTMP_Log(RTMP_LOGDEBUG, "%s, pubToken1: %s", __FUNCTION__, pubToken.av_val);
+              r->Link.pFlags |= RTMP_PUB_NAME;
+            } else {
+              RTMP_Log(RTMP_LOGERROR, "%s, need to set pubUser & pubPasswd for publisher auth", __FUNCTION__);
+              r->Link.pFlags |= RTMP_PUB_CLEAN;
+              return 0;
+            }
+        }
+      else if((token_in = strstr(description->av_val, "?reason=needauth")) != NULL)
+        {
+          char *par, *val = NULL, *orig_ptr;
+          char *user = NULL;
+          char *salt = NULL;
+          char *opaque = NULL;
+          char *challenge = NULL;
+          char *salted1;
+
+          ptr = orig_ptr = strdup(token_in);
+          while (ptr)
+            {
+              par = ptr;
+              ptr = strchr(par, '&');
+              if(ptr)
+                  *ptr++ = '\0';
+
+              val =  strchr(par, '=');
+              if(val)
+                  *val++ = '\0';
+
+              if (strcmp(par, "user") == 0){
+                  user = val;
+              } else if (strcmp(par, "salt") == 0){
+                  salt = val;
+              } else if (strcmp(par, "opaque") == 0){
+                  opaque = val;
+              } else if (strcmp(par, "challenge") == 0){
+                  challenge = val;
+              }
+
+              RTMP_Log(RTMP_LOGDEBUG, "%s, par:\"%s\" = val:\"%s\"", __FUNCTION__, par, val);
+            }
+
+            /* hash1 = base64enc(md5(user + _aodbeAuthSalt + password)) */
+            salted1 = malloc(strlen(user)+strlen(salt)+r->Link.pubPasswd.av_len+1);
+            strcpy(salted1, user);
+            strcat(salted1, salt);
+            strcat(salted1, r->Link.pubPasswd.av_val);
+            md5sum((unsigned char*) salted1, strlen(salted1), md5sum_val);
+            RTMP_Log(RTMP_LOGDEBUG, "%s, md5(%s) =>", __FUNCTION__, salted1);
+            free(salted1);
+
+            RTMP_LogHexString(RTMP_LOGDEBUG, md5sum_val, MD5_DIGEST_LENGTH);
+
+            b64enc(md5sum_val, MD5_DIGEST_LENGTH, salted2, SALTED2_LEN);
+            RTMP_Log(RTMP_LOGDEBUG, "%s, b64(md5_1) = %s", __FUNCTION__, salted2);
+
+            srand( time(NULL) );
+            challenge2_data = rand();
+
+            b64enc((unsigned char *) &challenge2_data, sizeof(int), challenge2, CHALLENGE2_LEN);
+            RTMP_Log(RTMP_LOGDEBUG, "%s, b64(%d) = %s", __FUNCTION__, challenge2_data, challenge2);
+
+            /* response = base64enc(md5(hash1 + opaque + challenge2)) */
+            if (opaque)
+                strcat(salted2, opaque);
+            if (challenge)
+                strcat(salted2, challenge);
+            strcat(salted2, challenge2);
+
+            md5sum((unsigned char*) salted2, strlen(salted2), md5sum_val);
+            RTMP_Log(RTMP_LOGDEBUG, "%s, md5(%s) =>", __FUNCTION__, salted2);
+            RTMP_LogHexString(RTMP_LOGDEBUG, md5sum_val, MD5_DIGEST_LENGTH);
+
+            b64enc(md5sum_val, MD5_DIGEST_LENGTH, response, RESPONSE_LEN);
+            RTMP_Log(RTMP_LOGDEBUG, "%s, b64(md5_2) = %s", __FUNCTION__, response);
+
+            /* have all hashes, create auth token for the end of app */
+            pubToken.av_val = malloc(32 + strlen(challenge2) + strlen(response) + (opaque ? strlen(opaque) : 0));
+            pubToken.av_len = sprintf(pubToken.av_val,
+                    "&challenge=%s&response=%s&opaque=%s",
+                    challenge2,
+                    response,
+                    opaque ? opaque : "");
+            RTMP_Log(RTMP_LOGDEBUG, "%s, pubToken2: %s", __FUNCTION__, pubToken.av_val);
+            free(orig_ptr);
+            r->Link.pFlags |= RTMP_PUB_RESP|RTMP_PUB_CLATE;
+        }
+      else if(strstr(description->av_val, "?reason=authfailed") != NULL)
+        {
+          RTMP_Log(RTMP_LOGERROR, "%s, Authentication failed: wrong password", __FUNCTION__);
+          r->Link.pFlags |= RTMP_PUB_CLEAN;
+          return 0;
+        }
+      else if(strstr(description->av_val, "?reason=nosuchuser") != NULL)
+        {
+          RTMP_Log(RTMP_LOGERROR, "%s, Authentication failed: no such user", __FUNCTION__);
+          r->Link.pFlags |= RTMP_PUB_CLEAN;
+          return 0;
+        }
+      else
+        {
+          RTMP_Log(RTMP_LOGERROR, "%s, Authentication failed: unknown auth mode: %s",
+                  __FUNCTION__, description->av_val);
+          r->Link.pFlags |= RTMP_PUB_CLEAN;
+          return 0;
+        }
+
+      ptr = malloc(r->Link.app.av_len + pubToken.av_len);
+      strncpy(ptr, r->Link.app.av_val, r->Link.app.av_len);
+      strncpy(ptr + r->Link.app.av_len, pubToken.av_val, pubToken.av_len);
+      r->Link.app.av_len += pubToken.av_len;
+      if(r->Link.pFlags & RTMP_PUB_ALLOC)
+          free(r->Link.app.av_val);
+      r->Link.app.av_val = ptr;
+
+      ptr = malloc(r->Link.tcUrl.av_len + pubToken.av_len);
+      strncpy(ptr, r->Link.tcUrl.av_val, r->Link.tcUrl.av_len);
+      strncpy(ptr + r->Link.tcUrl.av_len, pubToken.av_val, pubToken.av_len);
+      r->Link.tcUrl.av_len += pubToken.av_len;
+      if(r->Link.pFlags & RTMP_PUB_ALLOC)
+          free(r->Link.tcUrl.av_val);
+      r->Link.tcUrl.av_val = ptr;
+
+      free(pubToken.av_val);
+      r->Link.pFlags |= RTMP_PUB_ALLOC;
+
+      RTMP_Log(RTMP_LOGDEBUG, "%s, new app: %.*s tcUrl: %.*s playpath: %s", __FUNCTION__,
+              r->Link.app.av_len, r->Link.app.av_val,
+              r->Link.tcUrl.av_len, r->Link.tcUrl.av_val,
+              r->Link.playpath.av_val);
+    }
+  else
+    {
+      return 0;
+    }
+  return 1;
+}
+#endif
+
+
 SAVC(onBWDone);
 SAVC(onFCSubscribe);
 SAVC(onFCUnsubscribe);
@@ -2442,6 +2689,7 @@ SAVC(_error);
 SAVC(close);
 SAVC(code);
 SAVC(level);
+SAVC(description);
 SAVC(onStatus);
 SAVC(playlist_ready);
 static const AVal av_NetStream_Failed = AVC("NetStream.Failed");
@@ -2460,6 +2708,8 @@ AVC("NetStream.Play.PublishNotify");
 static const AVal av_NetStream_Play_UnpublishNotify =
 AVC("NetStream.Play.UnpublishNotify");
 static const AVal av_NetStream_Publish_Start = AVC("NetStream.Publish.Start");
+static const AVal av_NetConnection_Connect_Rejected =
+AVC("NetConnection.Connect.Rejected");
 
 /* Returns 0 for OK/Failed/error, 1 for 'Stop or Complete' */
 static int
@@ -2601,12 +2851,73 @@ HandleInvoke(RTMP *r, const char *body, unsigned int nBodySize)
     }
   else if (AVMATCH(&method, &av__error))
     {
+#ifdef CRYPTO
+      AVal methodInvoked = {0};
+      int i;
+
+      if (r->Link.protocol & RTMP_FEATURE_WRITE)
+        {
+          for (i=0; i<r->m_numCalls; i++)
+            {
+              if (r->m_methodCalls[i].num == txn)
+                {
+                  methodInvoked = r->m_methodCalls[i].name;
+                  AV_erase(r->m_methodCalls, &r->m_numCalls, i, FALSE);
+                  break;
+                }
+            }
+          if (!methodInvoked.av_val)
+            {
+              RTMP_Log(RTMP_LOGDEBUG, "%s, received result id %f without matching request",
+                    __FUNCTION__, txn);
+              goto leave;
+            }
+
+          RTMP_Log(RTMP_LOGDEBUG, "%s, received error for method call <%s>", __FUNCTION__,
+          methodInvoked.av_val);
+
+          if (AVMATCH(&methodInvoked, &av_connect))
+            {
+              AMFObject obj2;
+              AVal code, level, description;
+              AMFProp_GetObject(AMF_GetProp(&obj, NULL, 3), &obj2);
+              AMFProp_GetString(AMF_GetProp(&obj2, &av_code, -1), &code);
+              AMFProp_GetString(AMF_GetProp(&obj2, &av_level, -1), &level);
+              AMFProp_GetString(AMF_GetProp(&obj2, &av_description, -1), &description);
+              RTMP_Log(RTMP_LOGDEBUG, "%s, error description: %s", __FUNCTION__, description.av_val);
+              /* if PublisherAuth returns 1, then reconnect */
+              PublisherAuth(r, &description);
+            }
+        }
+      else
+        {
+          RTMP_Log(RTMP_LOGERROR, "rtmp server sent error");
+        }
+      free(methodInvoked.av_val);
+#else
       RTMP_Log(RTMP_LOGERROR, "rtmp server sent error");
+#endif
     }
   else if (AVMATCH(&method, &av_close))
     {
       RTMP_Log(RTMP_LOGERROR, "rtmp server requested close");
       RTMP_Close(r);
+#ifdef CRYPTO
+      if ((r->Link.protocol & RTMP_FEATURE_WRITE) &&
+              !(r->Link.pFlags & RTMP_PUB_CLEAN) &&
+              (  !(r->Link.pFlags & RTMP_PUB_NAME) ||
+                 !(r->Link.pFlags & RTMP_PUB_RESP) ||
+                 (r->Link.pFlags & RTMP_PUB_CLATE) ) )
+        {
+          /* clean later */
+          if(r->Link.pFlags & RTMP_PUB_CLATE)
+              r->Link.pFlags |= RTMP_PUB_CLEAN;
+          RTMP_Log(RTMP_LOGERROR, "authenticating publisher");
+
+          if (!RTMP_Connect(r, NULL) || !RTMP_ConnectStream(r, 0))
+              goto leave;
+       }
+#endif
     }
   else if (AVMATCH(&method, &av_onStatus))
     {
@@ -3695,9 +4006,6 @@ RTMP_Close(RTMP *r)
   r->m_resplen = 0;
   r->m_unackd = 0;
 
-  free(r->Link.playpath0.av_val);
-  r->Link.playpath0.av_val = NULL;
-
   if (r->Link.lFlags & RTMP_LF_FTCU)
     {
       free(r->Link.tcUrl.av_val);
@@ -3706,6 +4014,20 @@ RTMP_Close(RTMP *r)
     }
 
 #ifdef CRYPTO
+  if (!(r->Link.protocol & RTMP_FEATURE_WRITE) || (r->Link.pFlags & RTMP_PUB_CLEAN))
+    {
+      free(r->Link.playpath0.av_val);
+      r->Link.playpath0.av_val = NULL;
+    }
+  if ((r->Link.protocol & RTMP_FEATURE_WRITE) &&
+      (r->Link.pFlags & RTMP_PUB_CLEAN) &&
+      (r->Link.pFlags & RTMP_PUB_ALLOC))
+    {
+      free(r->Link.app.av_val);
+      r->Link.app.av_val = NULL;
+      free(r->Link.tcUrl.av_val);
+      r->Link.tcUrl.av_val = NULL;
+    }
   if (r->Link.dh)
     {
       MDH_free(r->Link.dh);
@@ -3721,6 +4043,9 @@ RTMP_Close(RTMP *r)
       RC4_free(r->Link.rc4keyOut);
       r->Link.rc4keyOut = NULL;
     }
+#else
+  free(r->Link.playpath0.av_val);
+  r->Link.playpath0.av_val = NULL;
 #endif
 }
 

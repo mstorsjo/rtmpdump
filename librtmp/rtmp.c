@@ -2483,7 +2483,7 @@ b64enc(const unsigned char *input, int length, char *output, int maxsize)
 #define MD5_Update(ctx,data,len)	md5_update(ctx,(unsigned char *)data,len)
 #define MD5_Final(dig,ctx)	md5_finish(ctx,dig)
 #elif defined(USE_GNUTLS)
-typedef struct md5_ctx	MD5_CTX
+typedef struct md5_ctx	MD5_CTX;
 #define MD5_Init(ctx)	md5_init(ctx)
 #define MD5_Update(ctx,data,len)	md5_update(ctx,len,data)
 #define MD5_Final(dig,ctx)	md5_digest(ctx,MD5_DIGEST_LENGTH,dig)

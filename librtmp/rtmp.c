@@ -3221,7 +3221,7 @@ RTMP_FindFirstMatchingProperty(AMFObject *obj, const AVal *name,
 	  return TRUE;
 	}
 
-      if (prop->p_type == AMF_OBJECT)
+      if (prop->p_type == AMF_OBJECT || prop->p_type == AMF_ECMA_ARRAY)
 	{
 	  if (RTMP_FindFirstMatchingProperty(&prop->p_vu.p_object, name, p))
 	    return TRUE;
@@ -3260,47 +3260,44 @@ static int
 DumpMetaData(AMFObject *obj)
 {
   AMFObjectProperty *prop;
-  int n;
+  int n, len;
   for (n = 0; n < obj->o_num; n++)
     {
+      char str[256] = "";
       prop = AMF_GetProp(obj, NULL, n);
-      if (prop->p_type != AMF_OBJECT)
+      switch (prop->p_type)
 	{
-	  char str[256] = "";
-	  switch (prop->p_type)
-	    {
-	    case AMF_NUMBER:
-	      snprintf(str, 255, "%.2f", prop->p_vu.p_number);
-	      break;
-	    case AMF_BOOLEAN:
-	      snprintf(str, 255, "%s",
-		       prop->p_vu.p_number != 0. ? "TRUE" : "FALSE");
-	      break;
-	    case AMF_STRING:
-	      snprintf(str, 255, "%.*s", prop->p_vu.p_aval.av_len,
-		       prop->p_vu.p_aval.av_val);
-	      break;
-	    case AMF_DATE:
-	      snprintf(str, 255, "timestamp:%.2f", prop->p_vu.p_number);
-	      break;
-	    default:
-	      snprintf(str, 255, "INVALID TYPE 0x%02x",
-		       (unsigned char)prop->p_type);
-	    }
-	  if (prop->p_name.av_len)
-	    {
-	      /* chomp */
-	      if (strlen(str) >= 1 && str[strlen(str) - 1] == '\n')
-		str[strlen(str) - 1] = '\0';
-	      RTMP_Log(RTMP_LOGINFO, "  %-22.*s%s", prop->p_name.av_len,
-			prop->p_name.av_val, str);
-	    }
-	}
-      else
-	{
+	case AMF_OBJECT:
+	case AMF_ECMA_ARRAY:
+	case AMF_STRICT_ARRAY:
 	  if (prop->p_name.av_len)
 	    RTMP_Log(RTMP_LOGINFO, "%.*s:", prop->p_name.av_len, prop->p_name.av_val);
 	  DumpMetaData(&prop->p_vu.p_object);
+	  break;
+	case AMF_NUMBER:
+	  snprintf(str, 255, "%.2f", prop->p_vu.p_number);
+	  break;
+	case AMF_BOOLEAN:
+	  snprintf(str, 255, "%s",
+		   prop->p_vu.p_number != 0. ? "TRUE" : "FALSE");
+	  break;
+	case AMF_STRING:
+	  len = snprintf(str, 255, "%.*s", prop->p_vu.p_aval.av_len,
+		   prop->p_vu.p_aval.av_val);
+	  if (len >= 1 && str[len-1] == '\n')
+	    str[len-1] = '\0';
+	  break;
+	case AMF_DATE:
+	  snprintf(str, 255, "timestamp:%.2f", prop->p_vu.p_number);
+	  break;
+	default:
+	  snprintf(str, 255, "INVALID TYPE 0x%02x",
+		   (unsigned char)prop->p_type);
+	}
+      if (str[0] && prop->p_name.av_len)
+	{
+	  RTMP_Log(RTMP_LOGINFO, "  %-22.*s%s", prop->p_name.av_len,
+		    prop->p_name.av_val, str);
 	}
     }
   return FALSE;

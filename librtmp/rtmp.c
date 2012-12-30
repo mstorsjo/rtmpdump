@@ -2609,7 +2609,7 @@ PublisherAuth(RTMP *r, AVal *description)
             /* response = base64enc(md5(hash1 + opaque + challenge2)) */
 	  if (opaque.av_len)
 	    MD5_Update(&md5ctx, opaque.av_val, opaque.av_len);
-	  if (challenge.av_len)
+	  else if (challenge.av_len)
 	    MD5_Update(&md5ctx, challenge.av_val, challenge.av_len);
 	  MD5_Update(&md5ctx, challenge2, B64INT_LEN);
 	  MD5_Final(md5sum_val, &md5ctx);

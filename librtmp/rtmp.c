@@ -2598,7 +2598,6 @@ PublisherAuth(RTMP *r, AVal *description)
           b64enc(md5sum_val, MD5_DIGEST_LENGTH, salted2, SALTED2_LEN);
           RTMP_Log(RTMP_LOGDEBUG, "%s, b64(md5_1) = %s", __FUNCTION__, salted2);
 
-	/* FIXME: what byte order does this depend on? */
             challenge2_data = rand();
 
             b64enc((unsigned char *) &challenge2_data, sizeof(int), challenge2, CHALLENGE2_LEN);

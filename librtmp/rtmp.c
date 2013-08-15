@@ -2792,6 +2792,8 @@ PublisherAuth(RTMP *r, AVal *description)
 	  MD5_Update(&md5ctx, method, sizeof(method)-1);
 	  MD5_Update(&md5ctx, ":/", 2);
 	  MD5_Update(&md5ctx, apptmp.av_val, apptmp.av_len);
+	  if (!AValChr(&apptmp, '/'))
+	    MD5_Update(&md5ctx, "/_definst_", sizeof("/_definst_") - 1);
 	  MD5_Final(md5sum_val, &md5ctx);
           RTMP_Log(RTMP_LOGDEBUG, "%s, md5(%s:/%.*s) =>", __FUNCTION__,
 	    method, apptmp.av_len, apptmp.av_val);

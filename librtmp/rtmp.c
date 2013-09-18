@@ -3573,6 +3573,7 @@ RTMP_ReadPacket(RTMP *r, RTMPPacket *packet)
   char *header = (char *)hbuf;
   int nSize, hSize, nToRead, nChunk;
   int didAlloc = FALSE;
+  int extendedTimestamp;
 
   RTMP_Log(RTMP_LOGDEBUG2, "%s: fd=%d", __FUNCTION__, r->m_sb.sb_socket);
 
@@ -3675,17 +3676,19 @@ RTMP_ReadPacket(RTMP *r, RTMPPacket *packet)
 		packet->m_nInfoField2 = DecodeInt32LE(header + 7);
 	    }
 	}
-      if (packet->m_nTimeStamp == 0xffffff)
+    }
+
+  extendedTimestamp = packet->m_nTimeStamp == 0xffffff;
+  if (extendedTimestamp)
+    {
+      if (ReadN(r, header + nSize, 4) != 4)
 	{
-	  if (ReadN(r, header + nSize, 4) != 4)
-	    {
-	      RTMP_Log(RTMP_LOGERROR, "%s, failed to read extended timestamp",
-		  __FUNCTION__);
-	      return FALSE;
-	    }
-	  packet->m_nTimeStamp = AMF_DecodeInt32(header + nSize);
-	  hSize += 4;
+	  RTMP_Log(RTMP_LOGERROR, "%s, failed to read extended timestamp",
+	      __FUNCTION__);
+	  return FALSE;
 	}
+      packet->m_nTimeStamp = AMF_DecodeInt32(header + nSize);
+      hSize += 4;
     }
 
   RTMP_LogHexString(RTMP_LOGDEBUG2, (uint8_t *)hbuf, hSize);
@@ -3730,6 +3733,10 @@ RTMP_ReadPacket(RTMP *r, RTMPPacket *packet)
   if (!r->m_vecChannelsIn[packet->m_nChannel])
     r->m_vecChannelsIn[packet->m_nChannel] = malloc(sizeof(RTMPPacket));
   memcpy(r->m_vecChannelsIn[packet->m_nChannel], packet, sizeof(RTMPPacket));
+  if (extendedTimestamp)
+    {
+      r->m_vecChannelsIn[packet->m_nChannel]->m_nTimeStamp = 0xffffff;
+    }
 
   if (RTMPPacket_IsReady(packet))
     {

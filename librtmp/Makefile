@@ -38,7 +38,7 @@ CRYPTO_REQ=$(REQ_$(CRYPTO))
 CRYPTO_DEF=$(DEF_$(CRYPTO))
 PUBLIC_LIBS=$(PUB_$(CRYPTO))
 
-SO_VERSION=0
+SO_VERSION=1
 SOX_posix=so
 SOX_darwin=dylib
 SOX_mingw=dll

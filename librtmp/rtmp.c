@@ -3091,7 +3091,14 @@ HandleInvoke(RTMP *r, const char *body, unsigned int nBodySize)
               AMFProp_GetString(AMF_GetProp(&obj2, &av_description, -1), &description);
               RTMP_Log(RTMP_LOGDEBUG, "%s, error description: %s", __FUNCTION__, description.av_val);
               /* if PublisherAuth returns 1, then reconnect */
-              PublisherAuth(r, &description);
+              if (PublisherAuth(r, &description) == 1)
+              {
+                RTMP_Close(r);
+                if (r->Link.pFlags & RTMP_PUB_CLATE)
+                    r->Link.pFlags |= RTMP_PUB_CLEAN;
+                if (!RTMP_Connect(r, NULL) || !RTMP_ConnectStream(r, 0))
+                  goto leave;
+              }
             }
         }
       else
@@ -3107,22 +3114,6 @@ HandleInvoke(RTMP *r, const char *body, unsigned int nBodySize)
     {
       RTMP_Log(RTMP_LOGERROR, "rtmp server requested close");
       RTMP_Close(r);
-#ifdef CRYPTO
-      if ((r->Link.protocol & RTMP_FEATURE_WRITE) &&
-              !(r->Link.pFlags & RTMP_PUB_CLEAN) &&
-              (  !(r->Link.pFlags & RTMP_PUB_NAME) ||
-                 !(r->Link.pFlags & RTMP_PUB_RESP) ||
-                 (r->Link.pFlags & RTMP_PUB_CLATE) ) )
-        {
-          /* clean later */
-          if(r->Link.pFlags & RTMP_PUB_CLATE)
-              r->Link.pFlags |= RTMP_PUB_CLEAN;
-          RTMP_Log(RTMP_LOGERROR, "authenticating publisher");
-
-          if (!RTMP_Connect(r, NULL) || !RTMP_ConnectStream(r, 0))
-              goto leave;
-       }
-#endif
     }
   else if (AVMATCH(&method, &av_onStatus))
     {

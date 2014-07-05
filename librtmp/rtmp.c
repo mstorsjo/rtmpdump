@@ -142,6 +142,8 @@ static void DecodeTEA(AVal *key, AVal *text);
 static int HTTP_Post(RTMP *r, RTMPTCmd cmd, const char *buf, int len);
 static int HTTP_read(RTMP *r, int fill);
 
+static void CloseInternal(RTMP *r, int reconnect);
+
 #ifndef _WIN32
 static int clk_tck;
 #endif
@@ -2533,7 +2535,6 @@ PublisherAuth(RTMP *r, AVal *description)
   AVal pubToken;
 
   // If tcUrl is allocated, set RTMP_PUB_ALLOC instead to simplify checks below.
-  // This also avoids accidentally freeing tcUrl in RTMP_Close when reconnecting.
   if (r->Link.lFlags & RTMP_LF_FTCU && !(r->Link.pFlags & RTMP_PUB_ALLOC))
     {
       ptr = malloc(r->Link.app.av_len + 1);
@@ -2551,7 +2552,6 @@ PublisherAuth(RTMP *r, AVal *description)
         {
             if (strstr(r->Link.app.av_val, av_authmod_adobe.av_val) != NULL) {
               RTMP_Log(RTMP_LOGERROR, "%s, wrong pubUser & pubPasswd for publisher auth", __FUNCTION__);
-              r->Link.pFlags |= RTMP_PUB_CLEAN;
               return 0;
             } else if(r->Link.pubUser.av_len && r->Link.pubPasswd.av_len) {
               pubToken.av_val = malloc(r->Link.pubUser.av_len + av_authmod_adobe.av_len + 8);
@@ -2559,10 +2559,8 @@ PublisherAuth(RTMP *r, AVal *description)
                       av_authmod_adobe.av_val,
                       r->Link.pubUser.av_val);
               RTMP_Log(RTMP_LOGDEBUG, "%s, pubToken1: %s", __FUNCTION__, pubToken.av_val);
-              r->Link.pFlags |= RTMP_PUB_NAME;
             } else {
               RTMP_Log(RTMP_LOGERROR, "%s, need to set pubUser & pubPasswd for publisher auth", __FUNCTION__);
-              r->Link.pFlags |= RTMP_PUB_CLEAN;
               return 0;
             }
         }
@@ -2652,25 +2650,21 @@ PublisherAuth(RTMP *r, AVal *description)
                     opaque.av_len ? opaque.av_val : "");
             RTMP_Log(RTMP_LOGDEBUG, "%s, pubToken2: %s", __FUNCTION__, pubToken.av_val);
             free(orig_ptr);
-            r->Link.pFlags |= RTMP_PUB_RESP|RTMP_PUB_CLATE;
         }
       else if(strstr(description->av_val, "?reason=authfailed") != NULL)
         {
           RTMP_Log(RTMP_LOGERROR, "%s, Authentication failed: wrong password", __FUNCTION__);
-          r->Link.pFlags |= RTMP_PUB_CLEAN;
           return 0;
         }
       else if(strstr(description->av_val, "?reason=nosuchuser") != NULL)
         {
           RTMP_Log(RTMP_LOGERROR, "%s, Authentication failed: no such user", __FUNCTION__);
-          r->Link.pFlags |= RTMP_PUB_CLEAN;
           return 0;
         }
       else
         {
           RTMP_Log(RTMP_LOGERROR, "%s, Authentication failed: unknown auth mode: %s",
                   __FUNCTION__, description->av_val);
-          r->Link.pFlags |= RTMP_PUB_CLEAN;
           return 0;
         }
 
@@ -2706,7 +2700,6 @@ PublisherAuth(RTMP *r, AVal *description)
 
             if (strstr(r->Link.app.av_val, av_authmod_llnw.av_val) != NULL) {
               RTMP_Log(RTMP_LOGERROR, "%s, wrong pubUser & pubPasswd for publisher auth", __FUNCTION__);
-              r->Link.pFlags |= RTMP_PUB_CLEAN;
               return 0;
             } else if(r->Link.pubUser.av_len && r->Link.pubPasswd.av_len) {
               pubToken.av_val = malloc(r->Link.pubUser.av_len + av_authmod_llnw.av_len + 8);
@@ -2714,10 +2707,8 @@ PublisherAuth(RTMP *r, AVal *description)
                       av_authmod_llnw.av_val,
                       r->Link.pubUser.av_val);
               RTMP_Log(RTMP_LOGDEBUG, "%s, pubToken1: %s", __FUNCTION__, pubToken.av_val);
-              r->Link.pFlags |= RTMP_PUB_NAME;
             } else {
               RTMP_Log(RTMP_LOGERROR, "%s, need to set pubUser & pubPasswd for publisher auth", __FUNCTION__);
-              r->Link.pFlags |= RTMP_PUB_CLEAN;
               return 0;
             }
         }
@@ -2841,27 +2832,23 @@ PublisherAuth(RTMP *r, AVal *description)
                   nonce.av_val, cnonce, nchex, hash3);
           pubToken.av_len = strlen(pubToken.av_val);
           RTMP_Log(RTMP_LOGDEBUG, "%s, pubToken2: %s", __FUNCTION__, pubToken.av_val);
-          r->Link.pFlags |= RTMP_PUB_RESP|RTMP_PUB_CLATE;
 
           free(orig_ptr);
         }
       else if(strstr(description->av_val, "?reason=authfail") != NULL)
         {
           RTMP_Log(RTMP_LOGERROR, "%s, Authentication failed", __FUNCTION__);
-          r->Link.pFlags |= RTMP_PUB_CLEAN;
           return 0;
         }
       else if(strstr(description->av_val, "?reason=nosuchuser") != NULL)
         {
           RTMP_Log(RTMP_LOGERROR, "%s, Authentication failed: no such user", __FUNCTION__);
-          r->Link.pFlags |= RTMP_PUB_CLEAN;
           return 0;
         }
       else
         {
           RTMP_Log(RTMP_LOGERROR, "%s, Authentication failed: unknown auth mode: %s",
                   __FUNCTION__, description->av_val);
-          r->Link.pFlags |= RTMP_PUB_CLEAN;
           return 0;
         }
 
@@ -3106,9 +3093,7 @@ HandleInvoke(RTMP *r, const char *body, unsigned int nBodySize)
               /* if PublisherAuth returns 1, then reconnect */
               if (PublisherAuth(r, &description) == 1)
               {
-                RTMP_Close(r);
-                if (r->Link.pFlags & RTMP_PUB_CLATE)
-                    r->Link.pFlags |= RTMP_PUB_CLEAN;
+                CloseInternal(r, 1);
                 if (!RTMP_Connect(r, NULL) || !RTMP_ConnectStream(r, 0))
                   goto leave;
               }
@@ -4140,6 +4125,12 @@ RTMP_Serve(RTMP *r)
 void
 RTMP_Close(RTMP *r)
 {
+  CloseInternal(r, 0);
+}
+
+static void
+CloseInternal(RTMP *r, int reconnect)
+{
   int i;
 
   if (RTMP_IsConnected(r))
@@ -4226,15 +4217,14 @@ RTMP_Close(RTMP *r)
       r->Link.lFlags ^= RTMP_LF_FTCU;
     }
 
-#ifdef CRYPTO
-  if (!(r->Link.protocol & RTMP_FEATURE_WRITE) || (r->Link.pFlags & RTMP_PUB_CLEAN))
+  if (!reconnect)
     {
       free(r->Link.playpath0.av_val);
       r->Link.playpath0.av_val = NULL;
     }
+#ifdef CRYPTO
   if ((r->Link.protocol & RTMP_FEATURE_WRITE) &&
-      (r->Link.pFlags & RTMP_PUB_CLEAN) &&
-      (r->Link.pFlags & RTMP_PUB_ALLOC))
+      (r->Link.pFlags & RTMP_PUB_ALLOC) && !reconnect)
     {
       free(r->Link.app.av_val);
       r->Link.app.av_val = NULL;
@@ -4256,9 +4246,6 @@ RTMP_Close(RTMP *r)
       RC4_free(r->Link.rc4keyOut);
       r->Link.rc4keyOut = NULL;
     }
-#else
-  free(r->Link.playpath0.av_val);
-  r->Link.playpath0.av_val = NULL;
 #endif
 }
 

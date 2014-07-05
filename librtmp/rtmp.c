@@ -2534,18 +2534,6 @@ PublisherAuth(RTMP *r, AVal *description)
   char salted2[SALTED2_LEN];
   AVal pubToken;
 
-  // If tcUrl is allocated, set RTMP_PUB_ALLOC instead to simplify checks below.
-  if (r->Link.lFlags & RTMP_LF_FTCU && !(r->Link.pFlags & RTMP_PUB_ALLOC))
-    {
-      ptr = malloc(r->Link.app.av_len + 1);
-      strncpy(ptr, r->Link.app.av_val, r->Link.app.av_len);
-      ptr[r->Link.app.av_len] = '\0'; // We use strstr on this string below
-      r->Link.app.av_val = ptr;
-
-      r->Link.lFlags &= ~RTMP_LF_FTCU;
-      r->Link.pFlags |= RTMP_PUB_ALLOC;
-    }
-
   if (strstr(description->av_val, av_authmod_adobe.av_val) != NULL)
     {
       if(strstr(description->av_val, "code=403 need auth") != NULL)
@@ -2672,7 +2660,7 @@ PublisherAuth(RTMP *r, AVal *description)
       strncpy(ptr, r->Link.app.av_val, r->Link.app.av_len);
       strncpy(ptr + r->Link.app.av_len, pubToken.av_val, pubToken.av_len);
       r->Link.app.av_len += pubToken.av_len;
-      if(r->Link.pFlags & RTMP_PUB_ALLOC)
+      if(r->Link.lFlags & RTMP_LF_FAPU)
           free(r->Link.app.av_val);
       r->Link.app.av_val = ptr;
 
@@ -2680,12 +2668,12 @@ PublisherAuth(RTMP *r, AVal *description)
       strncpy(ptr, r->Link.tcUrl.av_val, r->Link.tcUrl.av_len);
       strncpy(ptr + r->Link.tcUrl.av_len, pubToken.av_val, pubToken.av_len);
       r->Link.tcUrl.av_len += pubToken.av_len;
-      if(r->Link.pFlags & RTMP_PUB_ALLOC)
+      if(r->Link.lFlags & RTMP_LF_FTCU)
           free(r->Link.tcUrl.av_val);
       r->Link.tcUrl.av_val = ptr;
 
       free(pubToken.av_val);
-      r->Link.pFlags |= RTMP_PUB_ALLOC;
+      r->Link.lFlags |= RTMP_LF_FTCU | RTMP_LF_FAPU;
 
       RTMP_Log(RTMP_LOGDEBUG, "%s, new app: %.*s tcUrl: %.*s playpath: %s", __FUNCTION__,
               r->Link.app.av_len, r->Link.app.av_val,
@@ -2856,7 +2844,7 @@ PublisherAuth(RTMP *r, AVal *description)
       strncpy(ptr, r->Link.app.av_val, r->Link.app.av_len);
       strncpy(ptr + r->Link.app.av_len, pubToken.av_val, pubToken.av_len);
       r->Link.app.av_len += pubToken.av_len;
-      if(r->Link.pFlags & RTMP_PUB_ALLOC)
+      if(r->Link.lFlags & RTMP_LF_FAPU)
           free(r->Link.app.av_val);
       r->Link.app.av_val = ptr;
 
@@ -2864,12 +2852,12 @@ PublisherAuth(RTMP *r, AVal *description)
       strncpy(ptr, r->Link.tcUrl.av_val, r->Link.tcUrl.av_len);
       strncpy(ptr + r->Link.tcUrl.av_len, pubToken.av_val, pubToken.av_len);
       r->Link.tcUrl.av_len += pubToken.av_len;
-      if(r->Link.pFlags & RTMP_PUB_ALLOC)
+      if(r->Link.lFlags & RTMP_LF_FTCU)
           free(r->Link.tcUrl.av_val);
       r->Link.tcUrl.av_val = ptr;
 
       free(pubToken.av_val);
-      r->Link.pFlags |= RTMP_PUB_ALLOC;
+      r->Link.lFlags |= RTMP_LF_FTCU | RTMP_LF_FAPU;
 
       RTMP_Log(RTMP_LOGDEBUG, "%s, new app: %.*s tcUrl: %.*s playpath: %s", __FUNCTION__,
               r->Link.app.av_len, r->Link.app.av_val,
@@ -4210,11 +4198,17 @@ CloseInternal(RTMP *r, int reconnect)
   r->m_resplen = 0;
   r->m_unackd = 0;
 
-  if (r->Link.lFlags & RTMP_LF_FTCU)
+  if (r->Link.lFlags & RTMP_LF_FTCU && !reconnect)
     {
       free(r->Link.tcUrl.av_val);
       r->Link.tcUrl.av_val = NULL;
       r->Link.lFlags ^= RTMP_LF_FTCU;
+    }
+  if (r->Link.lFlags & RTMP_LF_FAPU && !reconnect)
+    {
+      free(r->Link.app.av_val);
+      r->Link.app.av_val = NULL;
+      r->Link.lFlags ^= RTMP_LF_FAPU;
     }
 
   if (!reconnect)
@@ -4223,14 +4217,6 @@ CloseInternal(RTMP *r, int reconnect)
       r->Link.playpath0.av_val = NULL;
     }
 #ifdef CRYPTO
-  if ((r->Link.protocol & RTMP_FEATURE_WRITE) &&
-      (r->Link.pFlags & RTMP_PUB_ALLOC) && !reconnect)
-    {
-      free(r->Link.app.av_val);
-      r->Link.app.av_val = NULL;
-      free(r->Link.tcUrl.av_val);
-      r->Link.tcUrl.av_val = NULL;
-    }
   if (r->Link.dh)
     {
       MDH_free(r->Link.dh);

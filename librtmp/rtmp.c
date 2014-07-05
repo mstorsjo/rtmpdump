@@ -2532,6 +2532,19 @@ PublisherAuth(RTMP *r, AVal *description)
   char salted2[SALTED2_LEN];
   AVal pubToken;
 
+  // If tcUrl is allocated, set RTMP_PUB_ALLOC instead to simplify checks below.
+  // This also avoids accidentally freeing tcUrl in RTMP_Close when reconnecting.
+  if (r->Link.lFlags & RTMP_LF_FTCU && !(r->Link.pFlags & RTMP_PUB_ALLOC))
+    {
+      ptr = malloc(r->Link.app.av_len + 1);
+      strncpy(ptr, r->Link.app.av_val, r->Link.app.av_len);
+      ptr[r->Link.app.av_len] = '\0'; // We use strstr on this string below
+      r->Link.app.av_val = ptr;
+
+      r->Link.lFlags &= ~RTMP_LF_FTCU;
+      r->Link.pFlags |= RTMP_PUB_ALLOC;
+    }
+
   if (strstr(description->av_val, av_authmod_adobe.av_val) != NULL)
     {
       if(strstr(description->av_val, "code=403 need auth") != NULL)

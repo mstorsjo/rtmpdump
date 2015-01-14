@@ -3965,10 +3965,11 @@ RTMP_SendPacket(RTMP *r, RTMPPacket *packet, int queue)
       hSize += cSize;
     }
 
-  if (nSize > 1 && t >= 0xffffff)
+  if (t >= 0xffffff)
     {
       header -= 4;
       hSize += 4;
+      RTMP_Log(RTMP_LOGWARNING, "Larger timestamp than 24-bit: 0x%x", t);
     }
 
   hptr = header;
@@ -4007,7 +4008,7 @@ RTMP_SendPacket(RTMP *r, RTMPPacket *packet, int queue)
   if (nSize > 8)
     hptr += EncodeInt32LE(hptr, packet->m_nInfoField2);
 
-  if (nSize > 1 && t >= 0xffffff)
+  if (t >= 0xffffff)
     hptr = AMF_EncodeInt32(hptr, hend, t);
 
   nSize = packet->m_nBodySize;
@@ -4062,6 +4063,11 @@ RTMP_SendPacket(RTMP *r, RTMPPacket *packet, int queue)
 	      header -= cSize;
 	      hSize += cSize;
 	    }
+          if (t >= 0xffffff)
+            {
+              header -= 4;
+              hSize += 4;
+            }
 	  *header = (0xc0 | c);
 	  if (cSize)
 	    {
@@ -4070,6 +4076,11 @@ RTMP_SendPacket(RTMP *r, RTMPPacket *packet, int queue)
 	      if (cSize == 2)
 		header[2] = tmp >> 8;
 	    }
+          if (t >= 0xffffff)
+            {
+              char* extendedTimestamp = header + 1 + cSize;
+              AMF_EncodeInt32(extendedTimestamp, extendedTimestamp + 4, t);
+            }
 	}
     }
   if (tbuf)

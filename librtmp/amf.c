@@ -1078,11 +1078,6 @@ AMF3_Decode(AMFObject *obj, const char *pBuffer, int nSize, int bAMFData)
 	  for (i = 0; i < cdnum; i++)
 	    {
 	      AVal memberName;
-	      len = AMF3ReadString(pBuffer, &memberName);
-	      RTMP_Log(RTMP_LOGDEBUG, "Member: %s", memberName.av_val);
-	      AMF3CD_AddProp(&cd, &memberName);
-	      nSize -= len;
-	      pBuffer += len;
 	      if (nSize <=0)
 		{
 invalid:
@@ -1090,6 +1085,11 @@ invalid:
 		    __FUNCTION__);
 		  return nOriginalSize;
 		}
+	      len = AMF3ReadString(pBuffer, &memberName);
+	      RTMP_Log(RTMP_LOGDEBUG, "Member: %s", memberName.av_val);
+	      AMF3CD_AddProp(&cd, &memberName);
+	      nSize -= len;
+	      pBuffer += len;
 	    }
 	}
 
@@ -1120,6 +1120,8 @@ invalid:
 	  int nRes, i;
 	  for (i = 0; i < cd.cd_num; i++)	/* non-dynamic */
 	    {
+	      if (nSize <=0)
+	        goto invalid;
 	      nRes = AMF3Prop_Decode(&prop, pBuffer, nSize, FALSE);
 	      if (nRes == -1)
 		RTMP_Log(RTMP_LOGDEBUG, "%s, failed to decode AMF3 property!",
@@ -1130,8 +1132,6 @@ invalid:
 
 	      pBuffer += nRes;
 	      nSize -= nRes;
-	      if (nSize <=0)
-	        goto invalid;
 	    }
 	  if (cd.cd_dynamic)
 	    {
@@ -1139,13 +1139,13 @@ invalid:
 
 	      do
 		{
+		  if (nSize <=0)
+		    goto invalid;
 		  nRes = AMF3Prop_Decode(&prop, pBuffer, nSize, TRUE);
 		  AMF_AddProp(obj, &prop);
 
 		  pBuffer += nRes;
 		  nSize -= nRes;
-		  if (nSize <=0)
-		    goto invalid;
 
 		  len = prop.p_name.av_len;
 		}

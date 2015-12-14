@@ -471,6 +471,8 @@ AMF3ReadString(const char *data, AVal *str)
       RTMP_Log(RTMP_LOGDEBUG,
 	  "%s, string reference, index: %d, not supported, ignoring!",
 	  __FUNCTION__, refIndex);
+	  str->av_val = NULL;
+	  str->av_len = 0;
       return len;
     }
   else

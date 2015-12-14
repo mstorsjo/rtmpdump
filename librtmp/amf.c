@@ -1055,12 +1055,12 @@ AMF3_Decode(AMFObject *obj, const char *pBuffer, int nSize, int bAMFData)
       else
 	{
 	  int32_t classExtRef = (classRef >> 1);
-	  int i;
+	  int i, cdnum;
 
 	  cd.cd_externalizable = (classExtRef & 0x1) == 1;
 	  cd.cd_dynamic = ((classExtRef >> 1) & 0x1) == 1;
 
-	  cd.cd_num = classExtRef >> 2;
+	  cdnum = classExtRef >> 2;
 
 	  /* class name */
 
@@ -1075,7 +1075,7 @@ AMF3_Decode(AMFObject *obj, const char *pBuffer, int nSize, int bAMFData)
 	      cd.cd_name.av_val, cd.cd_externalizable, cd.cd_dynamic,
 	      cd.cd_num);
 
-	  for (i = 0; i < cd.cd_num; i++)
+	  for (i = 0; i < cdnum; i++)
 	    {
 	      AVal memberName;
 	      len = AMF3ReadString(pBuffer, &memberName);
@@ -1083,6 +1083,13 @@ AMF3_Decode(AMFObject *obj, const char *pBuffer, int nSize, int bAMFData)
 	      AMF3CD_AddProp(&cd, &memberName);
 	      nSize -= len;
 	      pBuffer += len;
+	      if (nSize <=0)
+		{
+invalid:
+		  RTMP_Log(RTMP_LOGDEBUG, "%s, invalid class encoding!",
+		    __FUNCTION__);
+		  return nOriginalSize;
+		}
 	    }
 	}
 
@@ -1123,6 +1130,8 @@ AMF3_Decode(AMFObject *obj, const char *pBuffer, int nSize, int bAMFData)
 
 	      pBuffer += nRes;
 	      nSize -= nRes;
+	      if (nSize <=0)
+	        goto invalid;
 	    }
 	  if (cd.cd_dynamic)
 	    {
@@ -1135,6 +1144,8 @@ AMF3_Decode(AMFObject *obj, const char *pBuffer, int nSize, int bAMFData)
 
 		  pBuffer += nRes;
 		  nSize -= nRes;
+		  if (nSize <=0)
+		    goto invalid;
 
 		  len = prop.p_name.av_len;
 		}

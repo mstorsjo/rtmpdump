@@ -33,6 +33,7 @@
 #include "bytes.h"
 
 static const AMFObjectProperty AMFProp_Invalid = { {0, 0}, AMF_INVALID };
+static const AMFObject AMFObj_Invalid = { 0, 0 };
 static const AVal AV_empty = { 0, 0 };
 
 /* Data is Big-Endian */
@@ -340,13 +341,19 @@ AMFProp_GetBoolean(AMFObjectProperty *prop)
 void
 AMFProp_GetString(AMFObjectProperty *prop, AVal *str)
 {
-  *str = prop->p_vu.p_aval;
+  if (prop->p_type == AMF_STRING)
+    *str = prop->p_vu.p_aval;
+  else
+    *str = AV_empty;
 }
 
 void
 AMFProp_GetObject(AMFObjectProperty *prop, AMFObject *obj)
 {
-  *obj = prop->p_vu.p_object;
+  if (prop->p_type == AMF_OBJECT)
+    *obj = prop->p_vu.p_object;
+  else
+    *obj = AMFObj_Invalid;
 }
 
 int

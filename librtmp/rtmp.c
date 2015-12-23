@@ -186,9 +186,12 @@ RTMPPacket_Reset(RTMPPacket *p)
 }
 
 int
-RTMPPacket_Alloc(RTMPPacket *p, int nSize)
+RTMPPacket_Alloc(RTMPPacket *p, uint32_t nSize)
 {
-  char *ptr = calloc(1, nSize + RTMP_MAX_HEADER_SIZE);
+  char *ptr;
+  if (nSize > SIZE_MAX - RTMP_MAX_HEADER_SIZE)
+    return FALSE;
+  ptr = calloc(1, nSize + RTMP_MAX_HEADER_SIZE);
   if (!ptr)
     return FALSE;
   p->m_body = ptr + RTMP_MAX_HEADER_SIZE;

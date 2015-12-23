@@ -3643,7 +3643,6 @@ RTMP_ReadPacket(RTMP *r, RTMPPacket *packet)
 	{
 	  packet->m_nBodySize = AMF_DecodeInt24(header + 3);
 	  packet->m_nBytesRead = 0;
-	  RTMPPacket_Free(packet);
 
 	  if (nSize > 6)
 	    {

@@ -519,9 +519,11 @@ AMF3Prop_Decode(AMFObjectProperty *prop, const char *pBuffer, int nSize,
       if (name.av_len <= 0)
 	return nRes;
 
+      nSize -= nRes;
+      if (nSize <= 0)
+	return -1;
       prop->p_name = name;
       pBuffer += nRes;
-      nSize -= nRes;
     }
 
   /* decode */
@@ -607,6 +609,8 @@ AMF3Prop_Decode(AMFObjectProperty *prop, const char *pBuffer, int nSize,
 	  __FUNCTION__, (unsigned char)(*pBuffer), pBuffer);
       return -1;
     }
+  if (nSize < 0)
+    return -1;
 
   return nOriginalSize - nSize;
 }
@@ -1001,9 +1005,17 @@ AMF_DecodeArray(AMFObject *obj, const char *pBuffer, int nSize,
       int nRes;
       nArrayLen--;
 
+      if (nSize <= 0)
+	{
+	  bError = TRUE;
+	  break;
+	}
       nRes = AMFProp_Decode(&prop, pBuffer, nSize, bDecodeName);
       if (nRes == -1)
-	bError = TRUE;
+	{
+	  bError = TRUE;
+	  break;
+	}
       else
 	{
 	  nSize -= nRes;
@@ -1195,10 +1207,18 @@ AMF_Decode(AMFObject *obj, const char *pBuffer, int nSize, int bDecodeName)
 
       nRes = AMFProp_Decode(&prop, pBuffer, nSize, bDecodeName);
       if (nRes == -1)
-	bError = TRUE;
+	{
+	  bError = TRUE;
+	  break;
+	}
       else
 	{
 	  nSize -= nRes;
+	  if (nSize < 0)
+	    {
+	      bError = TRUE;
+	      break;
+	    }
 	  pBuffer += nRes;
 	  AMF_AddProp(obj, &prop);
 	}

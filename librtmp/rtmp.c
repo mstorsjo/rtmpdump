@@ -3586,16 +3586,25 @@ RTMPSockBuf_Fill(RTMPSockBuf *sb)
   while (1)
     {
       nBytes = sizeof(sb->sb_buf) - sb->sb_size - (sb->sb_start - sb->sb_buf);
-#if defined(CRYPTO) && !defined(NO_SSL)
-      if (sb->sb_ssl)
-	{
-	  nBytes = TLS_read(sb->sb_ssl, sb->sb_start + sb->sb_size, nBytes);
-	}
+
+      if (r->hook)
+      {
+        nBytes = r->hook->RTMPSockBuf_Fill(sb, sb->sb_start + sb->sb_size, nBytes);
+      }
       else
+      {
+#if defined(CRYPTO) && !defined(NO_SSL)
+        if (sb->sb_ssl)
+        {
+          nBytes = TLS_read(sb->sb_ssl, sb->sb_start + sb->sb_size, nBytes);
+        }
+        else
 #endif
-	{
-	  nBytes = recv(sb->sb_socket, sb->sb_start + sb->sb_size, nBytes, 0);
-	}
+        {
+          nBytes = recv(sb->sb_socket, sb->sb_start + sb->sb_size, nBytes, 0);
+        }
+      }
+
       if (nBytes != -1)
 	{
 	  sb->sb_size += nBytes;

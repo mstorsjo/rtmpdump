@@ -260,6 +260,14 @@ RTMP_Init(RTMP *r)
   r->m_fVideoCodecs = 252.0;
   r->Link.timeout = 30;
   r->Link.swfAge = 30;
+
+  r->m_sb.rtmp = r;
+}
+
+void
+RTMP_Init_Hook(RTMP *r, RTMP_HOOK* hook)
+{
+  r->hook = hook;
 }
 
 void
@@ -277,12 +285,20 @@ RTMP_GetDuration(RTMP *r)
 int
 RTMP_IsConnected(RTMP *r)
 {
+  if (r->hook)
+  {
+    return r->hook->RTMP_IsConnected(r);
+  }
   return r->m_sb.sb_socket != -1;
 }
 
 int
 RTMP_Socket(RTMP *r)
 {
+  if (r->hook)
+  {
+    r->hook->RTMP_Socket(r);
+  }
   return r->m_sb.sb_socket;
 }
 
@@ -813,6 +829,7 @@ RTMP_Connect0(RTMP *r, struct sockaddr * service)
   r->m_pausing = 0;
   r->m_fDuration = 0.0;
 
+
   r->m_sb.sb_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
   if (r->m_sb.sb_socket != -1)
     {
@@ -919,6 +936,10 @@ RTMP_Connect(RTMP *r, RTMPPacket *cp)
   struct sockaddr_in service;
   if (!r->Link.hostname.av_len)
     return FALSE;
+
+  if (r->hook) {
+    return r->hook->RTMP_Connect(r, cp);
+  }
 
   memset(&service, 0, sizeof(struct sockaddr_in));
   service.sin_family = AF_INET;
@@ -3553,6 +3574,7 @@ int
 RTMPSockBuf_Fill(RTMPSockBuf *sb)
 {
   int nBytes;
+  RTMP* r = sb->rtmp;
 
   if (!sb->sb_size)
     sb->sb_start = sb->sb_buf;
@@ -3598,10 +3620,15 @@ int
 RTMPSockBuf_Send(RTMPSockBuf *sb, const char *buf, int len)
 {
   int rc;
+  RTMP* r = sb->rtmp;
 
 #ifdef _DEBUG
   fwrite(buf, 1, len, netstackdump);
 #endif
+
+  if (r->hook) {
+      rc = r->hook->RTMPSockBuf_Send(sb, buf, len);
+  }
 
 #if defined(CRYPTO) && !defined(NO_SSL)
   if (sb->sb_ssl)
@@ -3619,6 +3646,11 @@ RTMPSockBuf_Send(RTMPSockBuf *sb, const char *buf, int len)
 int
 RTMPSockBuf_Close(RTMPSockBuf *sb)
 {
+  RTMP* rtmp = sb->rtmp;
+  if (rtmp->hook)
+  {
+    return rtmp->hook->RTMPSockBuf_Close(sb);
+  }
 #if defined(CRYPTO) && !defined(NO_SSL)
   if (sb->sb_ssl)
     {

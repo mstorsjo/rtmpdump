@@ -265,7 +265,7 @@ RTMP_Init(RTMP *r)
 }
 
 void
-RTMP_Init_Hook(RTMP *r, RTMP_HOOK* hook)
+RTMP_Init_Hook(RTMP *r, RTMP_HOOK *hook)
 {
   r->hook = hook;
 }
@@ -3641,6 +3641,7 @@ RTMPSockBuf_Send(RTMPSockBuf *sb, const char *buf, int len)
 
   if (r->hook) {
       rc = r->hook->RTMPSockBuf_Send(sb, buf, len);
+      return rc;
   }
 
 #if defined(CRYPTO) && !defined(NO_SSL)

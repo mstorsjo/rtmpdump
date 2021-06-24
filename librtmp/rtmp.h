@@ -269,13 +269,15 @@ extern "C"
     int m_polling;
     int m_resplen;
     int m_unackd;
+
+    struct RTMP_HOOK *hook;
+    
     AVal m_clientID;
 
     RTMP_READ m_read;
     RTMPPacket m_write;
     RTMPSockBuf m_sb;
     RTMP_LNK Link;
-    struct RTMP_HOOK *hook;
   } RTMP;
 
   typedef struct RTMP_HOOK {

@@ -30,6 +30,7 @@
 #endif
 
 #include <errno.h>
+#include <limits.h>
 #include <stdint.h>
 #include <stddef.h>
 
@@ -137,7 +138,7 @@ extern "C"
 
   void RTMPPacket_Reset(RTMPPacket *p);
   void RTMPPacket_Dump(RTMPPacket *p);
-  int RTMPPacket_Alloc(RTMPPacket *p, int nSize);
+  int RTMPPacket_Alloc(RTMPPacket *p, uint32_t nSize);
   void RTMPPacket_Free(RTMPPacket *p);
 
 #define RTMPPacket_IsReady(a)	((a)->m_nBytesRead == (a)->m_nBodySize)
@@ -158,6 +159,8 @@ extern "C"
     AVal subscribepath;
     AVal usherToken;
     AVal token;
+    AVal pubUser;
+    AVal pubPasswd;
     AMFObject extras;
     int edepth;
 
@@ -170,12 +173,15 @@ extern "C"
 #define RTMP_LF_PLST	0x0008	/* send playlist before play */
 #define RTMP_LF_BUFX	0x0010	/* toggle stream on BufferEmpty msg */
 #define RTMP_LF_FTCU	0x0020	/* free tcUrl on close */
+#define RTMP_LF_FAPU	0x0040	/* free app on close */
     int lFlags;
 
     int swfAge;
 
     int protocol;
     int timeout;		/* connection timeout in seconds */
+
+    int pFlags;			/* unused, but kept to avoid breaking ABI */
 
     unsigned short socksport;
     unsigned short port;
@@ -255,9 +261,11 @@ extern "C"
     int m_numCalls;
     RTMP_METHOD *m_methodCalls;	/* remote method calls queue */
 
-    RTMPPacket *m_vecChannelsIn[RTMP_CHANNELS];
-    RTMPPacket *m_vecChannelsOut[RTMP_CHANNELS];
-    int m_channelTimestamp[RTMP_CHANNELS];	/* abs timestamp of last packet */
+    int m_channelsAllocatedIn;
+    int m_channelsAllocatedOut;
+    RTMPPacket **m_vecChannelsIn;
+    RTMPPacket **m_vecChannelsOut;
+    int *m_channelTimestamp;	/* abs timestamp of last packet */
 
     double m_fAudioCodecs;	/* audioCodecs for the connect packet */
     double m_fVideoCodecs;	/* videoCodecs for the connect packet */
@@ -336,6 +344,7 @@ extern "C"
   // tls io set
   int RTMP_Connect1(RTMP *r, RTMPPacket *cp);
   int RTMP_Serve(RTMP *r);
+  int RTMP_TLS_Accept(RTMP *r, void *ctx);
 
   int RTMP_ReadPacket(RTMP *r, RTMPPacket *packet);
   int RTMP_SendPacket(RTMP *r, RTMPPacket *packet, int queue);
@@ -358,6 +367,9 @@ extern "C"
   RTMP *RTMP_Alloc(void);
   void RTMP_Free(RTMP *r);
   void RTMP_EnableWrite(RTMP *r);
+
+  void *RTMP_TLS_AllocServerContext(const char* cert, const char* key);
+  void RTMP_TLS_FreeServerContext(void *ctx);
 
   int RTMP_LibVersion(void);
   void RTMP_UserInterrupt(void);	/* user typed Ctrl-C */

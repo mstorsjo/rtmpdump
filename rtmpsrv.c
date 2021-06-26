@@ -92,6 +92,7 @@ typedef struct
 } STREAMING_SERVER;
 
 STREAMING_SERVER *rtmpServer = 0;	// server structure pointer
+void *sslCtx = NULL;
 
 STREAMING_SERVER *startStreaming(const char *address, int port);
 void stopStreaming(STREAMING_SERVER * server);
@@ -403,10 +404,10 @@ countAMF(AMFObject *obj, int *argc)
 static char *
 dumpAMF(AMFObject *obj, char *ptr, AVal *argv, int *argc)
 {
-  int i, len, ac = *argc;
+  int i, ac = *argc;
   const char opt[] = "NBSO Z";
 
-  for (i=0, len=0; i < obj->o_num; i++)
+  for (i=0; i < obj->o_num; i++)
     {
       AMFObjectProperty *p = &obj->o_props[i];
       argv[ac].av_val = ptr+1;
@@ -594,6 +595,8 @@ ServeInvoke(STREAMING_SERVER *server, RTMP * r, RTMPPacket *packet, unsigned int
       uint32_t now;
       RTMPPacket pc = {0};
       AMFProp_GetString(AMF_GetProp(&obj, NULL, 3), &r->Link.playpath);
+      if (!r->Link.playpath.av_len)
+        return 0;
       /*
       r->Link.seekTime = AMFProp_GetNumber(AMF_GetProp(&obj, NULL, 4));
       if (obj.o_num > 5)
@@ -767,47 +770,40 @@ ServePacket(STREAMING_SERVER *server, RTMP *r, RTMPPacket *packet)
 
   switch (packet->m_packetType)
     {
-    case 0x01:
-      // chunk size
+    case RTMP_PACKET_TYPE_CHUNK_SIZE:
 //      HandleChangeChunkSize(r, packet);
       break;
 
-    case 0x03:
-      // bytes read report
+    case RTMP_PACKET_TYPE_BYTES_READ_REPORT:
       break;
 
-    case 0x04:
-      // ctrl
+    case RTMP_PACKET_TYPE_CONTROL:
 //      HandleCtrl(r, packet);
       break;
 
-    case 0x05:
-      // server bw
+    case RTMP_PACKET_TYPE_SERVER_BW:
 //      HandleServerBW(r, packet);
       break;
 
-    case 0x06:
-      // client bw
+    case RTMP_PACKET_TYPE_CLIENT_BW:
  //     HandleClientBW(r, packet);
       break;
 
-    case 0x08:
-      // audio data
+    case RTMP_PACKET_TYPE_AUDIO:
       //RTMP_Log(RTMP_LOGDEBUG, "%s, received: audio %lu bytes", __FUNCTION__, packet.m_nBodySize);
       break;
 
-    case 0x09:
-      // video data
+    case RTMP_PACKET_TYPE_VIDEO:
       //RTMP_Log(RTMP_LOGDEBUG, "%s, received: video %lu bytes", __FUNCTION__, packet.m_nBodySize);
       break;
 
-    case 0x0F:			// flex stream send
+    case RTMP_PACKET_TYPE_FLEX_STREAM_SEND:
       break;
 
-    case 0x10:			// flex shared object
+    case RTMP_PACKET_TYPE_FLEX_SHARED_OBJECT:
       break;
 
-    case 0x11:			// flex message
+    case RTMP_PACKET_TYPE_FLEX_MESSAGE:
       {
 	RTMP_Log(RTMP_LOGDEBUG, "%s, flex message, size %u bytes, not fully supported",
 	    __FUNCTION__, packet->m_nBodySize);
@@ -827,16 +823,13 @@ ServePacket(STREAMING_SERVER *server, RTMP *r, RTMPPacket *packet)
 	  RTMP_Close(r);
 	break;
       }
-    case 0x12:
-      // metadata (notify)
+    case RTMP_PACKET_TYPE_INFO:
       break;
 
-    case 0x13:
-      /* shared object */
+    case RTMP_PACKET_TYPE_SHARED_OBJECT:
       break;
 
-    case 0x14:
-      // invoke
+    case RTMP_PACKET_TYPE_INVOKE:
       RTMP_Log(RTMP_LOGDEBUG, "%s, received: invoke %u bytes", __FUNCTION__,
 	  packet->m_nBodySize);
       //RTMP_LogHex(packet.m_body, packet.m_nBodySize);
@@ -845,8 +838,7 @@ ServePacket(STREAMING_SERVER *server, RTMP *r, RTMPPacket *packet)
 	RTMP_Close(r);
       break;
 
-    case 0x16:
-      /* flv */
+    case RTMP_PACKET_TYPE_FLASH_VIDEO:
 	break;
     default:
       RTMP_Log(RTMP_LOGDEBUG, "%s, unknown packet type received: 0x%02x", __FUNCTION__,
@@ -886,7 +878,7 @@ void doServe(STREAMING_SERVER * server,	// server socket and state (our listenin
 {
   server->state = STREAMING_IN_PROGRESS;
 
-  RTMP rtmp = { 0 };		/* our session with the real client */
+  RTMP *rtmp = RTMP_Alloc();		/* our session with the real client */
   RTMPPacket packet = { 0 };
 
   // timeout for http requests
@@ -906,38 +898,44 @@ void doServe(STREAMING_SERVER * server,	// server socket and state (our listenin
     }
   else
     {
-      RTMP_Init(&rtmp);
-      rtmp.m_sb.sb_socket = sockfd;
-      if (!RTMP_Serve(&rtmp))
+      RTMP_Init(rtmp);
+      rtmp->m_sb.sb_socket = sockfd;
+      if (sslCtx && !RTMP_TLS_Accept(rtmp, sslCtx))
+        {
+	  RTMP_Log(RTMP_LOGERROR, "TLS handshake failed");
+	  goto cleanup;
+        }
+      if (!RTMP_Serve(rtmp))
 	{
 	  RTMP_Log(RTMP_LOGERROR, "Handshake failed");
 	  goto cleanup;
 	}
     }
   server->arglen = 0;
-  while (RTMP_IsConnected(&rtmp) && RTMP_ReadPacket(&rtmp, &packet))
+  while (RTMP_IsConnected(rtmp) && RTMP_ReadPacket(rtmp, &packet))
     {
       if (!RTMPPacket_IsReady(&packet))
 	continue;
-      ServePacket(server, &rtmp, &packet);
+      ServePacket(server, rtmp, &packet);
       RTMPPacket_Free(&packet);
     }
 
 cleanup:
   RTMP_LogPrintf("Closing connection... ");
-  RTMP_Close(&rtmp);
+  RTMP_Close(rtmp);
   /* Should probably be done by RTMP_Close() ... */
-  rtmp.Link.playpath.av_val = NULL;
-  rtmp.Link.tcUrl.av_val = NULL;
-  rtmp.Link.swfUrl.av_val = NULL;
-  rtmp.Link.pageUrl.av_val = NULL;
-  rtmp.Link.app.av_val = NULL;
-  rtmp.Link.flashVer.av_val = NULL;
-  if (rtmp.Link.usherToken.av_val)
+  rtmp->Link.playpath.av_val = NULL;
+  rtmp->Link.tcUrl.av_val = NULL;
+  rtmp->Link.swfUrl.av_val = NULL;
+  rtmp->Link.pageUrl.av_val = NULL;
+  rtmp->Link.app.av_val = NULL;
+  rtmp->Link.flashVer.av_val = NULL;
+  if (rtmp->Link.usherToken.av_val)
     {
-      free(rtmp.Link.usherToken.av_val);
-      rtmp.Link.usherToken.av_val = NULL;
+      free(rtmp->Link.usherToken.av_val);
+      rtmp->Link.usherToken.av_val = NULL;
     }
+  RTMP_Free(rtmp);
   RTMP_LogPrintf("done!\n\n");
 
 quit:
@@ -1071,20 +1069,32 @@ int
 main(int argc, char **argv)
 {
   int nStatus = RD_SUCCESS;
+  int i;
 
   // http streaming server
   char DEFAULT_HTTP_STREAMING_DEVICE[] = "0.0.0.0";	// 0.0.0.0 is any device
 
   char *rtmpStreamingDevice = DEFAULT_HTTP_STREAMING_DEVICE;	// streaming device, default 0.0.0.0
   int nRtmpStreamingPort = 1935;	// port
+  char *cert = NULL, *key = NULL;
 
   RTMP_LogPrintf("RTMP Server %s\n", RTMPDUMP_VERSION);
   RTMP_LogPrintf("(c) 2010 Andrej Stepanchuk, Howard Chu; license: GPL\n\n");
 
   RTMP_debuglevel = RTMP_LOGINFO;
 
-  if (argc > 1 && !strcmp(argv[1], "-z"))
-    RTMP_debuglevel = RTMP_LOGALL;
+  for (i = 1; i < argc; i++)
+    {
+      if (!strcmp(argv[i], "-z"))
+        RTMP_debuglevel = RTMP_LOGALL;
+      else if (!strcmp(argv[i], "-c") && i + 1 < argc)
+        cert = argv[++i];
+      else if (!strcmp(argv[i], "-k") && i + 1 < argc)
+        key = argv[++i];
+    }
+
+  if (cert && key)
+    sslCtx = RTMP_TLS_AllocServerContext(cert, key);
 
   // init request
   memset(&defaultRTMPRequest, 0, sizeof(RTMP_REQUEST));
@@ -1127,6 +1137,9 @@ main(int argc, char **argv)
       sleep(1);
     }
   RTMP_Log(RTMP_LOGDEBUG, "Done, exiting...");
+
+  if (sslCtx)
+    RTMP_TLS_FreeServerContext(sslCtx);
 
   CleanupSockets();
 

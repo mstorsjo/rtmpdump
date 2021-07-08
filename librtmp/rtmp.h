@@ -279,6 +279,7 @@ extern "C"
     int m_unackd;
 
     struct RTMP_HOOK *hook;
+    int m_pktReadonly;    /* rtmp packet cannot modify */
     
     AVal m_clientID;
 

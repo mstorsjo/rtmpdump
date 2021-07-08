@@ -30,6 +30,7 @@
 #endif
 
 #include <errno.h>
+#include <limits.h>
 #include <stdint.h>
 #include <stddef.h>
 
@@ -132,11 +133,12 @@ extern "C"
     char sb_buf[RTMP_BUFFER_CACHE_SIZE];	/* data read from socket */
     int sb_timedout;
     void *sb_ssl;
+    void *rtmp;
   } RTMPSockBuf;
 
   void RTMPPacket_Reset(RTMPPacket *p);
   void RTMPPacket_Dump(RTMPPacket *p);
-  int RTMPPacket_Alloc(RTMPPacket *p, int nSize);
+  int RTMPPacket_Alloc(RTMPPacket *p, uint32_t nSize);
   void RTMPPacket_Free(RTMPPacket *p);
 
 #define RTMPPacket_IsReady(a)	((a)->m_nBytesRead == (a)->m_nBodySize)
@@ -171,6 +173,7 @@ extern "C"
 #define RTMP_LF_PLST	0x0008	/* send playlist before play */
 #define RTMP_LF_BUFX	0x0010	/* toggle stream on BufferEmpty msg */
 #define RTMP_LF_FTCU	0x0020	/* free tcUrl on close */
+#define RTMP_LF_FAPU	0x0040	/* free app on close */
     int lFlags;
 
     int swfAge;
@@ -178,12 +181,7 @@ extern "C"
     int protocol;
     int timeout;		/* connection timeout in seconds */
 
-#define RTMP_PUB_NAME   0x0001  /* send login to server */
-#define RTMP_PUB_RESP   0x0002  /* send salted password hash */
-#define RTMP_PUB_ALLOC  0x0004  /* allocated data for new tcUrl & app */
-#define RTMP_PUB_CLEAN  0x0008  /* need to free allocated data for newer tcUrl & app at exit */
-#define RTMP_PUB_CLATE  0x0010  /* late clean tcUrl & app at exit */
-    int pFlags;
+    int pFlags;			/* unused, but kept to avoid breaking ABI */
 
     unsigned short socksport;
     unsigned short port;
@@ -238,6 +236,7 @@ extern "C"
     int num;
   } RTMP_METHOD;
 
+  struct RTMP_HOOK;
   typedef struct RTMP
   {
     int m_inChunkSize;
@@ -278,6 +277,10 @@ extern "C"
     int m_polling;
     int m_resplen;
     int m_unackd;
+
+    struct RTMP_HOOK *hook;
+    int m_pktReadonly;    /* rtmp packet cannot modify */
+    
     AVal m_clientID;
 
     RTMP_READ m_read;
@@ -285,6 +288,29 @@ extern "C"
     RTMPSockBuf m_sb;
     RTMP_LNK Link;
   } RTMP;
+
+  typedef struct RTMP_HOOK {
+    // real obj
+    void *rtmp_obj;
+
+    // connect
+    int (*RTMP_Connect) (RTMP *r, RTMPPacket *cp); // RTMP_CONNECT, FALSE=0 TRUE=1
+    int (*RTMP_TLS_Accept) (RTMP *r, void *ctx);
+
+    // send
+    int (*RTMPSockBuf_Send) (RTMPSockBuf *sb, const char *buf, int len);
+
+    // read
+    // return -1 error, n nbyte return success
+    int (*RTMPSockBuf_Fill) (RTMPSockBuf *sb, char* buf, int nb_bytes);
+
+    // close
+    int (*RTMPSockBuf_Close) (RTMPSockBuf *sb);
+
+    // search
+    int (*RTMP_IsConnected) (RTMP *r);
+    int (*RTMP_Socket) (RTMP *r);
+  } RTMP_HOOK;
 
   int RTMP_ParseURL(const char *url, int *protocol, AVal *host,
 		     unsigned int *port, AVal *playpath, AVal *app);
@@ -316,6 +342,7 @@ extern "C"
   int RTMP_Connect(RTMP *r, RTMPPacket *cp);
   struct sockaddr;
   int RTMP_Connect0(RTMP *r, struct sockaddr *svc);
+  // tls io set
   int RTMP_Connect1(RTMP *r, RTMPPacket *cp);
   int RTMP_Serve(RTMP *r);
   int RTMP_TLS_Accept(RTMP *r, void *ctx);
@@ -336,6 +363,7 @@ extern "C"
   int RTMP_ClientPacket(RTMP *r, RTMPPacket *packet);
 
   void RTMP_Init(RTMP *r);
+  void RTMP_Init_Hook(RTMP *r, RTMP_HOOK *hook);
   void RTMP_Close(RTMP *r);
   RTMP *RTMP_Alloc(void);
   void RTMP_Free(RTMP *r);
@@ -358,7 +386,6 @@ extern "C"
 
   int RTMP_FindFirstMatchingProperty(AMFObject *obj, const AVal *name,
 				      AMFObjectProperty * p);
-
   int RTMPSockBuf_Fill(RTMPSockBuf *sb);
   int RTMPSockBuf_Send(RTMPSockBuf *sb, const char *buf, int len);
   int RTMPSockBuf_Close(RTMPSockBuf *sb);

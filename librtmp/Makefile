@@ -22,8 +22,9 @@ DEF_POLARSSL=-DUSE_POLARSSL
 DEF_OPENSSL=-DUSE_OPENSSL
 DEF_GNUTLS=-DUSE_GNUTLS
 DEF_=-DNO_CRYPTO
-REQ_GNUTLS=gnutls
+REQ_GNUTLS=gnutls,hogweed,nettle
 REQ_OPENSSL=libssl,libcrypto
+PUB_GNUTLS=-lgmp
 LIBZ=-lz
 LIBS_posix=
 LIBS_darwin=
@@ -35,8 +36,9 @@ PRIVATE_LIBS=$(LIBS_$(SYS))
 CRYPTO_LIB=$(LIB_$(CRYPTO)) $(PRIVATE_LIBS)
 CRYPTO_REQ=$(REQ_$(CRYPTO))
 CRYPTO_DEF=$(DEF_$(CRYPTO))
+PUBLIC_LIBS=$(PUB_$(CRYPTO))
 
-SO_VERSION=0
+SO_VERSION=1
 SOX_posix=so
 SOX_darwin=dylib
 SOX_mingw=dll
@@ -100,18 +102,20 @@ librtmp.pc: librtmp.pc.in Makefile
 	sed -e "s;@prefix@;$(prefix);" -e "s;@libdir@;$(libdir);" \
 		-e "s;@VERSION@;$(VERSION);" \
 		-e "s;@CRYPTO_REQ@;$(CRYPTO_REQ);" \
+		-e "s;@PUBLIC_LIBS@;$(PUBLIC_LIBS);" \
 		-e "s;@PRIVATE_LIBS@;$(PRIVATE_LIBS);" librtmp.pc.in > $@
 
 install:	install_base $(SO_INST)
 
 install_base:	librtmp.a librtmp.pc
-	-mkdir -p $(INCDIR) $(LIBDIR)/pkgconfig $(MANDIR)/man3 $(SODIR)
+	-mkdir -p $(INCDIR) $(LIBDIR)/pkgconfig $(MANDIR)/man3
 	cp amf.h http.h log.h rtmp.h $(INCDIR)
 	cp librtmp.a $(LIBDIR)
 	cp librtmp.pc $(LIBDIR)/pkgconfig
 	cp librtmp.3 $(MANDIR)/man3
 
 install_so:	librtmp$(SO_EXT)
+	-mkdir -p $(SODIR)
 	cp librtmp$(SO_EXT) $(SODIR)
 	$(INSTALL_IMPLIB)
 	cd $(SODIR); ln -sf librtmp$(SO_EXT) librtmp.$(SOX)

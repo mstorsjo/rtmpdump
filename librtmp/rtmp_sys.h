@@ -68,6 +68,11 @@
 #if POLARSSL_VERSION_NUMBER < 0x01010000
 #define havege_random	havege_rand
 #endif
+#if POLARSSL_VERSION_NUMBER >= 0x01020000
+#define	SSL_SET_SESSION(S,resume,timeout,ctx)	ssl_set_session(S,ctx)
+#else
+#define	SSL_SET_SESSION(S,resume,timeout,ctx)	ssl_set_session(S,resume,timeout,ctx)
+#endif
 typedef struct tls_ctx {
 	havege_state hs;
 	ssl_session ssn;
@@ -85,12 +90,12 @@ typedef struct tls_server_ctx {
 	ssl_set_endpoint(s, SSL_IS_CLIENT); ssl_set_authmode(s, SSL_VERIFY_NONE);\
 	ssl_set_rng(s, havege_random, &ctx->hs);\
 	ssl_set_ciphersuites(s, ssl_default_ciphersuites);\
-	ssl_set_session(s, 1, 600, &ctx->ssn)
+	SSL_SET_SESSION(s, 1, 600, &ctx->ssn)
 #define TLS_server(ctx,s)	s = malloc(sizeof(ssl_context)); ssl_init(s);\
 	ssl_set_endpoint(s, SSL_IS_SERVER); ssl_set_authmode(s, SSL_VERIFY_NONE);\
 	ssl_set_rng(s, havege_random, ((tls_server_ctx*)ctx)->hs);\
 	ssl_set_ciphersuites(s, ssl_default_ciphersuites);\
-	ssl_set_session(s, 1, 600, &((tls_server_ctx*)ctx)->ssn);\
+	SSL_SET_SESSION(s, 1, 600, &((tls_server_ctx*)ctx)->ssn);\
 	ssl_set_own_cert(s, &((tls_server_ctx*)ctx)->cert, &((tls_server_ctx*)ctx)->key);\
 	ssl_set_dh_param(s, ((tls_server_ctx*)ctx)->dhm_P, ((tls_server_ctx*)ctx)->dhm_G)
 #define TLS_setfd(s,fd)	ssl_set_bio(s, net_recv, &fd, net_send, &fd)

@@ -30,6 +30,7 @@
 #endif
 
 #include <errno.h>
+#include <limits.h>
 #include <stdint.h>
 #include <stddef.h>
 
@@ -132,6 +133,7 @@ extern "C"
     char sb_buf[RTMP_BUFFER_CACHE_SIZE];	/* data read from socket */
     int sb_timedout;
     void *sb_ssl;
+    void *rtmp;
   } RTMPSockBuf;
 
   void RTMPPacket_Reset(RTMPPacket *p);
@@ -234,6 +236,7 @@ extern "C"
     int num;
   } RTMP_METHOD;
 
+  struct RTMP_HOOK;
   typedef struct RTMP
   {
     int m_inChunkSize;
@@ -274,6 +277,10 @@ extern "C"
     int m_polling;
     int m_resplen;
     int m_unackd;
+
+    struct RTMP_HOOK *hook;
+    int m_pktReadonly;    /* rtmp packet cannot modify */
+    
     AVal m_clientID;
 
     RTMP_READ m_read;
@@ -281,6 +288,29 @@ extern "C"
     RTMPSockBuf m_sb;
     RTMP_LNK Link;
   } RTMP;
+
+  typedef struct RTMP_HOOK {
+    // real obj
+    void *rtmp_obj;
+
+    // connect
+    int (*RTMP_Connect) (RTMP *r, RTMPPacket *cp); // RTMP_CONNECT, FALSE=0 TRUE=1
+    int (*RTMP_TLS_Accept) (RTMP *r, void *ctx);
+
+    // send
+    int (*RTMPSockBuf_Send) (RTMPSockBuf *sb, const char *buf, int len);
+
+    // read
+    // return -1 error, n nbyte return success
+    int (*RTMPSockBuf_Fill) (RTMPSockBuf *sb, char* buf, int nb_bytes);
+
+    // close
+    int (*RTMPSockBuf_Close) (RTMPSockBuf *sb);
+
+    // search
+    int (*RTMP_IsConnected) (RTMP *r);
+    int (*RTMP_Socket) (RTMP *r);
+  } RTMP_HOOK;
 
   int RTMP_ParseURL(const char *url, int *protocol, AVal *host,
 		     unsigned int *port, AVal *playpath, AVal *app);
@@ -312,6 +342,7 @@ extern "C"
   int RTMP_Connect(RTMP *r, RTMPPacket *cp);
   struct sockaddr;
   int RTMP_Connect0(RTMP *r, struct sockaddr *svc);
+  // tls io set
   int RTMP_Connect1(RTMP *r, RTMPPacket *cp);
   int RTMP_Serve(RTMP *r);
   int RTMP_TLS_Accept(RTMP *r, void *ctx);
@@ -332,6 +363,7 @@ extern "C"
   int RTMP_ClientPacket(RTMP *r, RTMPPacket *packet);
 
   void RTMP_Init(RTMP *r);
+  void RTMP_Init_Hook(RTMP *r, RTMP_HOOK *hook);
   void RTMP_Close(RTMP *r);
   RTMP *RTMP_Alloc(void);
   void RTMP_Free(RTMP *r);
@@ -354,7 +386,6 @@ extern "C"
 
   int RTMP_FindFirstMatchingProperty(AMFObject *obj, const AVal *name,
 				      AMFObjectProperty * p);
-
   int RTMPSockBuf_Fill(RTMPSockBuf *sb);
   int RTMPSockBuf_Send(RTMPSockBuf *sb, const char *buf, int len);
   int RTMPSockBuf_Close(RTMPSockBuf *sb);
